@@ -550,6 +550,279 @@
   }
 }
 
+/* ─── MIS pages (Scans + Network Performance) ─────────────────────────────── */
+
+.mis-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mis-page .page-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.mis-select {
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid var(--color-divider, #e9ecef);
+  background: var(--color-bg-surface, #fff);
+  color: var(--color-text-primary, #212529);
+  font-size: 13px;
+  padding: 0 12px;
+  font-family: inherit;
+  max-width: 100%;
+}
+
+.mis-table-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mis-table-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mis-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.mis-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+}
+
+.mis-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.mis-chart-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mis-chart-card {
+  padding: 20px;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mis-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mis-drill-btn {
+  height: 36px;
+  font-size: 13px;
+  padding: 8px 16px;
+  align-self: flex-start;
+}
+
+.mis-contributor-list,
+.mis-insight-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mis-contributor-list li {
+  display: grid;
+  grid-template-columns: minmax(90px, 1.1fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.mis-contributor-name {
+  color: var(--color-text-secondary, #868e96);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mis-contributor-bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-bg-muted, #f1f3f5);
+  overflow: hidden;
+}
+
+.mis-contributor-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--btn-primary-gradient, linear-gradient(90deg, #8e9afe 0%, #6d7af2 100%));
+}
+
+.mis-contributor-value {
+  font-weight: 700;
+  color: var(--color-text-primary, #212529);
+  white-space: nowrap;
+}
+
+.mis-insights-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+
+.mis-insight-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mis-insight-list--compact li {
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--color-divider, #e9ecef);
+}
+
+.mis-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.mis-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(33, 37, 41, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.mis-overlay-panel {
+  position: relative;
+  z-index: 1;
+  width: min(960px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.mis-overlay-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-divider, #e9ecef);
+  flex-shrink: 0;
+}
+
+.mis-overlay-body {
+  padding: 20px 24px 24px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.mis-drill-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.6fr) minmax(0, 1.4fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.mis-overlay-table {
+  overflow: auto;
+  max-height: 46vh;
+  margin-top: 10px;
+}
+
+.mis-overlay-table--tall {
+  max-height: 58vh;
+  margin-top: 0;
+}
+
+@media (max-width: 1200px) {
+  .mis-kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mis-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .mis-kpi-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .mis-toolbar-filters {
+    width: 100%;
+  }
+
+  .mis-toolbar-filters > label,
+  .mis-toolbar-filters > select {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .mis-drill-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .mis-overlay {
+    padding: 12px;
+  }
+
+  .mis-overlay-panel {
+    max-height: 88vh;
+  }
+
+  .mis-overlay-head,
+  .mis-overlay-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .mis-drill-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .profile-tile {
   display: flex !important;
   flex-direction: column;

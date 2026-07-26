@@ -18,6 +18,8 @@ import { AuthPage } from './components/Auth/AuthPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { TraineesPage } from './components/Trainees/TraineesPage';
 import { CommunicationsPage } from './components/Communications/CommunicationsPage';
+import { MisScansPage } from './components/Mis/MisScansPage';
+import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
 
 /** Covers iPhone 14 Pro Max (430px) and similar phones / small tablets */
 const MOBILE_QUERY = '(max-width: 860px)';
@@ -32,6 +34,8 @@ type PlaceholderViewId = Exclude<
   | 'admin-members'
   | 'trainees'
   | 'mis-communications'
+  | 'mis-scans'
+  | 'mis-network'
 >;
 
 /** Stub copy for the sections not yet built out — refine per-page as each is implemented */
@@ -46,16 +50,10 @@ const placeholderPages: Record<PlaceholderViewId, { title: string; subtitle: str
     subtitle: 'Manage CAB debit and delete actions.',
     actions: ['Debit', 'Delete'],
   },
-  'mis-network': {
-    title: 'MIS · Network Performance',
-    subtitle: 'Track performance across the network.',
-  },
-  'mis-scans': {
-    title: 'MIS · Scans',
-    subtitle: 'Search scan data by MLA or by duration.',
-    actions: ['Search by MLA', 'Search by Duration'],
-  },
 };
+
+/** Views whose panels manage their own scrolling and should fill the viewport height */
+const fillViews = new Set<AppView>(['trainees', 'mis-scans']);
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -163,8 +161,8 @@ function App() {
             onLogout={handleLogout}
           />
         )}
-        <div className={`app-main${view === 'trainees' ? ' app-main--fill' : ''}`}>
-          <main className={`app-content panel${view === 'trainees' ? ' app-content--fill' : ''}`}>
+        <div className={`app-main${fillViews.has(view) ? ' app-main--fill' : ''}`}>
+          <main className={`app-content panel${fillViews.has(view) ? ' app-content--fill' : ''}`}>
             {view === 'profile' ? (
               <ProfilePage
                 onBack={() => setView('dashboard')}
@@ -209,6 +207,16 @@ function App() {
               />
             ) : view === 'mis-communications' ? (
               <CommunicationsPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => setView('profile')}
+              />
+            ) : view === 'mis-scans' ? (
+              <MisScansPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => setView('profile')}
+              />
+            ) : view === 'mis-network' ? (
+              <NetworkPerformancePage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => setView('profile')}
               />
