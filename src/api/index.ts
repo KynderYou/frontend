@@ -12,6 +12,7 @@ export type { BackendEnv } from './backendEnv';
 export { ApiError, isApiError } from './errors';
 export * from './endpoints';
 export { clearToken, getToken, setToken } from './token';
+export { DEMO_EMAIL, DEMO_PASSWORD } from './demoAuth';
 export type {
   HealthResponse,
   HelloResponse,

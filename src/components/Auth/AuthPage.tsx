@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ApiError, login } from '../../api';
+import { ApiError, DEMO_EMAIL, DEMO_PASSWORD, login } from '../../api';
 import type { Member } from '../../api';
 import logo from '../../assets/high-resolution-color-logo.png';
 
@@ -36,7 +36,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             : err.message;
         setError(detail || 'Sign in failed.');
       } else {
-        setError('Unable to reach the server. Is the backend running?');
+        setError(`Unable to reach the server. For frontend-only demo use ${DEMO_EMAIL} / ${DEMO_PASSWORD}.`);
       }
     } finally {
       setLoading(false);
@@ -63,7 +63,14 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                   <rect x="3" y="5" width="18" height="14" rx="3" />
                   <path d="m3 7 9 6 9-6" />
                 </svg>
-                <input name="email" type="email" autoComplete="email" placeholder="name@midna.com" disabled={loading} />
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  defaultValue={DEMO_EMAIL}
+                  placeholder="name@midna.com"
+                  disabled={loading}
+                />
               </div>
             </label>
 
@@ -78,6 +85,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
+                  defaultValue={DEMO_PASSWORD}
                   placeholder="Enter your password"
                   disabled={loading}
                 />
@@ -125,7 +133,9 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             </button>
           </form>
 
-          <p className="auth-switch-copy">No account? Contact your admin.</p>
+          <p className="auth-switch-copy">
+            Frontend-only demo: {DEMO_EMAIL} / {DEMO_PASSWORD}
+          </p>
         </div>
 
         <aside className="auth-visual-panel">
