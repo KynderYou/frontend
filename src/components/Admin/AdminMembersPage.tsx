@@ -63,10 +63,11 @@ type MemberForm = {
   name: string;
   email: string;
   phone: string;
+  password: string;
   role: MemberRole | '';
 };
 
-const emptyForm: MemberForm = { name: '', email: '', phone: '', role: '' };
+const emptyForm: MemberForm = { name: '', email: '', phone: '', password: '', role: '' };
 
 function statusStyles(status: MemberStatus) {
   if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };
@@ -105,13 +106,18 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
     const name = form.name.trim();
     const email = form.email.trim().toLowerCase();
     const phone = form.phone.trim();
+    const password = form.password;
 
-    if (!name || !email || !phone || !form.role) {
+    if (!name || !email || !phone || !password || !form.role) {
       setError('Fill all fields.');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Enter a valid email.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
     if (accounts.some((a) => a.email === email)) {
@@ -128,12 +134,12 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         phone,
         role: form.role as MemberRole,
         createdAt: formatDate(),
-        status: 'Invited',
+        status: 'Active',
       },
       ...prev,
     ]);
     setForm(emptyForm);
-    showNotice(`Account created for ${name} · sign-in details sent to ${email}.`);
+    showNotice(`Account created for ${name} · they can sign in with ${email}.`);
   };
 
   const handleReset = (account: MemberAccount) => {
@@ -213,7 +219,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         <div className="scans-card-head">
           <div>
             <h2 className="scans-card-title">Create account</h2>
-            <p className="scans-card-sub">Sign-in details go to the member&apos;s email</p>
+            <p className="scans-card-sub">Set email and password so the member can sign in</p>
           </div>
           <span className="scans-card-meta">Admin only</span>
         </div>
@@ -228,6 +234,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
                 placeholder="Member name"
                 value={form.name}
                 onChange={update('name')}
+                autoComplete="name"
               />
             </label>
             <label className="form-field">
@@ -238,6 +245,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
                 placeholder="name@midna.com"
                 value={form.email}
                 onChange={update('email')}
+                autoComplete="off"
               />
             </label>
             <label className="form-field">
@@ -248,6 +256,18 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
                 placeholder="Phone number"
                 value={form.phone}
                 onChange={update('phone')}
+                autoComplete="tel"
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Password</span>
+              <input
+                className="form-input"
+                type="password"
+                placeholder="Min. 8 characters"
+                value={form.password}
+                onChange={update('password')}
+                autoComplete="new-password"
               />
             </label>
             <label className="form-field">
@@ -283,7 +303,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         <div className="scans-card-head">
           <div>
             <h2 className="scans-card-title">All accounts</h2>
-            <p className="scans-card-sub">Invited → Active after first sign-in</p>
+            <p className="scans-card-sub">Active once created · use Reset to send a new password</p>
           </div>
           <span className="scans-card-meta">{accounts.length}</span>
         </div>

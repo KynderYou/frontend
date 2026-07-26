@@ -601,8 +601,41 @@
 .mis-kpi-card {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
   padding: 20px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.mis-kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-secondary, #868e96);
+}
+
+.mis-kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--color-text-primary, #212529);
+}
+
+.mis-kpi-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: auto;
+  margin-left: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .mis-summary-grid {
@@ -610,13 +643,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
-}
-
-.mis-chart-slot {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
 }
 
 .mis-chart-card {
@@ -635,11 +661,38 @@
   flex-wrap: wrap;
 }
 
+.mis-chart-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mis-chart-total {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary, #6d7af2);
+  background: var(--color-primary-soft, #eef0ff);
+  border-radius: 999px;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
 .mis-drill-btn {
-  height: 36px;
-  font-size: 13px;
-  padding: 8px 16px;
-  align-self: flex-start;
+  height: 32px;
+  font-size: 12px;
+  padding: 6px 12px;
+  margin-top: 0;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.mis-drill-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
 }
 
 .mis-contributor-list,
@@ -817,8 +870,12 @@
     padding-right: 16px;
   }
 
-  .mis-drill-btn {
+  .mis-chart-head-actions {
     width: 100%;
+  }
+
+  .mis-drill-btn {
+    flex: 1;
     justify-content: center;
   }
 }
@@ -2725,7 +2782,7 @@
 /* Admin — member accounts */
 .admin-create-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -2749,13 +2806,17 @@
   white-space: nowrap;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .admin-create-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 860px) {
+  .admin-create-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-members-table {
     min-width: 0;
   }

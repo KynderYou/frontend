@@ -94,25 +94,20 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       </div>
 
       <div className="mis-summary-grid">
-        <div className="mis-chart-slot">
-          <MonthlyBarChart
-            title="Monthly progress"
-            subtitle="Scans uploaded each month by the entire network"
-            data={scansByMonth}
-            activeMonth={scanMonth}
-            onSelectMonth={setScanMonth}
-            formatValue={(v) => v.toLocaleString('en-IN')}
-            unit="scans"
-          />
-          <button
-            type="button"
-            className="btn-pill-secondary mis-drill-btn"
-            onClick={() => setDrilldownMonth(scanMonth)}
-            disabled={scansByMonth[scanMonth].value === 0}
-          >
-            View {MONTH_LABELS[scanMonth]} scans
-          </button>
-        </div>
+        <MonthlyBarChart
+          title="Monthly progress"
+          subtitle="Scans uploaded each month by the entire network"
+          data={scansByMonth}
+          activeMonth={scanMonth}
+          onSelectMonth={setScanMonth}
+          formatValue={(v) => v.toLocaleString('en-IN')}
+          unit="scans"
+          action={{
+            label: `View ${MONTH_LABELS[scanMonth]} scans`,
+            onClick: () => setDrilldownMonth(scanMonth),
+            disabled: scansByMonth[scanMonth].value === 0,
+          }}
+        />
 
         <MonthlyBarChart
           title="Reviews & testimonials"
@@ -317,17 +312,13 @@ function KpiCard({
   const palette = metricColors[tone];
   return (
     <div className="dash-card mis-kpi-card">
-      <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>{label}</span>
-      <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: theme['text-primary'] }}>{value}</span>
+      <span className="mis-kpi-label">{label}</span>
+      <span className="mis-kpi-value">{value}</span>
       <span
+        className="mis-kpi-pill"
         style={{
-          alignSelf: 'flex-start',
-          fontSize: 11,
-          fontWeight: 700,
           color: palette.text,
           background: palette.bg,
-          borderRadius: radius.pill,
-          padding: '4px 10px',
         }}
       >
         {hint}

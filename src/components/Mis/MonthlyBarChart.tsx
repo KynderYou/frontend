@@ -1,4 +1,4 @@
-import { colors, radius, spacing } from '../../styles/theme';
+import { colors, spacing } from '../../styles/theme';
 import type { MonthPoint } from './misData';
 
 const theme = colors.light;
@@ -13,6 +13,12 @@ type MonthlyBarChartProps = {
   formatValue: (value: number) => string;
   /** Label used in the contributor list header, e.g. "scans" */
   unit: string;
+  /** Optional drill-down action shown in the card header (top right) */
+  action?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+  };
 };
 
 export function MonthlyBarChart({
@@ -23,6 +29,7 @@ export function MonthlyBarChart({
   onSelectMonth,
   formatValue,
   unit,
+  action,
 }: MonthlyBarChartProps) {
   const maxValue = Math.max(1, ...data.map((d) => d.value));
   const active = data[activeMonth];
@@ -36,19 +43,24 @@ export function MonthlyBarChart({
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>{subtitle}</p>
         </div>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: theme.primary,
-            background: theme['primary-soft'],
-            borderRadius: radius.pill,
-            padding: '5px 12px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {formatValue(data.reduce((sum, d) => sum + d.value, 0))} total
-        </span>
+        <div className="mis-chart-head-actions">
+          <span className="mis-chart-total">
+            {formatValue(data.reduce((sum, d) => sum + d.value, 0))} total
+          </span>
+          {action && (
+            <button
+              type="button"
+              className="btn-pill-primary mis-drill-btn"
+              onClick={action.onClick}
+              disabled={action.disabled}
+            >
+              {action.label}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ position: 'relative', marginTop: spacing[5] }}>
