@@ -183,33 +183,31 @@ export function MisScansPage({ onOpenMobileMenu, onOpenProfile, initialMonth }: 
         </div>
 
         <div className="mis-table-body">
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
+          <table className="mis-data-table">
             <thead>
-              <tr style={{ textAlign: 'left', fontSize: 12, color: theme['text-muted'] }}>
-                <th style={{ padding: '14px 24px', fontWeight: 600 }}>Scan ID</th>
-                <th style={{ padding: '14px 16px', fontWeight: 600 }}>Name</th>
-                <th style={{ padding: '14px 16px', fontWeight: 600 }}>MLA</th>
-                <th style={{ padding: '14px 24px', fontWeight: 600 }}>Scan upload date</th>
+              <tr>
+                <th>Scan ID</th>
+                <th>Name</th>
+                <th>MLA</th>
+                <th>Scan upload date</th>
               </tr>
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ padding: '48px 24px', textAlign: 'center', color: theme['text-muted'], fontSize: 14 }}>
-                    No scans match these filters.
-                  </td>
+                <tr className="mis-data-empty">
+                  <td colSpan={4}>No scans match these filters.</td>
                 </tr>
               ) : (
                 pageRows.map((scan) => (
-                  <tr key={scan.scanId} style={{ borderTop: `1px dashed ${theme.divider}` }}>
-                    <td style={{ padding: '14px 24px', fontSize: 13, fontWeight: 700, color: theme.primary }}>
-                      {scan.scanId}
+                  <tr key={scan.scanId}>
+                    <td data-label="Scan ID">
+                      <span className="mis-scan-id">{scan.scanId}</span>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>
-                      {scan.clientName}
+                    <td data-label="Name">
+                      <span className="mis-scan-name">{scan.clientName}</span>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: theme['text-secondary'] }}>{scan.mlaName}</td>
-                    <td style={{ padding: '14px 24px', fontSize: 13, color: theme['text-secondary'] }}>{scan.uploadedAt}</td>
+                    <td data-label="MLA">{scan.mlaName}</td>
+                    <td data-label="Upload date">{scan.uploadedAt}</td>
                   </tr>
                 ))
               )}
@@ -217,25 +215,13 @@ export function MisScansPage({ onOpenMobileMenu, onOpenProfile, initialMonth }: 
           </table>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            padding: `${spacing[4]} ${spacing[6]}`,
-            borderTop: `1px solid ${theme.divider}`,
-            fontSize: 13,
-            color: theme['text-secondary'],
-          }}
-        >
+        <div className="mis-table-footer">
           <span>
             {filtered.length === 0
               ? '0 scans'
               : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
           </span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="mis-pager">
             <button
               type="button"
               className="btn-pill-secondary"

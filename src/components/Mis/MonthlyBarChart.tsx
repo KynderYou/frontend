@@ -129,17 +129,11 @@ export function MonthlyBarChart({
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+        <div className="mis-month-labels" style={{ display: 'flex', gap: 4, marginTop: 8 }}>
           {data.map((point) => (
             <span
               key={point.label}
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                fontSize: 11,
-                fontWeight: point.month === activeMonth ? 700 : 500,
-                color: point.month === activeMonth ? theme['text-primary'] : theme['text-muted'],
-              }}
+              className={`mis-month-label${point.month === activeMonth ? ' is-active' : ''}`}
             >
               {point.label}
             </span>

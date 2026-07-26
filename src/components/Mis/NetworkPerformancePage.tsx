@@ -223,24 +223,24 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
             <div style={{ minWidth: 0 }}>
               <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>Scans</h4>
               <div className="mis-overlay-table">
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+                <table className="mis-data-table mis-data-table--compact">
                   <thead>
-                    <tr style={{ textAlign: 'left', fontSize: 11, color: theme['text-muted'] }}>
-                      <th style={{ padding: '10px 12px', fontWeight: 600 }}>Scan ID</th>
-                      <th style={{ padding: '10px 12px', fontWeight: 600 }}>Name</th>
-                      <th style={{ padding: '10px 12px', fontWeight: 600 }}>MLA</th>
-                      <th style={{ padding: '10px 12px', fontWeight: 600 }}>Upload date</th>
+                    <tr>
+                      <th>Scan ID</th>
+                      <th>Name</th>
+                      <th>MLA</th>
+                      <th>Upload date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {monthScans.map((scan) => (
-                      <tr key={scan.scanId} style={{ borderTop: `1px dashed ${theme.divider}` }}>
-                        <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: theme.primary }}>
-                          {scan.scanId}
+                      <tr key={scan.scanId}>
+                        <td data-label="Scan ID">
+                          <span className="mis-scan-id">{scan.scanId}</span>
                         </td>
-                        <td style={{ padding: '10px 12px', fontSize: 13, color: theme['text-primary'] }}>{scan.clientName}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: theme['text-secondary'] }}>{scan.mlaName}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: theme['text-secondary'] }}>{scan.uploadedAt}</td>
+                        <td data-label="Name">{scan.clientName}</td>
+                        <td data-label="MLA">{scan.mlaName}</td>
+                        <td data-label="Upload date">{scan.uploadedAt}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -258,23 +258,25 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
           onClose={() => setTeamDbOpen(false)}
         >
           <div className="mis-overlay-table mis-overlay-table--tall">
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+            <table className="mis-data-table mis-data-table--compact">
               <thead>
-                <tr style={{ textAlign: 'left', fontSize: 11, color: theme['text-muted'] }}>
-                  <th style={{ padding: '10px 12px', fontWeight: 600 }}>Member</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600 }}>Region</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'center' }}>Scans (last quarter)</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'center' }}>Scans (year)</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'center' }}>Reviews</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'right' }}>Billing</th>
+                <tr>
+                  <th>Member</th>
+                  <th>Region</th>
+                  <th className="col-center">Scans (last quarter)</th>
+                  <th className="col-center">Scans (year)</th>
+                  <th className="col-center">Reviews</th>
+                  <th className="col-right">Billing</th>
                 </tr>
               </thead>
               <tbody>
                 {performanceRows.map((row) => (
-                  <tr key={row.id} style={{ borderTop: `1px dashed ${theme.divider}` }}>
-                    <td style={{ padding: '12px', fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{row.name}</td>
-                    <td style={{ padding: '12px', fontSize: 12, color: theme['text-secondary'] }}>{row.region}</td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'center' }}>
+                  <tr key={row.id}>
+                    <td data-label="Member">
+                      <span className="mis-scan-name">{row.name}</span>
+                    </td>
+                    <td data-label="Region">{row.region}</td>
+                    <td data-label="Last quarter" className="col-center">
                       <span
                         style={{
                           fontWeight: 700,
@@ -284,9 +286,9 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                         {row.scansQuarter}
                       </span>
                     </td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'center' }}>{row.scansYear}</td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'center' }}>{row.reviews}</td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'right' }}>{formatMoney(row.billing)}</td>
+                    <td data-label="Year scans" className="col-center">{row.scansYear}</td>
+                    <td data-label="Reviews" className="col-center">{row.reviews}</td>
+                    <td data-label="Billing" className="col-right">{formatMoney(row.billing)}</td>
                   </tr>
                 ))}
               </tbody>

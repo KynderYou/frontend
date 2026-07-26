@@ -5,7 +5,7 @@ import type { Member } from './api';
 import { getThemeCssVars } from './styles/theme';
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileNavDrawer } from './components/Layout/MobileNavDrawer';
-import type { AppView } from './components/Layout/navItems';
+import { isAppView, type AppView } from './components/Layout/navItems';
 import { DashboardKpis } from './components/Home/DashboardKpis';
 import { NoticeBoard } from './components/Home/NoticeBoard';
 import { TopPerformers } from './components/Home/TopPerformers';
@@ -55,13 +55,22 @@ const placeholderPages: Record<PlaceholderViewId, { title: string; subtitle: str
 /** Views whose panels manage their own scrolling and should fill the viewport height */
 const fillViews = new Set<AppView>(['trainees', 'mis-scans']);
 
+const DEFAULT_VIEW: AppView = 'dashboard';
+
+/** The URL hash is the source of truth for the current page, so refresh keeps you here */
+function viewFromHash(): AppView {
+  if (typeof window === 'undefined') return DEFAULT_VIEW;
+  const candidate = window.location.hash.replace(/^#\/?/, '');
+  return isAppView(candidate) ? candidate : DEFAULT_VIEW;
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(() => Boolean(getToken()));
   const [, setMember] = useState<Member | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [view, setView] = useState<AppView>('dashboard');
+  const [view, setView] = useState<AppView>(viewFromHash);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY).matches : false
   );
@@ -71,6 +80,18 @@ function App() {
     Object.entries(vars).forEach(([key, value]) => {
       document.documentElement.style.setProperty(key, value);
     });
+  }, []);
+
+  useEffect(() => {
+    if (viewFromHash() !== view) {
+      window.location.hash = `#/${view}`;
+    }
+  }, [view]);
+
+  useEffect(() => {
+    const onHashChange = () => setView(viewFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
@@ -129,7 +150,7 @@ function App() {
   const handleLogout = () => {
     void apiLogout().catch(() => undefined);
     setMember(null);
-    setView('dashboard');
+    setView(DEFAULT_VIEW);
     setMobileMenuOpen(false);
     setIsAuthenticated(false);
   };

@@ -28,3 +28,9 @@ export const navItems = [
 ] as const;
 
 export type AppView = (typeof navItems)[number]['id'] | 'profile';
+
+const validViews = new Set<string>([...navItems.map((item) => item.id), 'profile']);
+
+export function isAppView(value: string): value is AppView {
+  return validViews.has(value);
+}

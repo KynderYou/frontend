@@ -335,22 +335,20 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
           </div>
 
           <div className="trainees-table-body">
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+            <table className="mis-data-table trainees-data-table">
               <thead>
-                <tr style={{ textAlign: 'left', fontSize: 12, color: theme['text-muted'] }}>
-                  <th style={{ padding: '14px 24px', fontWeight: 600 }}>Trainee</th>
-                  <th style={{ padding: '14px 16px', fontWeight: 600 }}>Last active</th>
-                  <th style={{ padding: '14px 16px', fontWeight: 600, textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '14px 16px', fontWeight: 600 }}>Role</th>
-                  <th style={{ padding: '14px 24px', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                <tr>
+                  <th>Trainee</th>
+                  <th>Last active</th>
+                  <th className="col-center">Status</th>
+                  <th>Role</th>
+                  <th className="col-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '40px 24px', textAlign: 'center', color: theme['text-muted'], fontSize: 14 }}>
-                      No trainees for this mentor.
-                    </td>
+                  <tr className="mis-data-empty">
+                    <td colSpan={5}>No trainees for this mentor.</td>
                   </tr>
                 ) : (
                   pageRows.map((row) => <TraineeRow key={row.id} trainee={row} />)
@@ -408,52 +406,33 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
 function TraineeRow({ trainee }: { trainee: Trainee }) {
   const tone = statusStyles(trainee.status);
   return (
-    <tr style={{ borderTop: `1px dashed ${theme.divider}` }}>
-      <td style={{ padding: '16px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span
-            aria-hidden="true"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              background: theme['primary-soft'],
-              color: theme.primary,
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: 13,
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
-          >
+    <tr>
+      <td data-label="Trainee">
+        <div className="trainees-person">
+          <span className="trainees-avatar" aria-hidden="true">
             {initials(trainee.name)}
           </span>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>{trainee.name}</div>
-            <div style={{ fontSize: 12, color: theme['text-muted'], marginTop: 2 }}>{trainee.email}</div>
+            <div className="trainees-person-name">{trainee.name}</div>
+            <div className="trainees-person-email">{trainee.email}</div>
           </div>
         </div>
       </td>
-      <td style={{ padding: '16px 16px', fontSize: 13, color: theme['text-secondary'] }}>{trainee.lastActive}</td>
-      <td style={{ padding: '16px 16px', textAlign: 'center' }}>
+      <td data-label="Last active">{trainee.lastActive}</td>
+      <td data-label="Status" className="col-center">
         <span
+          className="trainees-status"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            fontSize: 12,
-            fontWeight: 700,
             color: tone.color,
             background: tone.background,
-            borderRadius: radius.pill,
-            padding: '4px 10px',
           }}
         >
           {trainee.status}
         </span>
       </td>
-      <td style={{ padding: '16px 16px', fontSize: 13, color: theme['text-secondary'] }}>{trainee.role}</td>
-      <td style={{ padding: '16px 24px' }}>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+      <td data-label="Role">{trainee.role}</td>
+      <td data-label="Action" className="col-center">
+        <div className="trainees-actions">
           <button type="button" className="btn-icon" aria-label={`More actions for ${trainee.name}`} style={{ width: 32, height: 32 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="5" cy="12" r="1.6" />
