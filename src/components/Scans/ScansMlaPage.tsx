@@ -534,10 +534,10 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                 <th>Name</th>
                 <th>Gender</th>
                 <th>File</th>
-                <th>Status</th>
-                <th>Export</th>
-                <th>Edit</th>
-                <th>Delete</th>
+                <th className="col-center">Status</th>
+                <th className="col-center">Export</th>
+                <th className="col-center">Edit</th>
+                <th className="col-center">Delete</th>
               </tr>
             </thead>
             <tbody>

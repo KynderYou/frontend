@@ -1874,6 +1874,22 @@
   vertical-align: middle;
 }
 
+/* Chip / button columns: center header and data together so they never look offset */
+.scans-table th.col-center,
+.scans-table td[data-label='Status'],
+.scans-table td[data-label='Export'],
+.scans-table td[data-label='Edit'],
+.scans-table td[data-label='Delete'],
+.scans-table td[data-label='Reset'],
+.scans-table td[data-label='Disable'],
+.scans-table td[data-label='Download'],
+.scans-table td[data-label='AI Report'],
+.scans-table td[data-label='Upgrade'],
+.scans-table td[data-label='CAB'],
+.scans-table td[data-label='Delete Scan'] {
+  text-align: center;
+}
+
 .scans-table tbody tr:last-child td {
   border-bottom: none;
 }

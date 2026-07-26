@@ -340,9 +340,9 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                 <tr style={{ textAlign: 'left', fontSize: 12, color: theme['text-muted'] }}>
                   <th style={{ padding: '14px 24px', fontWeight: 600 }}>Trainee</th>
                   <th style={{ padding: '14px 16px', fontWeight: 600 }}>Last active</th>
-                  <th style={{ padding: '14px 16px', fontWeight: 600 }}>Status</th>
+                  <th style={{ padding: '14px 16px', fontWeight: 600, textAlign: 'center' }}>Status</th>
                   <th style={{ padding: '14px 16px', fontWeight: 600 }}>Role</th>
-                  <th style={{ padding: '14px 24px', fontWeight: 600 }}>Action</th>
+                  <th style={{ padding: '14px 24px', fontWeight: 600, textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -435,7 +435,7 @@ function TraineeRow({ trainee }: { trainee: Trainee }) {
         </div>
       </td>
       <td style={{ padding: '16px 16px', fontSize: 13, color: theme['text-secondary'] }}>{trainee.lastActive}</td>
-      <td style={{ padding: '16px 16px' }}>
+      <td style={{ padding: '16px 16px', textAlign: 'center' }}>
         <span
           style={{
             display: 'inline-flex',
@@ -453,7 +453,7 @@ function TraineeRow({ trainee }: { trainee: Trainee }) {
       </td>
       <td style={{ padding: '16px 16px', fontSize: 13, color: theme['text-secondary'] }}>{trainee.role}</td>
       <td style={{ padding: '16px 24px' }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
           <button type="button" className="btn-icon" aria-label={`More actions for ${trainee.name}`} style={{ width: 32, height: 32 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="5" cy="12" r="1.6" />

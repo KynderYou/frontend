@@ -257,12 +257,12 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             <th>Name</th>
             <th>Gender</th>
             <th>Report</th>
-            <th>Status</th>
-            <th>Download</th>
-            <th>AI Report</th>
-            <th>Upgrade</th>
-            <th>CAB</th>
-            <th>Delete Scan</th>
+            <th className="col-center">Status</th>
+            <th className="col-center">Download</th>
+            <th className="col-center">AI Report</th>
+            <th className="col-center">Upgrade</th>
+            <th className="col-center">CAB</th>
+            <th className="col-center">Delete Scan</th>
           </tr>
         </thead>
         <tbody>

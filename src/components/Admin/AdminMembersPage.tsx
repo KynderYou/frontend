@@ -317,10 +317,10 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
                 <th>Email</th>
                 <th>Role</th>
                 <th>Created</th>
-                <th>Status</th>
-                <th>Reset</th>
-                <th>Disable</th>
-                <th>Delete</th>
+                <th className="col-center">Status</th>
+                <th className="col-center">Reset</th>
+                <th className="col-center">Disable</th>
+                <th className="col-center">Delete</th>
               </tr>
             </thead>
             <tbody>

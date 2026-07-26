@@ -263,10 +263,10 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                 <tr style={{ textAlign: 'left', fontSize: 11, color: theme['text-muted'] }}>
                   <th style={{ padding: '10px 12px', fontWeight: 600 }}>Member</th>
                   <th style={{ padding: '10px 12px', fontWeight: 600 }}>Region</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600 }}>Scans (last quarter)</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600 }}>Scans (year)</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600 }}>Reviews</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 600 }}>Billing</th>
+                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'center' }}>Scans (last quarter)</th>
+                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'center' }}>Scans (year)</th>
+                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'center' }}>Reviews</th>
+                  <th style={{ padding: '10px 12px', fontWeight: 600, textAlign: 'right' }}>Billing</th>
                 </tr>
               </thead>
               <tbody>
@@ -274,7 +274,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                   <tr key={row.id} style={{ borderTop: `1px dashed ${theme.divider}` }}>
                     <td style={{ padding: '12px', fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{row.name}</td>
                     <td style={{ padding: '12px', fontSize: 12, color: theme['text-secondary'] }}>{row.region}</td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'] }}>
+                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'center' }}>
                       <span
                         style={{
                           fontWeight: 700,
@@ -284,9 +284,9 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                         {row.scansQuarter}
                       </span>
                     </td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'] }}>{row.scansYear}</td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'] }}>{row.reviews}</td>
-                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'] }}>{formatMoney(row.billing)}</td>
+                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'center' }}>{row.scansYear}</td>
+                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'center' }}>{row.reviews}</td>
+                    <td style={{ padding: '12px', fontSize: 13, color: theme['text-secondary'], textAlign: 'right' }}>{formatMoney(row.billing)}</td>
                   </tr>
                 ))}
               </tbody>
