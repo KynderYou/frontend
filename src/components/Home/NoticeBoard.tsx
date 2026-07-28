@@ -30,7 +30,7 @@ const severityIcon: Record<SeverityLevel, React.ReactNode> = {
   ),
 };
 
-export function NoticeBoard() {
+export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) => void }) {
   const { communications } = useSyncExternalStore(
     subscribeCommunications,
     getCommunicationsState,
@@ -171,7 +171,7 @@ export function NoticeBoard() {
                       {notice.body}
                     </p>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
                       <div
                         style={{
                           width: 24,
@@ -191,36 +191,83 @@ export function NoticeBoard() {
                       </div>
                       <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-primary'] }}>{notice.author}</span>
                       <span style={{ fontSize: 12, color: theme['text-muted'] }}>· {notice.createdAt}</span>
+                      {notice.replies.length > 0 && (
+                        <span style={{ fontSize: 12, color: theme['text-muted'] }}>
+                          · {notice.replies.length} repl{notice.replies.length === 1 ? 'y' : 'ies'}
+                        </span>
+                      )}
+                      {notice.poll && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: theme.primary,
+                            background: theme['primary-soft'],
+                            borderRadius: radius.pill,
+                            padding: '3px 8px',
+                          }}
+                        >
+                          Poll
+                        </span>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => toggleAcknowledged(notice.id)}
-                        aria-pressed={!!acknowledged[notice.id]}
-                        className="notice-ack-btn"
-                        style={{
-                          marginLeft: 'auto',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          flexShrink: 0,
-                          padding: '6px 12px',
-                          borderRadius: radius.pill,
-                          border: 'none',
-                          background: acknowledged[notice.id] ? theme.success : theme['bg-surface'],
-                          color: acknowledged[notice.id] ? '#fff' : tone.icon,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          boxShadow: acknowledged[notice.id] ? '0 6px 14px rgba(81, 207, 102, 0.3)' : shadow.float,
-                        }}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20 6 9 17l-5-5" />
-                        </svg>
-                        {acknowledged[notice.id]
-                          ? `Read · ${notice.seenCount + 1}`
-                          : `Mark as read · ${notice.seenCount}`}
-                      </button>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {onReply && (
+                          <button
+                            type="button"
+                            className="notice-ack-btn"
+                            onClick={() => onReply(notice.id)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              flexShrink: 0,
+                              padding: '6px 12px',
+                              borderRadius: radius.pill,
+                              border: 'none',
+                              background: theme['bg-surface'],
+                              color: theme.primary,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              boxShadow: shadow.float,
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
+                            </svg>
+                            Reply
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleAcknowledged(notice.id)}
+                          aria-pressed={!!acknowledged[notice.id]}
+                          className="notice-ack-btn"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            flexShrink: 0,
+                            padding: '6px 12px',
+                            borderRadius: radius.pill,
+                            border: 'none',
+                            background: acknowledged[notice.id] ? theme.success : theme['bg-surface'],
+                            color: acknowledged[notice.id] ? '#fff' : tone.icon,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            boxShadow: acknowledged[notice.id] ? '0 6px 14px rgba(81, 207, 102, 0.3)' : shadow.float,
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6 9 17l-5-5" />
+                          </svg>
+                          {acknowledged[notice.id]
+                            ? `Read · ${notice.seenCount + 1}`
+                            : `Mark as read · ${notice.seenCount}`}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

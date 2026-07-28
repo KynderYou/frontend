@@ -57,11 +57,28 @@ const fillViews = new Set<AppView>(['trainees', 'mis-scans']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
-/** The URL hash is the source of truth for the current page, so refresh keeps you here */
-function viewFromHash(): AppView {
-  if (typeof window === 'undefined') return DEFAULT_VIEW;
-  const candidate = window.location.hash.replace(/^#\/?/, '');
-  return isAppView(candidate) ? candidate : DEFAULT_VIEW;
+type HashState = {
+  view: AppView;
+  threadId: string | null;
+};
+
+/** The URL hash is the source of truth for the current page, so refresh keeps you here.
+ *  Thread deep-links look like `#/mis-communications?thread=c1`. */
+function parseHash(): HashState {
+  if (typeof window === 'undefined') return { view: DEFAULT_VIEW, threadId: null };
+  const raw = window.location.hash.replace(/^#\/?/, '');
+  const [pathPart, queryPart = ''] = raw.split('?');
+  const view = isAppView(pathPart) ? pathPart : DEFAULT_VIEW;
+  const threadId = new URLSearchParams(queryPart).get('thread');
+  return { view, threadId };
+}
+
+function writeHash(view: AppView, threadId: string | null = null) {
+  if (view === 'mis-communications' && threadId) {
+    window.location.hash = `#/${view}?thread=${encodeURIComponent(threadId)}`;
+    return;
+  }
+  window.location.hash = `#/${view}`;
 }
 
 function App() {
@@ -70,7 +87,8 @@ function App() {
   const [, setMember] = useState<Member | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [view, setView] = useState<AppView>(viewFromHash);
+  const [view, setView] = useState<AppView>(() => parseHash().view);
+  const [threadId, setThreadId] = useState<string | null>(() => parseHash().threadId);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY).matches : false
   );
@@ -83,16 +101,31 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (viewFromHash() !== view) {
-      window.location.hash = `#/${view}`;
+    const current = parseHash();
+    if (current.view !== view || current.threadId !== threadId) {
+      writeHash(view, threadId);
     }
-  }, [view]);
+  }, [view, threadId]);
 
   useEffect(() => {
-    const onHashChange = () => setView(viewFromHash());
+    const onHashChange = () => {
+      const next = parseHash();
+      setView(next.view);
+      setThreadId(next.threadId);
+    };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
+
+  const navigate = (nextView: AppView) => {
+    setView(nextView);
+    if (nextView !== 'mis-communications') setThreadId(null);
+  };
+
+  const openCommunicationThread = (id: string) => {
+    setThreadId(id);
+    setView('mis-communications');
+  };
 
   useEffect(() => {
     if (!getToken()) {
@@ -150,6 +183,7 @@ function App() {
   const handleLogout = () => {
     void apiLogout().catch(() => undefined);
     setMember(null);
+    setThreadId(null);
     setView(DEFAULT_VIEW);
     setMobileMenuOpen(false);
     setIsAuthenticated(false);
@@ -178,7 +212,7 @@ function App() {
             collapsed={collapsed}
             onToggle={() => setCollapsed((v) => !v)}
             activeView={view}
-            onNavigate={setView}
+            onNavigate={navigate}
             onLogout={handleLogout}
           />
         )}
@@ -186,66 +220,68 @@ function App() {
           <main className={`app-content panel${fillViews.has(view) ? ' app-content--fill' : ''}`}>
             {view === 'profile' ? (
               <ProfilePage
-                onBack={() => setView('dashboard')}
+                onBack={() => navigate('dashboard')}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
               />
             ) : view === 'dashboard' ? (
               <>
                 <DashboardKpis
                   onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                  onOpenProfile={() => setView('profile')}
-                  onNavigate={setView}
+                  onOpenProfile={() => navigate('profile')}
+                  onNavigate={navigate}
                 />
                 <div className="home-lower">
-                  <NoticeBoard />
+                  <NoticeBoard onReply={openCommunicationThread} />
                   <TopPerformers />
                 </div>
               </>
             ) : view === 'ledger' ? (
               <LedgerPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'scans-mla' ? (
               <ScansMlaPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'reports' ? (
               <ReportsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'admin-members' ? (
               <AdminMembersPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'trainees' ? (
               <TraineesPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'mis-communications' ? (
               <CommunicationsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
+                initialThreadId={threadId}
+                onThreadSelect={setThreadId}
               />
             ) : view === 'mis-scans' ? (
               <MisScansPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'mis-network' ? (
               <NetworkPerformancePage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : (
               <PlaceholderPage
                 {...placeholderPages[view]}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => setView('profile')}
+                onOpenProfile={() => navigate('profile')}
               />
             )}
           </main>
@@ -257,7 +293,7 @@ function App() {
           open={mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
           activeView={view}
-          onNavigate={setView}
+          onNavigate={navigate}
           onLogout={handleLogout}
         />
       )}

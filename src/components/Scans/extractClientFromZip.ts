@@ -1,14 +1,24 @@
 import JSZip from 'jszip';
 
 export type ExtractedClientData = {
+  scanId: string;
   name: string;
   age: string;
   phone: string;
   gender: string;
+  clientType: string;
+  category: string;
+};
+
+export type ScanZipImage = {
+  name: string;
+  url: string;
+  label: string;
 };
 
 export type ZipExtractResult = {
   data: ExtractedClientData;
+  images: ScanZipImage[];
   sourceFile: string | null;
   foundAny: boolean;
   /** Non-directory entries found in the zip (for diagnostics). */
@@ -16,14 +26,19 @@ export type ZipExtractResult = {
 };
 
 const emptyClient: ExtractedClientData = {
+  scanId: '',
   name: '',
   age: '',
   phone: '',
   gender: '',
+  clientType: '',
+  category: '',
 };
 
 function hasAnyField(data: ExtractedClientData): boolean {
-  return Boolean(data.name || data.age || data.phone || data.gender);
+  return Boolean(
+    data.scanId || data.name || data.age || data.phone || data.gender || data.clientType || data.category
+  );
 }
 
 function normalizeGender(raw: string): string {
@@ -33,6 +48,18 @@ function normalizeGender(raw: string): string {
   if (value === 'f' || value.startsWith('female') || value === 'girl') return 'Female';
   if (value === 'o' || value.startsWith('other')) return 'Other';
   return raw.trim();
+}
+
+/** Map scanner category token (e.g. business) to client type options. */
+export function categoryToClientType(category: string): string {
+  const value = category.trim().toLowerCase();
+  if (!value) return '';
+  if (value === 'bulk') return 'Bulk';
+  if (value === 'business' || value === 'institution' || value === 'corporate' || value === 'company') {
+    return 'Institution';
+  }
+  if (value === 'individual' || value === 'personal' || value === 'private') return 'Individual';
+  return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
 }
 
 function normalizeZipPath(path: string): string {
@@ -86,6 +113,57 @@ export function decodeZipText(bytes: Uint8Array): string {
   return utf8;
 }
 
+function labelForImage(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/i, '');
+  const match = base.match(/^([LR])(\d+)(Center|Left|Right)$/i);
+  if (match) {
+    const hand = match[1].toUpperCase() === 'L' ? 'Left' : 'Right';
+    return `${hand} ${match[2]} · ${match[3]}`;
+  }
+  if (/^photo$/i.test(base)) return 'Profile photo';
+  return base;
+}
+
+function isImagePath(path: string): boolean {
+  return /\.(jpe?g|png|webp)$/i.test(baseName(path));
+}
+
+function viewSortKey(name: string): number {
+  const view = name.replace(/\.[^.]+$/i, '').match(/(Center|Left|Right)$/i)?.[1]?.toLowerCase();
+  if (view === 'center') return 0;
+  if (view === 'left') return 1;
+  if (view === 'right') return 2;
+  return 3;
+}
+
+async function extractImagesFromZip(zip: JSZip, paths: string[]): Promise<ScanZipImage[]> {
+  const imagePaths = paths
+    .filter(isImagePath)
+    .sort((a, b) => {
+      const baseCompare = baseName(a).localeCompare(baseName(b), undefined, { numeric: true });
+      if (baseCompare !== 0) return baseCompare;
+      return viewSortKey(baseName(a)) - viewSortKey(baseName(b));
+    });
+
+  const images: ScanZipImage[] = [];
+  for (const path of imagePaths) {
+    const entry =
+      zip.file(path) ??
+      zip.file(
+        Object.keys(zip.files).find((key) => normalizeZipPath(key) === normalizeZipPath(path)) ?? ''
+      );
+    if (!entry || entry.dir) continue;
+    const blob = await entry.async('blob');
+    const name = baseName(path);
+    images.push({
+      name,
+      url: URL.createObjectURL(blob),
+      label: labelForImage(name),
+    });
+  }
+  return images;
+}
+
 /**
  * Midna scanner Data.xml body (often plain text, not real XML tags):
  *   {id} {name…} {Gender} {ISO-DOB} {category} {phone} {base64Photo…}
@@ -112,9 +190,12 @@ export function parseMidnaDataXml(text: string): ExtractedClientData {
   );
 
   if (match) {
+    result.scanId = match[1];
     result.name = match[2].trim();
     result.gender = normalizeGender(match[3]);
     result.age = ageFromDob(match[4]);
+    result.category = match[5];
+    result.clientType = categoryToClientType(match[5]);
     result.phone = match[6];
     return result;
   }
@@ -133,6 +214,10 @@ export function parseMidnaDataXml(text: string): ExtractedClientData {
     }
   }
 
+  if (/^\d+$/.test(tokens[0])) {
+    result.scanId = tokens[0];
+  }
+
   if (/^\d+$/.test(tokens[0]) && genderIdx > 1) {
     result.name = tokens.slice(1, genderIdx).join(' ').trim();
     result.gender = normalizeGender(tokens[genderIdx]);
@@ -143,6 +228,11 @@ export function parseMidnaDataXml(text: string): ExtractedClientData {
 
   if (dobIdx >= 0) result.age = ageFromDob(tokens[dobIdx]);
   if (phoneIdx >= 0) result.phone = tokens[phoneIdx];
+  if (dobIdx >= 0 && phoneIdx > dobIdx + 1) {
+    const category = tokens.slice(dobIdx + 1, phoneIdx).join(' ').trim();
+    result.category = category;
+    result.clientType = categoryToClientType(category);
+  }
 
   return result;
 }
@@ -178,6 +268,8 @@ export async function extractClientFromZip(file: File): Promise<ZipExtractResult
     return !entry.dir && !isIgnoredPath(path);
   });
 
+  const images = await extractImagesFromZip(zip, paths);
+
   const tryParseEntry = async (path: string): Promise<ExtractedClientData | null> => {
     const entry = zip.file(path) ?? zip.file(normalizeZipPath(path));
     if (!entry) {
@@ -200,6 +292,7 @@ export async function extractClientFromZip(file: File): Promise<ZipExtractResult
     if (data && hasAnyField(data)) {
       return {
         data,
+        images,
         sourceFile: baseName(dataXmlPath),
         foundAny: true,
         fileCount: paths.length,
@@ -214,6 +307,7 @@ export async function extractClientFromZip(file: File): Promise<ZipExtractResult
     if (data && hasAnyField(data)) {
       return {
         data,
+        images,
         sourceFile: baseName(path),
         foundAny: true,
         fileCount: paths.length,
@@ -229,6 +323,7 @@ export async function extractClientFromZip(file: File): Promise<ZipExtractResult
     if (data && hasAnyField(data)) {
       return {
         data,
+        images,
         sourceFile: baseName(path),
         foundAny: true,
         fileCount: paths.length,
@@ -238,8 +333,13 @@ export async function extractClientFromZip(file: File): Promise<ZipExtractResult
 
   return {
     data: { ...emptyClient },
+    images,
     sourceFile: null,
     foundAny: false,
     fileCount: paths.length,
   };
+}
+
+export function revokeScanZipImages(images: ScanZipImage[] | undefined) {
+  images?.forEach((image) => URL.revokeObjectURL(image.url));
 }

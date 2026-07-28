@@ -1,7 +1,12 @@
+export type ScanImage = {
+  name: string;
+  url: string;
+  label: string;
+};
+
 export type ScanDetails = {
   clientType: string;
   referredBy: string;
-  ledgerName: string;
   name: string;
   age: string;
   phone: string;
@@ -23,12 +28,12 @@ export type ScanRecord = {
   details: ScanDetails;
   detailsSaved: boolean;
   exported: boolean;
+  images?: ScanImage[];
 };
 
 export const defaultScanDetails = (): ScanDetails => ({
-  clientType: 'Individual',
-  referredBy: 'SELF',
-  ledgerName: '9597770205',
+  clientType: '',
+  referredBy: '',
   name: '',
   age: '',
   phone: '',

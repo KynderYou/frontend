@@ -4,7 +4,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
 import { EditScanModal } from './EditScanModal';
-import { extractClientFromZip } from './extractClientFromZip';
+import { extractClientFromZip, revokeScanZipImages, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
 import {
   defaultScanDetails,
@@ -16,20 +16,26 @@ import {
 
 const theme = colors.light;
 
-const genderOptions = ['Male', 'Female', 'Other'] as const;
-
 type UploadClientForm = {
+  scanId: string;
+  clientType: string;
+  referredBy: string;
   name: string;
   age: string;
   phone: string;
   gender: string;
+  mrp: string;
 };
 
 const emptyClientForm: UploadClientForm = {
+  scanId: '',
+  clientType: '',
+  referredBy: '',
   name: '',
   age: '',
   phone: '',
   gender: '',
+  mrp: '',
 };
 
 const seedRecords: ScanRecord[] = [
@@ -43,7 +49,6 @@ const seedRecords: ScanRecord[] = [
     details: {
       clientType: 'Individual',
       referredBy: 'SELF',
-      ledgerName: '9597770205',
       name: 'RUDRA VIJ',
       age: '12',
       phone: '9876543210',
@@ -64,7 +69,6 @@ const seedRecords: ScanRecord[] = [
     details: {
       clientType: 'Individual',
       referredBy: 'SELF',
-      ledgerName: '9597770205',
       name: 'Riya Saravanan',
       age: '10',
       phone: '9123456780',
@@ -105,6 +109,10 @@ function canExport(record: ScanRecord) {
   return record.detailsSaved && !record.exported;
 }
 
+function displayValue(value: string, fallback = '—') {
+  return value.trim() ? value : fallback;
+}
+
 type ScansMlaPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
@@ -113,7 +121,7 @@ type ScansMlaPageProps = {
 export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
   const [file, setFile] = useState<File | null>(null);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
-  const [declared, setDeclared] = useState(false);
+  const [extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
   const [records, setRecords] = useState<ScanRecord[]>(seedRecords);
   const [error, setError] = useState<string | null>(null);
   const [extractNotice, setExtractNotice] = useState<string | null>(null);
@@ -131,15 +139,10 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     clientForm.name.trim().length > 0 &&
     clientForm.age.trim().length > 0 &&
     clientForm.phone.trim().length > 0 &&
-    clientForm.gender.trim().length > 0;
+    clientForm.gender.trim().length > 0 &&
+    clientForm.clientType.trim().length > 0;
 
-  const canSubmit = Boolean(file) && declared && clientComplete && !extracting;
-
-  const updateClient = (key: keyof UploadClientForm) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    setClientForm((f) => ({ ...f, [key]: e.target.value }));
-  };
+  const canSubmit = Boolean(file) && clientComplete && !extracting;
 
   const pickFile = async (next: File | null) => {
     setError(null);
@@ -166,35 +169,52 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     const requestId = ++extractRequestId.current;
 
     try {
-      const { data, sourceFile, foundAny, fileCount } = await extractClientFromZip(next);
+      const { data, images, sourceFile, foundAny, fileCount } = await extractClientFromZip(next);
       if (requestId !== extractRequestId.current) return;
 
+      setExtractedImages((prev) => {
+        revokeScanZipImages(prev);
+        return images;
+      });
+
       setClientForm({
+        scanId: data.scanId,
         name: data.name,
         age: data.age,
         phone: data.phone,
         gender: data.gender,
+        clientType: data.clientType,
+        referredBy: 'SELF',
+        mrp: '₹2,000',
       });
 
       if (foundAny) {
         setExtractOk(true);
+        const imageNote =
+          images.length > 0 ? ` ${images.length} fingerprint image${images.length === 1 ? '' : 's'} found.` : '';
         setExtractNotice(
           sourceFile
-            ? `Client data filled from ${sourceFile}. Review and edit if needed.`
-            : 'Client data filled from the zip package. Review and edit if needed.'
+            ? `Client data extracted from ${sourceFile}.${imageNote}`
+            : `Client data extracted from the zip package.${imageNote}`
         );
       } else {
         setExtractOk(false);
+        const imageNote =
+          images.length > 0 ? ` Found ${images.length} image(s), but Data.xml could not be parsed.` : '';
         setExtractNotice(
           fileCount > 0
-            ? `Found ${fileCount} file(s) in the zip, but could not parse Data.xml. Enter details manually.`
-            : 'No files found in the zip. Enter details manually.'
+            ? `Found ${fileCount} file(s) in the zip, but could not parse Data.xml.${imageNote}`
+            : 'No files found in the zip.'
         );
       }
     } catch {
       if (requestId !== extractRequestId.current) return;
       setClientForm(emptyClientForm);
-      setError('Could not read client data from this zip. Enter details manually.');
+      setExtractedImages((prev) => {
+        revokeScanZipImages(prev);
+        return [];
+      });
+      setError('Could not read client data from this zip.');
     } finally {
       if (requestId === extractRequestId.current) setExtracting(false);
     }
@@ -208,21 +228,26 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     setExtractOk(false);
     setExtracting(false);
     setClientForm(emptyClientForm);
+    setExtractedImages((prev) => {
+      revokeScanZipImages(prev);
+      return [];
+    });
     if (inputRef.current) inputRef.current.value = '';
   };
 
   const resetForm = () => {
     clearFile();
-    setDeclared(false);
   };
 
   const handleSubmit = () => {
     if (!canSubmit || !file) return;
     const fileUrl = URL.createObjectURL(file);
+    const scanId = clientForm.scanId.trim() || nextScanId();
+    const storedImages = extractedImages.map((image) => ({ ...image }));
     setRecords((prev) => [
       {
         id: `u-${Date.now()}`,
-        scanId: nextScanId(),
+        scanId,
         fileName: file.name,
         fileUrl,
         size: formatBytes(file.size),
@@ -230,17 +255,23 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         status: 'Saved',
         details: {
           ...defaultScanDetails(),
+          clientType: clientForm.clientType,
+          referredBy: clientForm.referredBy,
           name: clientForm.name.trim(),
           age: clientForm.age.trim(),
           phone: clientForm.phone.trim(),
           gender: clientForm.gender,
+          mrp: clientForm.mrp,
         },
         detailsSaved: true,
         exported: false,
+        images: storedImages,
       },
       ...prev,
     ]);
+    setExtractedImages([]);
     resetForm();
+    setDeclarationOpen(false);
     tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -283,6 +314,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const handleDelete = (id: string) => {
     const row = records.find((r) => r.id === id);
     if (row?.fileUrl) URL.revokeObjectURL(row.fileUrl);
+    revokeScanZipImages(row?.images);
     setRecords((prev) => prev.filter((r) => r.id !== id));
     if (editingRecord?.id === id) setEditingRecord(null);
   };
@@ -350,7 +382,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           <div>
             <h2 className="scans-card-title">Upload scans</h2>
             <p className="scans-card-sub">
-              Choose a zip package — name, age, phone, and gender are extracted automatically.
+              Choose a zip package — client details are extracted automatically and shown as read-only.
             </p>
           </div>
           <span className="scans-card-meta">.zip only</span>
@@ -359,7 +391,6 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         <div className="scans-upload-grid">
           <section className="scans-upload-panel">
             <div className="scans-step-head">
-              <span className="scans-step-num">1</span>
               <div>
                 <h3 className="scans-step-title">Scan package</h3>
                 <p className="scans-step-hint">Fingerprint scan zip file</p>
@@ -412,99 +443,59 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
 
           <section className="scans-upload-panel">
             <div className="scans-step-head">
-              <span className="scans-step-num">2</span>
               <div>
                 <h3 className="scans-step-title">Client data</h3>
                 <p className="scans-step-hint">
-                  {extracting ? 'Extracting from zip…' : 'Auto-filled from zip · edit if needed'}
+                  {extracting ? 'Extracting from zip…' : 'Auto-filled from zip · not editable'}
                 </p>
               </div>
             </div>
             <div className="scans-client-fields">
               <label className="form-field">
+                <span className="form-label">Scan Id</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.scanId, '')} placeholder="—" readOnly disabled />
+              </label>
+              <label className="form-field">
                 <span className="form-label">Name</span>
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="Client full name"
-                  value={clientForm.name}
-                  onChange={updateClient('name')}
-                />
+                <input className="form-input" type="text" value={displayValue(clientForm.name, '')} placeholder="—" readOnly disabled />
               </label>
               <label className="form-field">
                 <span className="form-label">Age</span>
-                <input
-                  className="form-input"
-                  type="number"
-                  min={1}
-                  max={120}
-                  placeholder="e.g. 12"
-                  value={clientForm.age}
-                  onChange={updateClient('age')}
-                />
+                <input className="form-input" type="text" value={displayValue(clientForm.age, '')} placeholder="—" readOnly disabled />
               </label>
               <label className="form-field">
                 <span className="form-label">Phno</span>
-                <input
-                  className="form-input"
-                  type="tel"
-                  placeholder="Phone number"
-                  value={clientForm.phone}
-                  onChange={updateClient('phone')}
-                />
+                <input className="form-input" type="text" value={displayValue(clientForm.phone, '')} placeholder="—" readOnly disabled />
               </label>
               <label className="form-field">
                 <span className="form-label">Gender</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={clientForm.gender} onChange={updateClient('gender')}>
-                    <option value="" disabled>
-                      Select gender
-                    </option>
-                    {genderOptions.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
+                <input className="form-input" type="text" value={displayValue(clientForm.gender, '')} placeholder="—" readOnly disabled />
+              </label>
+              <label className="form-field">
+                <span className="form-label">Client Type</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.clientType, '')} placeholder="—" readOnly disabled />
+              </label>
+              <label className="form-field">
+                <span className="form-label">Referred By</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.referredBy, '')} placeholder="—" readOnly disabled />
+              </label>
+              <label className="form-field">
+                <span className="form-label">MRP</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.mrp, '')} placeholder="—" readOnly disabled />
               </label>
             </div>
           </section>
         </div>
 
-        <div className="scans-upload-footer">
-          <div className="scans-step-head scans-step-head-inline">
-            <span className="scans-step-num">3</span>
-            <label className="scans-declaration-inline" htmlFor="scan-declaration">
-              <input
-                id="scan-declaration"
-                type="checkbox"
-                checked={declared}
-                onChange={(e) => setDeclared(e.target.checked)}
-              />
-              <span>
-                I agree to the{' '}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDeclarationOpen(true);
-                  }}
-                >
-                  Declaration
-                </button>
-              </span>
-            </label>
-          </div>
+        <div className="scans-upload-footer scans-upload-footer-end">
           <button
             type="button"
             className="btn-pill-primary scans-submit-btn"
             disabled={!canSubmit}
-            onClick={handleSubmit}
+            onClick={() => {
+              if (!canSubmit) return;
+              setDeclarationOpen(true);
+            }}
           >
             Submit scan
           </button>
@@ -599,7 +590,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         </div>
       </div>
 
-      <DeclarationModal open={declarationOpen} onClose={() => setDeclarationOpen(false)} onAccept={() => setDeclared(true)} />
+      <DeclarationModal
+        open={declarationOpen}
+        onClose={() => setDeclarationOpen(false)}
+        onAccept={handleSubmit}
+      />
       {editingRecord && (
         <EditScanModal
           open={Boolean(editingRecord)}

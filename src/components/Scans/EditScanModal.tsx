@@ -14,7 +14,6 @@ type EditScanModalProps = {
 
 const clientTypeOptions = ['Individual', 'Institution', 'Bulk'] as const;
 const referredByOptions = ['SELF', 'MLA', 'HO', 'Referral'] as const;
-const ledgerOptions = ['9597770205', '9364233342', '9791770205'] as const;
 const genderOptions = ['Male', 'Female', 'Other'] as const;
 const mrpOptions = ['₹1,500', '₹2,000', '₹2,500', '₹3,000'] as const;
 
@@ -59,7 +58,6 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
     onSave({
       clientType: form.clientType,
       referredBy: form.referredBy,
-      ledgerName: form.ledgerName,
       name: form.name.trim(),
       age: form.age.trim(),
       phone: form.phone.trim(),
@@ -129,18 +127,18 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
                 </div>
               </label>
 
-            <label className="form-field">
-              <span className="form-label">Age</span>
-              <input className="form-input" type="number" min={1} max={120} value={form.age} onChange={update('age')} />
-            </label>
+              <label className="form-field">
+                <span className="form-label">Age</span>
+                <input className="form-input" type="number" min={1} max={120} value={form.age} onChange={update('age')} />
+              </label>
 
-            <label className="form-field">
-              <span className="form-label">Phno</span>
-              <input className="form-input" type="tel" value={form.phone} onChange={update('phone')} />
-            </label>
+              <label className="form-field">
+                <span className="form-label">Phno</span>
+                <input className="form-input" type="tel" value={form.phone} onChange={update('phone')} />
+              </label>
 
-            <label className="form-field">
-              <span className="form-label">Referred By</span>
+              <label className="form-field">
+                <span className="form-label">Referred By</span>
                 <div className="form-select-wrap">
                   <select className="form-input form-select" value={form.referredBy} onChange={update('referredBy')}>
                     {referredByOptions.map((o) => (
@@ -165,22 +163,6 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
                     {genderOptions.map((g) => (
                       <option key={g} value={g}>
                         {g}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Ledger Name</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={form.ledgerName} onChange={update('ledgerName')}>
-                    {ledgerOptions.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
                       </option>
                     ))}
                   </select>

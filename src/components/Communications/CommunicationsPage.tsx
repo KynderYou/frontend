@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import {
   colors,
   radius,
@@ -15,9 +15,14 @@ import {
   createGroup,
   deleteGroup,
   getCommunicationsState,
+  pollTotalVotes,
   publishCommunication,
+  replyToCommunication,
+  sortCommunicationReplies,
   subscribeCommunications,
+  voteOnPoll,
   type AudienceMode,
+  type Communication,
 } from './communicationsData';
 
 const theme = colors.light;
@@ -25,25 +30,26 @@ const theme = colors.light;
 type CommunicationsPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
+  /** Open Sent tab on this notice (from dashboard Reply) */
+  initialThreadId?: string | null;
+  onThreadSelect?: (id: string | null) => void;
 };
 
 type TabId = 'compose' | 'groups' | 'sent';
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 function useCommunicationsStore() {
   return useSyncExternalStore(subscribeCommunications, getCommunicationsState, getCommunicationsState);
 }
 
-export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: CommunicationsPageProps) {
+export function CommunicationsPage({
+  onOpenMobileMenu,
+  onOpenProfile,
+  initialThreadId = null,
+  onThreadSelect,
+}: CommunicationsPageProps) {
   const { groups, communications } = useCommunicationsStore();
-  const [tab, setTab] = useState<TabId>('compose');
+  const [tab, setTab] = useState<TabId>(initialThreadId ? 'sent' : 'compose');
+  const [selectedId, setSelectedId] = useState<string | null>(initialThreadId);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -55,9 +61,34 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
   const [composeError, setComposeError] = useState('');
   const [composeNotice, setComposeNotice] = useState('');
 
+  const [includePoll, setIncludePoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+
   const [groupName, setGroupName] = useState('');
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [groupError, setGroupError] = useState('');
+
+  const [replyDraft, setReplyDraft] = useState('');
+  const [replyError, setReplyError] = useState('');
+  const [seenModalItem, setSeenModalItem] = useState<Communication | null>(null);
+
+  useEffect(() => {
+    if (!initialThreadId) return;
+    setTab('sent');
+    setSelectedId(initialThreadId);
+  }, [initialThreadId]);
+
+  useEffect(() => {
+    if (tab !== 'sent') return;
+    if (selectedId && communications.some((item) => item.id === selectedId)) return;
+    setSelectedId(communications[0]?.id ?? null);
+  }, [tab, communications, selectedId]);
+
+  const selected = useMemo(
+    () => communications.find((item) => item.id === selectedId) ?? null,
+    [communications, selectedId]
+  );
 
   const filteredPeople = useMemo(() => {
     const q = peopleQuery.trim().toLowerCase();
@@ -70,6 +101,11 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
     );
   }, [peopleQuery]);
 
+  const selectThread = (id: string) => {
+    setSelectedId(id);
+    onThreadSelect?.(id);
+  };
+
   const togglePerson = (id: string) => {
     setSelectedPeople((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
@@ -80,6 +116,20 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
 
   const toggleGroupMember = (id: string) => {
     setGroupMembers((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const updatePollOption = (index: number, value: string) => {
+    setPollOptions((prev) => prev.map((option, i) => (i === index ? value : option)));
+  };
+
+  const addPollOption = () => {
+    if (pollOptions.length >= 6) return;
+    setPollOptions((prev) => [...prev, '']);
+  };
+
+  const removePollOption = (index: number) => {
+    if (pollOptions.length <= 2) return;
+    setPollOptions((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handlePublish = () => {
@@ -96,14 +146,27 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
       setComposeError('Select at least one group, or create one first.');
       return;
     }
+    if (includePoll) {
+      const filled = pollOptions.map((o) => o.trim()).filter(Boolean);
+      if (!pollQuestion.trim() || filled.length < 2) {
+        setComposeError('Poll needs a question and at least 2 options.');
+        return;
+      }
+    }
 
-    publishCommunication({
+    const created = publishCommunication({
       title,
       body,
       severity,
       audienceMode,
       recipientIds: selectedPeople,
       groupIds: audienceMode === 'groups' ? selectedGroupIds : [],
+      poll: includePoll
+        ? {
+            question: pollQuestion,
+            options: pollOptions,
+          }
+        : null,
     });
 
     setTitle('');
@@ -112,9 +175,13 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
     setAudienceMode('everyone');
     setSelectedPeople([]);
     setSelectedGroupIds([]);
+    setIncludePoll(false);
+    setPollQuestion('');
+    setPollOptions(['', '']);
     setComposeError('');
     setComposeNotice('Published — it will show on the dashboard notice board.');
     setTab('sent');
+    selectThread(created.id);
   };
 
   const handleCreateGroup = () => {
@@ -132,6 +199,17 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
     setGroupError('');
     setSelectedGroupIds((prev) => [...prev, created.id]);
     setComposeNotice(`Group “${created.name}” created. You can broadcast to it from Compose.`);
+  };
+
+  const handleReply = () => {
+    if (!selected) return;
+    setReplyError('');
+    const reply = replyToCommunication(selected.id, replyDraft);
+    if (!reply) {
+      setReplyError('Write a reply before sending.');
+      return;
+    }
+    setReplyDraft('');
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -158,7 +236,7 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
             Communications
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Broadcast notices to everyone, selected people, or groups — not a chat.
+            Broadcast notices, optional polls, and reply threads — not a live chat.
           </p>
         </div>
         <div className="page-header-actions">
@@ -225,22 +303,8 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write the notice members will see on their dashboard…"
-                rows={6}
-                style={{
-                  borderRadius: radius.md,
-                  border: `1px solid ${theme.divider}`,
-                  background: theme['bg-surface'],
-                  color: theme['text-primary'],
-                  fontSize: 14,
-                  padding: 12,
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  width: '100%',
-                  resize: 'vertical',
-                  minHeight: 120,
-                  lineHeight: 1.5,
-                }}
+                rows={5}
+                style={textareaStyle}
               />
             </label>
 
@@ -276,13 +340,91 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
               </div>
             </div>
 
+            <div
+              style={{
+                borderTop: `1px solid ${theme.divider}`,
+                paddingTop: spacing[4],
+                display: 'flex',
+                flexDirection: 'column',
+                gap: spacing[3],
+              }}
+            >
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={includePoll}
+                  onChange={(e) => setIncludePoll(e.target.checked)}
+                  style={{ accentColor: theme.primary, width: 16, height: 16 }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>
+                  Add a poll to this notice
+                </span>
+              </label>
+
+              {includePoll && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    padding: 14,
+                    borderRadius: radius.md,
+                    background: theme['bg-muted'],
+                  }}
+                >
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Poll question</span>
+                    <input
+                      value={pollQuestion}
+                      onChange={(e) => setPollQuestion(e.target.value)}
+                      placeholder="e.g. Preferred training slot?"
+                      style={fieldStyle}
+                    />
+                  </label>
+                  {pollOptions.map((option, index) => (
+                    <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        value={option}
+                        onChange={(e) => updatePollOption(index, e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                        style={{ ...fieldStyle, flex: 1 }}
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          type="button"
+                          className="btn-icon"
+                          aria-label={`Remove option ${index + 1}`}
+                          onClick={() => removePollOption(index)}
+                          style={{ width: 32, height: 32, flexShrink: 0 }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 6l12 12M18 6 6 18" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {pollOptions.length < 6 && (
+                    <button
+                      type="button"
+                      className="btn-pill-secondary"
+                      style={{ height: 32, fontSize: 12, padding: '6px 12px', alignSelf: 'flex-start' }}
+                      onClick={addPollOption}
+                    >
+                      + Add option
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {composeError && (
               <p role="alert" style={{ margin: 0, fontSize: 13, color: theme.error }}>
                 {composeError}
               </p>
             )}
 
-            <div className="comm-compose-actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+            <div className="comm-compose-actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}>
               <button
                 type="button"
                 className="btn-pill-secondary"
@@ -291,6 +433,9 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
                   setTitle('');
                   setBody('');
                   setComposeError('');
+                  setIncludePoll(false);
+                  setPollQuestion('');
+                  setPollOptions(['', '']);
                 }}
               >
                 Clear
@@ -306,233 +451,93 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
             </div>
           </div>
 
-          <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Who receives this?</h2>
-            <p style={{ margin: 0, fontSize: 13, color: theme['text-muted'] }}>
-              Pick everyone, specific people, or one or more groups.
-            </p>
+          <AudiencePanel
+            audienceMode={audienceMode}
+            setAudienceMode={setAudienceMode}
+            filteredPeople={filteredPeople}
+            peopleQuery={peopleQuery}
+            setPeopleQuery={setPeopleQuery}
+            selectedPeople={selectedPeople}
+            togglePerson={togglePerson}
+            groups={groups}
+            selectedGroupIds={selectedGroupIds}
+            toggleSelectedGroup={toggleSelectedGroup}
+          />
+        </div>
+      )}
 
-            <div className="comm-audience-options">
-              {(
-                [
-                  { id: 'everyone' as const, label: 'Everyone', hint: 'All members see it on dashboard' },
-                  { id: 'people' as const, label: 'Selected people', hint: 'Choose members below' },
-                  { id: 'groups' as const, label: 'Groups', hint: 'Pick one or more saved groups' },
-                ] as const
-              ).map((option) => {
-                const selected = audienceMode === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setAudienceMode(option.id)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: 2,
-                      textAlign: 'left',
-                      padding: '12px 14px',
-                      borderRadius: radius.md,
-                      border: selected ? `2px solid ${theme.primary}` : `1px solid ${theme.divider}`,
-                      background: selected ? theme['primary-soft'] : theme['bg-surface'],
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      color: 'inherit',
-                    }}
-                  >
-                    <span style={{ fontSize: 14, fontWeight: 700, color: theme['text-primary'] }}>{option.label}</span>
-                    <span style={{ fontSize: 12, color: theme['text-muted'] }}>{option.hint}</span>
-                  </button>
-                );
-              })}
+      {tab === 'groups' && (
+        <div className="comm-groups-layout">
+          <div className="dash-card comm-groups-card comm-groups-form">
+            <div className="comm-groups-card-head">
+              <h2 className="comm-groups-card-title">Create group</h2>
+              <p className="comm-groups-card-subtitle">Name the group and pick who belongs in it.</p>
             </div>
-
-            {audienceMode === 'people' && (
-              <div>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: theme['bg-muted'],
-                    borderRadius: radius.md,
-                    padding: '8px 12px',
-                    marginBottom: 10,
-                  }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={theme['text-muted']} strokeWidth="1.8">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
-                  <input
-                    value={peopleQuery}
-                    onChange={(e) => setPeopleQuery(e.target.value)}
-                    placeholder="Search people"
-                    style={{
-                      border: 'none',
-                      outline: 'none',
-                      background: 'transparent',
-                      width: '100%',
-                      fontSize: 13,
-                      fontFamily: 'inherit',
-                      color: theme['text-primary'],
-                    }}
-                  />
-                </label>
-                <p style={{ margin: '0 0 8px', fontSize: 12, color: theme['text-muted'] }}>
-                  {selectedPeople.length} selected
-                </p>
-                <div className="comm-card-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {filteredPeople.map((member) => {
-                    const checked = selectedPeople.includes(member.id);
+            <div className="comm-groups-form-body">
+              <label className="comm-groups-field">
+                <span className="comm-groups-label">Group name</span>
+                <input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="e.g. Kerala MLAs"
+                  className="comm-groups-input"
+                />
+              </label>
+              <div className="comm-groups-field">
+                <span className="comm-groups-label">Members</span>
+                <div className="comm-groups-members">
+                  {commMembers.map((member) => {
+                    const checked = groupMembers.includes(member.id);
                     return (
                       <label
                         key={member.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          padding: '8px 10px',
-                          borderRadius: radius.md,
-                          background: checked ? theme['primary-soft'] : 'transparent',
-                          cursor: 'pointer',
-                        }}
+                        className={`comm-groups-member${checked ? ' is-checked' : ''}`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => togglePerson(member.id)}
-                          style={{ accentColor: theme.primary }}
+                          onChange={() => toggleGroupMember(member.id)}
                         />
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '50%',
-                            background: theme['bg-muted'],
-                            color: theme.primary,
-                            display: 'grid',
-                            placeItems: 'center',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {initials(member.name)}
-                        </span>
-                        <span style={{ minWidth: 0 }}>
-                          <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>
-                            {member.name}
-                          </span>
-                          <span style={{ display: 'block', fontSize: 11, color: theme['text-muted'] }}>
-                            {member.role}
-                          </span>
-                        </span>
+                        <span className="comm-groups-member-name">{member.name}</span>
+                        <span className="comm-groups-member-role">{member.role}</span>
                       </label>
                     );
                   })}
                 </div>
               </div>
-            )}
-
-            {audienceMode === 'groups' && (
-              <div>
-                {groups.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: 13, color: theme['text-muted'] }}>
-                    No groups yet. Create one under the Groups tab.
-                  </p>
-                ) : (
-                  <>
-                    <p style={{ margin: '0 0 8px', fontSize: 12, color: theme['text-muted'] }}>
-                      {selectedGroupIds.length} group{selectedGroupIds.length === 1 ? '' : 's'} selected
-                    </p>
-                    <div className="comm-card-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {groups.map((group) => {
-                        const checked = selectedGroupIds.includes(group.id);
-                        return (
-                          <label
-                            key={group.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 10,
-                              padding: '10px 12px',
-                              borderRadius: radius.md,
-                              background: checked ? theme['primary-soft'] : 'transparent',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleSelectedGroup(group.id)}
-                              style={{ accentColor: theme.primary }}
-                            />
-                            <span style={{ minWidth: 0, flex: 1 }}>
-                              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>
-                                {group.name}
-                              </span>
-                              <span style={{ display: 'block', fontSize: 11, color: theme['text-muted'] }}>
-                                {group.memberIds.length} member{group.memberIds.length === 1 ? '' : 's'}
-                              </span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+              {groupError && (
+                <p role="alert" className="comm-groups-error">
+                  {groupError}
+                </p>
+              )}
+            </div>
+            <div className="comm-groups-form-foot">
+              <button type="button" className="btn-pill-secondary comm-groups-save" onClick={handleCreateGroup}>
+                Save group
+              </button>
+            </div>
           </div>
-        </div>
-      )}
 
-      {tab === 'groups' && (
-        <div className="comm-compose-grid">
-          <div className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: `${spacing[5]} ${spacing[6]}`, borderBottom: `1px solid ${theme.divider}` }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Saved groups</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
-                Reuse recipient lists for broadcasts.
-              </p>
+          <div className="dash-card comm-groups-card comm-groups-saved">
+            <div className="comm-groups-card-head">
+              <h2 className="comm-groups-card-title">Saved groups</h2>
+              <p className="comm-groups-card-subtitle">Reuse recipient lists for broadcasts.</p>
             </div>
             {groups.length === 0 ? (
-              <p style={{ padding: spacing[6], margin: 0, fontSize: 14, color: theme['text-muted'] }}>
-                No groups yet.
-              </p>
+              <p className="comm-groups-empty">No groups yet.</p>
             ) : (
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              <ul className="comm-groups-list">
                 {groups.map((group) => (
-                  <li
-                    key={group.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      padding: `${spacing[4]} ${spacing[6]}`,
-                      borderBottom: `1px solid ${theme.divider}`,
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>{group.name}</div>
-                      <div style={{ fontSize: 12, color: theme['text-muted'], marginTop: 2 }}>
-                        {group.memberIds.length} member{group.memberIds.length === 1 ? '' : 's'} ·{' '}
-                        {group.memberIds
-                          .map((id) => commMembers.find((m) => m.id === id)?.name)
-                          .filter(Boolean)
-                          .slice(0, 3)
-                          .join(', ')}
-                        {group.memberIds.length > 3 ? '…' : ''}
+                  <li key={group.id} className="comm-groups-item">
+                    <div className="comm-groups-item-info">
+                      <div className="comm-groups-item-name">{group.name}</div>
+                      <div className="comm-groups-item-count">
+                        {group.memberIds.length} member{group.memberIds.length === 1 ? '' : 's'}
                       </div>
                     </div>
                     <button
                       type="button"
-                      className="btn-pill-secondary"
-                      style={{ height: 32, fontSize: 12, padding: '6px 12px' }}
+                      className="btn-pill-secondary comm-groups-delete"
                       onClick={() => deleteGroup(group.id)}
                     >
                       Delete
@@ -542,130 +547,461 @@ export function CommunicationsPage({ onOpenMobileMenu, onOpenProfile }: Communic
               </ul>
             )}
           </div>
-
-          <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Create group</h2>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Group name</span>
-              <input
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                placeholder="e.g. Kerala MLAs"
-                style={fieldStyle}
-              />
-            </label>
-            <div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Members</span>
-              <div className="comm-card-scroll" style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {commMembers.map((member) => {
-                  const checked = groupMembers.includes(member.id);
-                  return (
-                    <label
-                      key={member.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '8px 10px',
-                        borderRadius: radius.md,
-                        background: checked ? theme['primary-soft'] : 'transparent',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleGroupMember(member.id)}
-                        style={{ accentColor: theme.primary }}
-                      />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{member.name}</span>
-                      <span style={{ fontSize: 11, color: theme['text-muted'], marginLeft: 'auto' }}>{member.role}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-            {groupError && (
-              <p role="alert" style={{ margin: 0, fontSize: 13, color: theme.error }}>
-                {groupError}
-              </p>
-            )}
-            <button
-              type="button"
-              className="btn-pill-primary"
-              style={{ height: 36, fontSize: 13, padding: '8px 16px', alignSelf: 'flex-end' }}
-              onClick={handleCreateGroup}
-            >
-              Save group
-            </button>
-          </div>
         </div>
       )}
 
       {tab === 'sent' && (
-        <div className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: `${spacing[5]} ${spacing[6]}`, borderBottom: `1px solid ${theme.divider}` }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Sent notices</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
-              {communications.length} broadcast{communications.length === 1 ? '' : 's'} · shown on dashboard for recipients
-            </p>
-          </div>
-          {communications.length === 0 ? (
-            <p style={{ padding: spacing[8], margin: 0, textAlign: 'center', color: theme['text-muted'] }}>
-              Nothing sent yet.
-            </p>
-          ) : (
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {communications.map((item) => {
-                const tone = severityTokens[item.severity];
-                return (
-                  <li
-                    key={item.id}
-                    style={{
-                      padding: `${spacing[5]} ${spacing[6]}`,
-                      borderBottom: `1px solid ${theme.divider}`,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          textTransform: 'capitalize',
-                          color: tone.text,
-                          background: tone.bg,
-                          borderRadius: radius.pill,
-                          padding: '4px 10px',
-                          flexShrink: 0,
-                        }}
+        <div className="comm-sent-layout">
+          <div className="dash-card comm-sent-list" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: `${spacing[5]} ${spacing[6]}`, borderBottom: `1px solid ${theme.divider}` }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Sent notices</h2>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+                {communications.length} broadcast{communications.length === 1 ? '' : 's'}
+              </p>
+            </div>
+            {communications.length === 0 ? (
+              <p style={{ padding: spacing[8], margin: 0, textAlign: 'center', color: theme['text-muted'] }}>
+                Nothing sent yet.
+              </p>
+            ) : (
+              <ul className="comm-sent-scroll" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {communications.map((item) => {
+                  const active = item.id === selectedId;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={`comm-sent-item${active ? ' is-active' : ''}`}
+                        onClick={() => selectThread(item.id)}
                       >
-                        {item.severity}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>{item.title}</div>
-                        <p
-                          style={{
-                            margin: '6px 0 0',
-                            fontSize: 13,
-                            lineHeight: 1.5,
-                            color: theme['text-secondary'],
-                          }}
-                        >
-                          {item.body}
-                        </p>
-                        <div style={{ marginTop: 10, fontSize: 12, color: theme['text-muted'] }}>
-                          {item.author} · {item.createdAt} · {audienceLabel(item)} · Seen {item.seenCount}
+                        <div className="comm-sent-item-head">
+                          <span className="comm-sent-item-title">{item.title}</span>
+                          <SeverityPill severity={item.severity} />
                         </div>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                        <div className="comm-sent-item-meta">
+                          <span>{item.createdAt}</span>
+                          <span className="comm-sent-item-dot" aria-hidden="true">
+                            ·
+                          </span>
+                          <span>{audienceLabel(item)}</span>
+                          {item.poll && <span className="comm-meta-pill">Poll</span>}
+                          {item.replies.length > 0 && (
+                            <span className="comm-meta-pill comm-meta-pill--muted">
+                              {item.replies.length} repl{item.replies.length === 1 ? 'y' : 'ies'}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="dash-card comm-thread-panel">
+            {!selected ? (
+              <p style={{ padding: spacing[8], margin: 0, textAlign: 'center', color: theme['text-muted'] }}>
+                Select a sent notice to open its thread.
+              </p>
+            ) : (
+              <ThreadPanel
+                item={selected}
+                replyDraft={replyDraft}
+                replyError={replyError}
+                onReplyDraftChange={setReplyDraft}
+                onReply={handleReply}
+                onVote={(optionId) => voteOnPoll(selected.id, optionId)}
+                onOpenSeenBy={() => setSeenModalItem(selected)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {seenModalItem && (
+        <SeenByModal item={seenModalItem} onClose={() => setSeenModalItem(null)} />
+      )}
+    </section>
+  );
+}
+
+function AudiencePanel({
+  audienceMode,
+  setAudienceMode,
+  filteredPeople,
+  peopleQuery,
+  setPeopleQuery,
+  selectedPeople,
+  togglePerson,
+  groups,
+  selectedGroupIds,
+  toggleSelectedGroup,
+}: {
+  audienceMode: AudienceMode;
+  setAudienceMode: (mode: AudienceMode) => void;
+  filteredPeople: typeof commMembers;
+  peopleQuery: string;
+  setPeopleQuery: (value: string) => void;
+  selectedPeople: string[];
+  togglePerson: (id: string) => void;
+  groups: ReturnType<typeof getCommunicationsState>['groups'];
+  selectedGroupIds: string[];
+  toggleSelectedGroup: (id: string) => void;
+}) {
+  return (
+    <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
+      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Who receives this?</h2>
+      <div className="comm-audience-options">
+        {(
+          [
+            { id: 'everyone', label: 'Everyone' },
+            { id: 'people', label: 'Selected people' },
+            { id: 'groups', label: 'Selected groups' },
+          ] as const
+        ).map((option) => (
+          <label
+            key={option.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: radius.md,
+              background: audienceMode === option.id ? theme['primary-soft'] : theme['bg-muted'],
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              color: theme['text-primary'],
+            }}
+          >
+            <input
+              type="radio"
+              name="audience"
+              checked={audienceMode === option.id}
+              onChange={() => setAudienceMode(option.id)}
+              style={{ accentColor: theme.primary }}
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+
+      {audienceMode === 'people' && (
+        <div>
+          <input
+            value={peopleQuery}
+            onChange={(e) => setPeopleQuery(e.target.value)}
+            placeholder="Search people"
+            style={{ ...fieldStyle, width: '100%', marginBottom: 8 }}
+          />
+          <div className="comm-card-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {filteredPeople.map((member) => {
+              const checked = selectedPeople.includes(member.id);
+              return (
+                <label
+                  key={member.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: radius.md,
+                    background: checked ? theme['primary-soft'] : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => togglePerson(member.id)}
+                    style={{ accentColor: theme.primary }}
+                  />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{member.name}</span>
+                  <span style={{ fontSize: 11, color: theme['text-muted'], marginLeft: 'auto' }}>{member.role}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {audienceMode === 'groups' && (
+        <div className="comm-card-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {groups.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: theme['text-muted'] }}>Create a group first.</p>
+          ) : (
+            groups.map((group) => {
+              const checked = selectedGroupIds.includes(group.id);
+              return (
+                <label
+                  key={group.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: radius.md,
+                    background: checked ? theme['primary-soft'] : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleSelectedGroup(group.id)}
+                    style={{ accentColor: theme.primary }}
+                  />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{group.name}</span>
+                  <span style={{ fontSize: 11, color: theme['text-muted'], marginLeft: 'auto' }}>
+                    {group.memberIds.length}
+                  </span>
+                </label>
+              );
+            })
           )}
         </div>
       )}
-    </section>
+    </div>
+  );
+}
+
+function ThreadPanel({
+  item,
+  replyDraft,
+  replyError,
+  onReplyDraftChange,
+  onReply,
+  onVote,
+  onOpenSeenBy,
+}: {
+  item: Communication;
+  replyDraft: string;
+  replyError: string;
+  onReplyDraftChange: (value: string) => void;
+  onReply: () => void;
+  onVote: (optionId: string) => void;
+  onOpenSeenBy: () => void;
+}) {
+  const totalVotes = pollTotalVotes(item.poll);
+  const replies = sortCommunicationReplies(item.replies);
+
+  return (
+    <div className="comm-thread-shell">
+      <div className="comm-thread-head">
+        <div className="comm-thread-title-row">
+          <h2 className="comm-thread-title">{item.title}</h2>
+          <SeverityPill severity={item.severity} />
+        </div>
+        <p className="comm-thread-submeta">
+          <span>{item.author}</span>
+          <span className="comm-sent-item-dot" aria-hidden="true">
+            ·
+          </span>
+          <span>{item.createdAt}</span>
+          <span className="comm-sent-item-dot" aria-hidden="true">
+            ·
+          </span>
+          <span>{audienceLabel(item)}</span>
+          <span className="comm-sent-item-dot" aria-hidden="true">
+            ·
+          </span>
+          {item.seenCount > 0 ? (
+            <button type="button" className="comm-seen-link" onClick={onOpenSeenBy}>
+              Seen {item.seenCount}
+            </button>
+          ) : (
+            <span>Seen 0</span>
+          )}
+        </p>
+        <p className="comm-thread-body">{item.body}</p>
+      </div>
+
+      <div className="comm-thread-scroll">
+        {item.poll && (
+          <div className="comm-poll-card">
+            <p className="comm-poll-question">
+              {item.poll.question}
+              <span className="comm-poll-meta">
+                · {totalVotes} vote{totalVotes === 1 ? '' : 's'} · click an option to vote
+              </span>
+            </p>
+            <div className="comm-poll-options">
+              {item.poll.options.map((option) => {
+                const pct = totalVotes === 0 ? 0 : Math.round((option.votes / totalVotes) * 100);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className="comm-poll-option"
+                    onClick={() => onVote(option.id)}
+                  >
+                    <div className="comm-poll-option-head">
+                      <span className="comm-poll-option-label">{option.label}</span>
+                      <span className="comm-poll-option-stat">
+                        {option.votes} · {pct}%
+                      </span>
+                    </div>
+                    <span className="comm-poll-bar" aria-hidden="true">
+                      <span className="comm-poll-bar-fill" style={{ width: `${pct}%` }} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <h3 className="comm-thread-section-title">
+          Thread · {item.replies.length} repl{item.replies.length === 1 ? 'y' : 'ies'}
+        </h3>
+
+        {replies.length === 0 ? (
+          <p className="comm-thread-empty">No replies yet. Be the first to respond.</p>
+        ) : (
+          <ul className="comm-reply-list">
+            {replies.map((reply) => (
+              <li key={reply.id} className="comm-reply-item">
+                <span className="comm-reply-avatar" aria-hidden="true">
+                  {reply.authorInitials}
+                </span>
+                <div className="comm-reply-content">
+                  <div className="comm-reply-meta">
+                    <span className="comm-reply-author">{reply.author}</span>
+                    <span className="comm-reply-time">{reply.createdAt}</span>
+                  </div>
+                  <p className="comm-reply-body">{reply.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="comm-reply-compose">
+        <div className="comm-reply-bar">
+          <textarea
+            id={`reply-${item.id}`}
+            className="comm-reply-input"
+            value={replyDraft}
+            onChange={(e) => onReplyDraftChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                onReply();
+              }
+            }}
+            placeholder="Write a reply…"
+            rows={1}
+            aria-label="Write a reply"
+          />
+          <button
+            type="button"
+            className="comm-reply-send-btn"
+            aria-label="Send reply"
+            onClick={onReply}
+            disabled={!replyDraft.trim()}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M22 2 11 13"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="m22 2-7 20-4-9-9-4z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+        {replyError ? (
+          <p role="alert" className="comm-reply-error">
+            {replyError}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SeenByModal({ item, onClose }: { item: Communication; onClose: () => void }) {
+  const viewers = [...item.viewers].sort((a, b) => b.seenAt.localeCompare(a.seenAt));
+
+  return (
+    <CommOverlay
+      title={`Seen by ${item.seenCount}`}
+      subtitle={item.title}
+      onClose={onClose}
+    >
+      {viewers.length === 0 ? (
+        <p className="comm-seen-empty">No one has viewed this notice yet.</p>
+      ) : (
+        <ul className="comm-seen-list">
+          {viewers.map((viewer) => (
+            <li key={viewer.id} className="comm-seen-row">
+              <span className="comm-seen-avatar" aria-hidden="true">
+                {viewer.initials}
+              </span>
+              <div className="comm-seen-info">
+                <span className="comm-seen-name">{viewer.name}</span>
+                <span className="comm-seen-dot" aria-hidden="true">
+                  ·
+                </span>
+                <span className="comm-seen-role">{viewer.role}</span>
+              </div>
+              <time className="comm-seen-time">{viewer.seenAt}</time>
+            </li>
+          ))}
+        </ul>
+      )}
+    </CommOverlay>
+  );
+}
+
+function SeverityPill({ severity }: { severity: SeverityLevel }) {
+  const tone = severityTokens[severity];
+  return (
+    <span className="comm-severity-pill" style={{ color: tone.text, background: tone.bg }}>
+      {severity}
+    </span>
+  );
+}
+
+function CommOverlay({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mis-overlay" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" className="mis-overlay-backdrop" aria-label="Close" onClick={onClose} />
+      <div className="mis-overlay-panel dash-card">
+        <div className="mis-overlay-head">
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>{title}</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>{subtitle}</p>
+          </div>
+          <button type="button" className="btn-icon" aria-label="Close" onClick={onClose} style={{ width: 32, height: 32 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+        <div className="mis-overlay-body">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -680,5 +1016,20 @@ const fieldStyle: CSSProperties = {
   fontFamily: 'inherit',
   outline: 'none',
   boxSizing: 'border-box',
+};
+
+const textareaStyle: CSSProperties = {
+  borderRadius: radius.md,
+  border: `1px solid ${theme.divider}`,
+  background: theme['bg-surface'],
+  color: theme['text-primary'],
+  fontSize: 14,
+  padding: 12,
+  fontFamily: 'inherit',
+  outline: 'none',
+  boxSizing: 'border-box',
   width: '100%',
+  resize: 'vertical',
+  minHeight: 100,
+  lineHeight: 1.5,
 };

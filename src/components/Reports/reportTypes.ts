@@ -37,7 +37,6 @@ export const seedReports: ReportRecord[] = [
     details: {
       clientType: 'Individual',
       referredBy: 'SELF',
-      ledgerName: '9597770205',
       name: 'RUDRA VIJ',
       age: '12',
       phone: '9876543210',
@@ -60,7 +59,6 @@ export const seedReports: ReportRecord[] = [
     details: {
       clientType: 'Individual',
       referredBy: 'SELF',
-      ledgerName: '9597770205',
       name: 'Riya Saravanan',
       age: '10',
       phone: '9123456780',
@@ -84,7 +82,6 @@ export const seedReports: ReportRecord[] = [
     details: {
       clientType: 'Individual',
       referredBy: 'MLA',
-      ledgerName: '9364233342',
       name: 'Aarav Menon',
       age: '14',
       phone: '9812345670',
@@ -104,7 +101,6 @@ export const seedReports: ReportRecord[] = [
     details: {
       clientType: 'Individual',
       referredBy: 'SELF',
-      ledgerName: '9597770205',
       name: 'Diya Prakash',
       age: '9',
       phone: '9900112233',
