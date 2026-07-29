@@ -18,6 +18,7 @@ import { ReportsPage } from './components/Reports/ReportsPage';
 import { AuthPage } from './components/Auth/AuthPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { TraineesPage } from './components/Trainees/TraineesPage';
+import { MentorTraineesPage } from './components/Trainees/MentorTraineesPage';
 import { MlasPage } from './components/Mlas/MlasPage';
 import { CommunicationsPage } from './components/Communications/CommunicationsPage';
 import { MisScansPage } from './components/Mis/MisScansPage';
@@ -37,6 +38,7 @@ type PlaceholderViewId = Exclude<
   | 'admin-members'
   | 'trainees'
   | 'mlas'
+  | 'mentor-trainees'
   | 'mis-communications'
   | 'mis-scans'
   | 'mis-network'
@@ -266,6 +268,11 @@ function App() {
               />
             ) : view === 'mlas' ? (
               <MlasPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
+            ) : view === 'mentor-trainees' ? (
+              <MentorTraineesPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />

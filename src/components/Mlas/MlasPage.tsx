@@ -21,7 +21,6 @@ type MlasPageProps = {
 
 function statusStyles(status: MlaStatus) {
   if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };
-  if (status === 'Pending') return { color: theme.warning, background: theme['warning-bg'] };
   return { color: theme['text-muted'], background: theme['bg-muted'] };
 }
 
@@ -326,7 +325,6 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
               >
                 <option value="All">All statuses</option>
                 <option value="Active">Active</option>
-                <option value="Pending">Pending</option>
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
@@ -337,15 +335,17 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
               <thead>
                 <tr>
                   <th>MLA</th>
-                  <th>Promoted on</th>
-                  <th>Last active</th>
+                  <th>DOJ</th>
+                  <th className="col-center">Billing %</th>
+                  <th className="col-center">Number of scans</th>
+                  <th>DOEx</th>
                   <th className="col-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={4}>No MLAs for this mentor.</td>
+                    <td colSpan={6}>No MLAs for this mentor.</td>
                   </tr>
                 ) : (
                   pageRows.map((row) => <MlaRow key={row.id} mla={row} />)
@@ -415,8 +415,14 @@ function MlaRow({ mla }: { mla: Mla }) {
           </div>
         </div>
       </td>
-      <td data-label="Promoted on">{mla.promotedOn}</td>
-      <td data-label="Last active">{mla.lastActive}</td>
+      <td data-label="DOJ">{mla.doj}</td>
+      <td data-label="Billing %" className="col-center">
+        {mla.billingPercent}%
+      </td>
+      <td data-label="Number of scans" className="col-center">
+        {mla.scanCount}
+      </td>
+      <td data-label="DOEx">{mla.doex}</td>
       <td data-label="Status" className="col-center">
         <span
           className="trainees-status"

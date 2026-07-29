@@ -1434,6 +1434,26 @@
   flex-wrap: wrap;
 }
 
+.mentor-trainee-row:hover td {
+  background: var(--color-bg-muted, #f1f3f5);
+}
+
+.mentor-trainee-row:focus-visible {
+  outline: 2px solid var(--color-primary, #6d7af2);
+  outline-offset: -2px;
+}
+
+.trainee-scans-modal {
+  width: min(960px, 100%);
+  max-width: none;
+}
+
+.trainee-scans-modal-body {
+  padding-top: 8px;
+  max-height: min(70vh, 560px);
+  overflow: auto;
+}
+
 .mis-kpi-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
