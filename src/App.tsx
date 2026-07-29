@@ -13,10 +13,12 @@ import { ProfilePage } from './components/Profile/ProfilePage';
 import { PlaceholderPage } from './components/Placeholder/PlaceholderPage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
 import { ScansMlaPage } from './components/Scans/ScansMlaPage';
+import { ScansHoPage } from './components/Scans/ScansHoPage';
 import { ReportsPage } from './components/Reports/ReportsPage';
 import { AuthPage } from './components/Auth/AuthPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { TraineesPage } from './components/Trainees/TraineesPage';
+import { MlasPage } from './components/Mlas/MlasPage';
 import { CommunicationsPage } from './components/Communications/CommunicationsPage';
 import { MisScansPage } from './components/Mis/MisScansPage';
 import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
@@ -30,9 +32,11 @@ type PlaceholderViewId = Exclude<
   | 'profile'
   | 'ledger'
   | 'scans-mla'
+  | 'scans-ho'
   | 'reports'
   | 'admin-members'
   | 'trainees'
+  | 'mlas'
   | 'mis-communications'
   | 'mis-scans'
   | 'mis-network'
@@ -40,11 +44,6 @@ type PlaceholderViewId = Exclude<
 
 /** Stub copy for the sections not yet built out — refine per-page as each is implemented */
 const placeholderPages: Record<PlaceholderViewId, { title: string; subtitle: string; actions?: string[] }> = {
-  'scans-ho': {
-    title: 'My Scans (H.O)',
-    subtitle: 'Preprocess, verify, and manage scan data at the Head Office.',
-    actions: ['Preprocess', 'Verify', 'Data Download', 'Report Upload'],
-  },
   'mis-cab': {
     title: 'MIS · CAB',
     subtitle: 'Manage CAB debit and delete actions.',
@@ -53,7 +52,7 @@ const placeholderPages: Record<PlaceholderViewId, { title: string; subtitle: str
 };
 
 /** Views whose panels manage their own scrolling and should fill the viewport height */
-const fillViews = new Set<AppView>(['trainees', 'mis-scans']);
+const fillViews = new Set<AppView>(['trainees', 'mlas', 'mis-scans']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
@@ -245,6 +244,11 @@ function App() {
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
+            ) : view === 'scans-ho' ? (
+              <ScansHoPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
             ) : view === 'reports' ? (
               <ReportsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
@@ -257,6 +261,11 @@ function App() {
               />
             ) : view === 'trainees' ? (
               <TraineesPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
+            ) : view === 'mlas' ? (
+              <MlasPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />

@@ -2944,15 +2944,21 @@
 /* Chip / button columns: center header and data together so they never look offset */
 .scans-table th.col-center,
 .scans-table td[data-label='Status'],
+.scans-table td[data-label='Images'],
+.scans-table td[data-label='Action'],
 .scans-table td[data-label='Export'],
 .scans-table td[data-label='Edit'],
 .scans-table td[data-label='Delete'],
 .scans-table td[data-label='Reset'],
 .scans-table td[data-label='Disable'],
 .scans-table td[data-label='Download'],
+.scans-table td[data-label='Upload'],
+.scans-table td[data-label='DDS'],
+.scans-table td[data-label='Debit'],
 .scans-table td[data-label='AI Report'],
 .scans-table td[data-label='Upgrade'],
 .scans-table td[data-label='CAB'],
+.scans-table td[data-label='Assign'],
 .scans-table td[data-label='Delete Scan'] {
   text-align: center;
 }
@@ -3065,10 +3071,298 @@
 }
 
 .scans-table td[data-label='Export'],
+.scans-table td[data-label='Action'],
 .scans-table td[data-label='Edit'],
-.scans-table td[data-label='Delete'] {
+.scans-table td[data-label='Delete'],
+.scans-table td[data-label='Download'],
+.scans-table td[data-label='Upload'],
+.scans-table td[data-label='DDS'],
+.scans-table td[data-label='Debit'],
+.scans-table td[data-label='Delete Scan'] {
   width: 1%;
   white-space: nowrap;
+}
+
+.ho-scans-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+}
+
+.ho-scans-nav-card {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.ho-scans-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ho-scans-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  height: 40px;
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 10px;
+  padding: 0 18px;
+  background: var(--color-bg-surface, #fff);
+  color: var(--color-text-primary, #212529);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(33, 37, 41, 0.06);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.ho-scans-nav-btn:hover {
+  border-color: var(--color-primary, #6d7af2);
+  color: var(--color-primary, #6d7af2);
+  box-shadow: 0 4px 12px rgba(109, 122, 242, 0.14);
+  transform: translateY(-1px);
+}
+
+.ho-scans-nav-btn.is-active {
+  background: var(--btn-primary-gradient, linear-gradient(135deg, #8e9afe 0%, #6d7af2 100%));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(109, 122, 242, 0.28);
+}
+
+.ho-scans-card {
+  scroll-margin-top: 24px;
+}
+
+.ho-scans-table {
+  min-width: 1180px;
+}
+
+.ho-scans-image-count {
+  display: inline-flex;
+  min-width: 32px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--color-primary-soft, #eef0ff);
+  color: var(--color-primary, #6d7af2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ho-scans-action-stack {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ho-scans-notice {
+  box-shadow: var(--shadow-card, 0 10px 30px rgba(80, 90, 140, 0.07));
+}
+
+/* H.O Process scan modal */
+.process-scan-overlay {
+  padding: 16px;
+}
+
+.process-scan-modal {
+  width: min(1180px, 100%);
+  max-width: none;
+}
+
+.process-scan-header {
+  border-bottom: 1px solid var(--color-divider, #e9ecef);
+}
+
+.process-scan-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 320px) minmax(180px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.process-scan-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 420px;
+  border: 1px solid var(--color-divider, #e9ecef);
+  border-radius: 16px;
+  background: #d9d9d9;
+  overflow: hidden;
+}
+
+.process-scan-panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.process-scan-finger-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #2f3542;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.process-scan-view-tabs {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.process-scan-view-tab {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-secondary, #868e96);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.process-scan-view-tab.is-active {
+  background: #2f3542;
+  color: #fff;
+}
+
+.process-scan-image-frame {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.04));
+}
+
+.process-scan-panel-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.process-scan-corner-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-secondary, #868e96);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.process-scan-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 4px;
+}
+
+.process-scan-client-line {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #212529);
+  text-align: center;
+}
+
+.process-scan-section-label {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary, #212529);
+  text-align: center;
+}
+
+.process-scan-pattern-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.process-scan-submit {
+  align-self: center;
+  min-width: 140px;
+  background: linear-gradient(135deg, #69db7c 0%, #40c057 100%) !important;
+  box-shadow: 0 8px 18px rgba(64, 192, 87, 0.28);
+}
+
+.process-scan-qc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.process-scan-qc-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.process-scan-qc-btn {
+  min-width: 44px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  color: #fff;
+}
+
+.process-scan-qc-left {
+  background: #74c0fc;
+}
+
+.process-scan-qc-right {
+  background: #ffa94d;
+}
+
+.process-scan-qc-btn.is-active {
+  outline: 2px solid #212529;
+  outline-offset: 2px;
+}
+
+.process-scan-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 960px) {
+  .process-scan-body {
+    grid-template-columns: 1fr;
+  }
+
+  .process-scan-panel {
+    min-height: 280px;
+  }
 }
 
 /* Scan images viewer modal */
@@ -3338,8 +3632,14 @@
   }
 
   .scans-table td[data-label='Export'] .scans-action-btn,
+  .scans-table td[data-label='Action'] .scans-action-btn,
   .scans-table td[data-label='Edit'] .scans-action-btn,
-  .scans-table td[data-label='Delete'] .scans-action-btn {
+  .scans-table td[data-label='Delete'] .scans-action-btn,
+  .scans-table td[data-label='Download'] .scans-action-btn,
+  .scans-table td[data-label='Upload'] .scans-action-btn,
+  .scans-table td[data-label='DDS'] .scans-action-btn,
+  .scans-table td[data-label='Debit'] .scans-action-btn,
+  .scans-table td[data-label='Delete Scan'] .scans-action-btn {
     min-width: 88px;
   }
 }

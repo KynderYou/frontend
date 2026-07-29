@@ -4,23 +4,24 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import {
   mentors,
-  trainees,
-  traineeCountFor,
+  mlas,
+  mlaCountFor,
   type Mentor,
-  type Trainee,
-  type TraineeStatus,
-} from './traineesData';
+  type Mla,
+  type MlaStatus,
+} from './mlasData';
 
 const theme = colors.light;
 const PAGE_SIZE = 5;
 
-type TraineesPageProps = {
+type MlasPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
 };
 
-function statusStyles(status: TraineeStatus) {
+function statusStyles(status: MlaStatus) {
   if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };
+  if (status === 'Pending') return { color: theme.warning, background: theme['warning-bg'] };
   return { color: theme['text-muted'], background: theme['bg-muted'] };
 }
 
@@ -32,11 +33,11 @@ function initials(name: string) {
     .join('');
 }
 
-export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPageProps) {
+export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
   const [selectedMentorId, setSelectedMentorId] = useState<string>(mentors[0]?.id ?? '');
   const [mentorQuery, setMentorQuery] = useState('');
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | TraineeStatus>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | MlaStatus>('All');
   const [page, setPage] = useState(1);
 
   const selectedMentor: Mentor | undefined = mentors.find((m) => m.id === selectedMentorId);
@@ -55,14 +56,14 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return trainees.filter((t) => {
-      if (t.mentorId !== selectedMentorId) return false;
-      if (statusFilter !== 'All' && t.status !== statusFilter) return false;
+    return mlas.filter((m) => {
+      if (m.mentorId !== selectedMentorId) return false;
+      if (statusFilter !== 'All' && m.status !== statusFilter) return false;
       if (!q) return true;
       return (
-        t.name.toLowerCase().includes(q) ||
-        t.email.toLowerCase().includes(q) ||
-        t.role.toLowerCase().includes(q)
+        m.name.toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        m.role.toLowerCase().includes(q)
       );
     });
   }, [selectedMentorId, query, statusFilter]);
@@ -93,10 +94,10 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               color: theme['text-primary'],
             }}
           >
-            My Trainees
+            My MLAs
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Search a mentor, then manage their trainees.
+            Trainees promoted to MLA after one year — still linked to their mentors.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -106,7 +107,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
             </svg>
           </button>
           <button type="button" className="btn-pill-primary" style={{ height: 36, fontSize: 13, padding: '8px 14px' }}>
-            + Add trainee
+            + Promote trainee
           </button>
           <NotificationButton />
           <ProfileAvatarButton onClick={onOpenProfile} />
@@ -114,7 +115,6 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
       </div>
 
       <div className="trainees-layout" style={{ gap: spacing[5] }}>
-        {/* Searchable mentor list — scales to 50+ mentors */}
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Mentors</h2>
@@ -161,7 +161,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               </p>
             ) : (
               filteredMentors.map((mentor) => {
-                const count = traineeCountFor(mentor.id);
+                const count = mlaCountFor(mentor.id);
                 const selected = mentor.id === selectedMentorId;
                 return (
                   <button
@@ -249,7 +249,6 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
           </div>
         </div>
 
-        {/* Trainees table for selected mentor */}
         <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0 }}>
           <div
             className="trainees-table-toolbar"
@@ -265,7 +264,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
           >
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
-                {selectedMentor ? `${selectedMentor.name}'s trainees` : 'Trainees'}
+                {selectedMentor ? `${selectedMentor.name}'s MLAs` : 'MLAs'}
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
                 {filtered.length} result{filtered.length === 1 ? '' : 's'}
@@ -294,7 +293,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                     setQuery(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search trainees"
+                  placeholder="Search MLAs"
                   style={{
                     border: 'none',
                     outline: 'none',
@@ -310,7 +309,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               <select
                 value={statusFilter}
                 onChange={(e) => {
-                  setStatusFilter(e.target.value as 'All' | TraineeStatus);
+                  setStatusFilter(e.target.value as 'All' | MlaStatus);
                   setPage(1);
                 }}
                 aria-label="Filter by status"
@@ -327,6 +326,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               >
                 <option value="All">All statuses</option>
                 <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
@@ -336,21 +336,19 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
             <table className="mis-data-table trainees-data-table">
               <thead>
                 <tr>
-                  <th>Trainee</th>
-                  <th>DOJ</th>
-                  <th className="col-center">Billing %</th>
-                  <th className="col-center">Number of scans</th>
-                  <th>DOEx</th>
+                  <th>MLA</th>
+                  <th>Promoted on</th>
+                  <th>Last active</th>
                   <th className="col-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={6}>No trainees for this mentor.</td>
+                    <td colSpan={4}>No MLAs for this mentor.</td>
                   </tr>
                 ) : (
-                  pageRows.map((row) => <TraineeRow key={row.id} trainee={row} />)
+                  pageRows.map((row) => <MlaRow key={row.id} mla={row} />)
                 )}
               </tbody>
             </table>
@@ -372,7 +370,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
           >
             <span>
               {filtered.length === 0
-                ? '0 trainees'
+                ? '0 MLAs'
                 : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -402,29 +400,23 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
   );
 }
 
-function TraineeRow({ trainee }: { trainee: Trainee }) {
-  const tone = statusStyles(trainee.status);
+function MlaRow({ mla }: { mla: Mla }) {
+  const tone = statusStyles(mla.status);
   return (
     <tr>
-      <td data-label="Trainee">
+      <td data-label="MLA">
         <div className="trainees-person">
           <span className="trainees-avatar" aria-hidden="true">
-            {initials(trainee.name)}
+            {initials(mla.name)}
           </span>
           <div>
-            <div className="trainees-person-name">{trainee.name}</div>
-            <div className="trainees-person-email">{trainee.email}</div>
+            <div className="trainees-person-name">{mla.name}</div>
+            <div className="trainees-person-email">{mla.email}</div>
           </div>
         </div>
       </td>
-      <td data-label="DOJ">{trainee.doj}</td>
-      <td data-label="Billing %" className="col-center">
-        {trainee.billingPercent}%
-      </td>
-      <td data-label="Number of scans" className="col-center">
-        {trainee.scanCount}
-      </td>
-      <td data-label="DOEx">{trainee.doex}</td>
+      <td data-label="Promoted on">{mla.promotedOn}</td>
+      <td data-label="Last active">{mla.lastActive}</td>
       <td data-label="Status" className="col-center">
         <span
           className="trainees-status"
@@ -433,7 +425,7 @@ function TraineeRow({ trainee }: { trainee: Trainee }) {
             background: tone.background,
           }}
         >
-          {trainee.status}
+          {mla.status}
         </span>
       </td>
     </tr>
