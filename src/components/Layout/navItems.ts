@@ -24,6 +24,7 @@ export const navItems = [
   { id: 'trainees', label: 'My Trainees', Icon: LuUsers, section: 'Operations' },
   { id: 'mlas', label: 'My MLAs', Icon: LuUserCheck, section: 'Operations' },
   { id: 'mentor-trainees', label: 'Trainee List', Icon: LuListChecks, section: 'Operations' },
+  { id: 'mentor-mlas', label: 'MLA List', Icon: LuListChecks, section: 'Operations' },
   { id: 'mis-cab', label: 'CAB', Icon: LuClipboardList, section: 'MIS' },
   { id: 'mis-communications', label: 'Communications', Icon: LuMessageSquare, section: 'MIS' },
   { id: 'mis-network', label: 'Network Performance', Icon: LuActivity, section: 'MIS' },

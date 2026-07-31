@@ -1,26 +1,50 @@
 import { useEffect, useState } from 'react';
 
+export type ProcessScanMode = 'preprocess' | 'process' | 'verify';
+
 export type ProcessScanRecord = {
   scanId: string;
   name: string;
   gender?: string;
   age?: string;
   phone?: string;
+  defaultPattern?: string;
+  defaultSubPattern?: string;
+  urc?: number;
+  rrc?: number;
+  lfo?: number;
+};
+
+/** Pattern / ridge-count payload returned from the fingerprint modal. */
+export type ProcessScanPayload = ProcessScanRecord & {
+  mainPattern: string;
+  subPattern: string;
+  urc: number;
+  rrc: number;
+  lfo: number;
+  finger: string;
 };
 
 type ProcessScanModalProps = {
   open: boolean;
+  mode?: ProcessScanMode;
   record: ProcessScanRecord | null;
   onClose: () => void;
-  onSubmit?: (record: ProcessScanRecord) => void;
-  onComplete?: (record: ProcessScanRecord) => void;
-  onReview?: (record: ProcessScanRecord) => void;
+  onAccept?: (payload: ProcessScanPayload) => void;
+  onReject?: (payload: ProcessScanPayload) => void;
+  onComplete?: (payload: ProcessScanPayload) => void;
+  onReview?: (payload: ProcessScanPayload) => void;
 };
 
-const FINGERS = ['L1', 'L2', 'L3', 'L4', 'L5', 'R1', 'R2', 'R3', 'R4', 'R5'] as const;
 const LEFT_FINGERS = ['L1', 'L2', 'L3', 'L4', 'L5'] as const;
 const RIGHT_FINGERS = ['R1', 'R2', 'R3', 'R4', 'R5'] as const;
 const VIEW_TABS = ['L', 'C', 'R'] as const;
+
+const VIEW_LABELS: Record<(typeof VIEW_TABS)[number], string> = {
+  L: 'Left side',
+  C: 'Centre',
+  R: 'Right side',
+};
 
 const MAIN_PATTERNS = [
   'Arch',
@@ -32,29 +56,66 @@ const MAIN_PATTERNS = [
   'Ulnar Loop',
 ] as const;
 
-function PlaceholderFingerprint({ slot }: { slot: number }) {
+const SUB_PATTERNS = [
+  'Plain Arch',
+  'Tented Arch',
+  'Ulnar Loop',
+  'Radial Loop',
+  'Plain Whorl',
+  'Double Loop',
+  'Central Pocket',
+  'Accidental',
+] as const;
+
+const modeTitles: Record<ProcessScanMode, string> = {
+  preprocess: 'Preprocess',
+  process: 'Processing',
+  verify: 'Verify',
+};
+
+function PlaceholderFingerprint({
+  slot,
+  view,
+}: {
+  slot: number;
+  view: (typeof VIEW_TABS)[number];
+}) {
   const ridges = 7 + (slot % 4);
+  const shift = view === 'L' ? -14 : view === 'R' ? 14 : 0;
+  const clipX = view === 'L' ? 0 : view === 'R' ? 28 : 10;
+  const clipW = view === 'C' ? 60 : 52;
+
   return (
     <svg viewBox="0 0 80 80" width="100%" height="100%" aria-hidden="true">
-      <ellipse cx="40" cy="42" rx="26" ry="30" fill="none" stroke="#2d3436" strokeWidth="1.2" opacity="0.85" />
-      {Array.from({ length: ridges }, (_, i) => {
-        const ry = 8 + i * 3.2;
-        const opacity = 0.35 + (i % 3) * 0.15;
-        return (
-          <ellipse
-            key={i}
-            cx="40"
-            cy={40 + i * 0.6}
-            rx={22 - i * 2.2}
-            ry={ry}
-            fill="none"
-            stroke="#495057"
-            strokeWidth={1 + (i % 2) * 0.3}
-            opacity={opacity}
-            transform={`rotate(${-8 + slot * 3 + i * 2} 40 40)`}
-          />
-        );
-      })}
+      <defs>
+        <clipPath id={`fp-clip-${slot}-${view}`}>
+          <rect x={clipX} y="4" width={clipW} height="72" rx="8" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#fp-clip-${slot}-${view})`} transform={`translate(${shift} 0)`}>
+        <ellipse cx="40" cy="42" rx="26" ry="30" fill="none" stroke="#2d3436" strokeWidth="1.2" opacity="0.85" />
+        {Array.from({ length: ridges }, (_, i) => {
+          const ry = 8 + i * 3.2;
+          const opacity = 0.35 + (i % 3) * 0.15;
+          return (
+            <ellipse
+              key={i}
+              cx="40"
+              cy={40 + i * 0.6}
+              rx={22 - i * 2.2}
+              ry={ry}
+              fill="none"
+              stroke="#495057"
+              strokeWidth={1 + (i % 2) * 0.3}
+              opacity={opacity}
+              transform={`rotate(${-8 + slot * 3 + i * 2} 40 40)`}
+            />
+          );
+        })}
+      </g>
+      <text x="40" y="76" textAnchor="middle" fontSize="7" fill="#868e96" fontWeight="600">
+        {VIEW_LABELS[view]}
+      </text>
     </svg>
   );
 }
@@ -64,25 +125,39 @@ function FingerprintPanel({
   activeFinger,
   activeView,
   onViewChange,
+  showCornerValues,
+  urc,
+  rrc,
 }: {
   side: 'left' | 'right';
   activeFinger: string;
   activeView: (typeof VIEW_TABS)[number];
   onViewChange: (view: (typeof VIEW_TABS)[number]) => void;
+  showCornerValues: boolean;
+  urc: string;
+  rrc: string;
 }) {
-  const fingerBadge = side === 'left' ? activeFinger.startsWith('L') ? activeFinger : 'L1' : activeFinger.startsWith('R') ? activeFinger : 'R1';
+  const fingerBadge =
+    side === 'left'
+      ? activeFinger.startsWith('L')
+        ? activeFinger
+        : 'L1'
+      : activeFinger.startsWith('R')
+        ? activeFinger
+        : 'R1';
 
   return (
     <div className={`process-scan-panel process-scan-panel-${side}`}>
       <div className="process-scan-panel-top">
         <span className="process-scan-finger-badge">{fingerBadge}</span>
-        <div className="process-scan-view-tabs" role="tablist" aria-label={`${side} hand view`}>
+        <div className="process-scan-view-tabs" role="tablist" aria-label={`${side} hand print side`}>
           {VIEW_TABS.map((tab) => (
             <button
               key={tab}
               type="button"
               role="tab"
               aria-selected={activeView === tab}
+              title={VIEW_LABELS[tab]}
               className={`process-scan-view-tab${activeView === tab ? ' is-active' : ''}`}
               onClick={() => onViewChange(tab)}
             >
@@ -93,22 +168,38 @@ function FingerprintPanel({
       </div>
 
       <div className="process-scan-image-frame">
-        <PlaceholderFingerprint slot={side === 'left' ? 1 : 5} />
+        <PlaceholderFingerprint slot={side === 'left' ? 1 : 5} view={activeView} />
       </div>
 
       <div className="process-scan-panel-bottom">
-        <span className="process-scan-corner-label">RRC</span>
-        <span className="process-scan-corner-label">URC</span>
+        <span className="process-scan-corner-label" title="Radial Ridge Count">
+          RRC{showCornerValues ? `: ${rrc || '0'}` : ''}
+        </span>
+        <span className="process-scan-corner-label" title="Ulnar Ridge Count">
+          URC{showCornerValues ? `: ${urc || '0'}` : ''}
+        </span>
       </div>
     </div>
   );
 }
 
-export function ProcessScanModal({ open, record, onClose, onSubmit, onComplete, onReview }: ProcessScanModalProps) {
-  const [finger, setFinger] = useState<string>('L1');
-  const [pattern, setPattern] = useState('');
+export function ProcessScanModal({
+  open,
+  mode = 'process',
+  record,
+  onClose,
+  onAccept,
+  onReject,
+  onComplete,
+  onReview,
+}: ProcessScanModalProps) {
+  const [finger, setFinger] = useState('L1');
   const [leftView, setLeftView] = useState<(typeof VIEW_TABS)[number]>('C');
   const [rightView, setRightView] = useState<(typeof VIEW_TABS)[number]>('C');
+  const [mainPattern, setMainPattern] = useState('');
+  const [subPattern, setSubPattern] = useState('');
+  const [urc, setUrc] = useState('0');
+  const [rrc, setRrc] = useState('0');
 
   useEffect(() => {
     if (!open) return;
@@ -124,16 +215,37 @@ export function ProcessScanModal({ open, record, onClose, onSubmit, onComplete, 
   }, [open, onClose]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !record) return;
     setFinger('L1');
-    setPattern('');
     setLeftView('C');
     setRightView('C');
-  }, [open, record?.scanId]);
+    setMainPattern(record.defaultPattern || '');
+    setSubPattern(record.defaultSubPattern || '');
+    // Preprocess always stores ridge / LFO counts as 0
+    if (mode === 'preprocess') {
+      setUrc('0');
+      setRrc('0');
+    } else {
+      setUrc(String(record.urc ?? 0));
+      setRrc(String(record.rrc ?? 0));
+    }
+  }, [open, record, mode]);
 
   if (!open || !record) return null;
 
   const displayName = [record.name, record.age, record.gender, record.phone].filter(Boolean).join(' / ');
+  const showRidgeInputs = mode === 'process' || mode === 'verify';
+
+  const buildPayload = (): ProcessScanPayload => ({
+    ...record,
+    mainPattern,
+    subPattern,
+    finger,
+    // Preprocess: force URC / RRC / LFO to 0
+    urc: mode === 'preprocess' ? 0 : Number(urc) || 0,
+    rrc: mode === 'preprocess' ? 0 : Number(rrc) || 0,
+    lfo: mode === 'preprocess' ? 0 : record.lfo ?? 0,
+  });
 
   return (
     <div
@@ -153,7 +265,7 @@ export function ProcessScanModal({ open, record, onClose, onSubmit, onComplete, 
         <div className="modal-header process-scan-header">
           <div>
             <h2 id="process-scan-title" className="modal-title">
-              Processing
+              {modeTitles[mode]}
             </h2>
             <p className="modal-subtitle">
               Scan {record.scanId} · {record.name}
@@ -167,18 +279,35 @@ export function ProcessScanModal({ open, record, onClose, onSubmit, onComplete, 
         </div>
 
         <div className="modal-body process-scan-body">
-          <FingerprintPanel side="left" activeFinger={finger} activeView={leftView} onViewChange={setLeftView} />
+          <FingerprintPanel
+            side="left"
+            activeFinger={finger}
+            activeView={leftView}
+            onViewChange={setLeftView}
+            showCornerValues={showRidgeInputs}
+            urc={urc}
+            rrc={rrc}
+          />
 
           <div className="process-scan-controls">
             <p className="process-scan-client-line">
               <strong>Name:</strong> {displayName}
             </p>
 
-            <label className="form-field">
-              <span className="form-label">Choose Finger</span>
+            <p className="process-scan-view-hint">
+              L / C / R = left, centre, and right sides of the finger print
+            </p>
+
+            <label className="form-field process-scan-pattern-block">
+              <span className="form-label process-scan-section-label">Main Pattern</span>
               <div className="form-select-wrap">
-                <select className="form-select" value={finger} onChange={(e) => setFinger(e.target.value)}>
-                  {FINGERS.map((item) => (
+                <select
+                  className="form-select"
+                  value={mainPattern}
+                  onChange={(e) => setMainPattern(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {MAIN_PATTERNS.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
@@ -192,34 +321,61 @@ export function ProcessScanModal({ open, record, onClose, onSubmit, onComplete, 
               </div>
             </label>
 
-            <div className="process-scan-pattern-block">
-              <p className="process-scan-section-label">Main Pattern</p>
-              <label className="form-field">
-                <div className="form-select-wrap">
-                  <select className="form-select" value={pattern} onChange={(e) => setPattern(e.target.value)}>
-                    <option value="">Select</option>
-                    {MAIN_PATTERNS.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="form-select-chevron" aria-hidden="true">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </span>
-                </div>
-              </label>
-            </div>
+            <label className="form-field process-scan-pattern-block">
+              <span className="form-label process-scan-section-label">Sub Pattern</span>
+              <div className="form-select-wrap">
+                <select
+                  className="form-select"
+                  value={subPattern}
+                  onChange={(e) => setSubPattern(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {SUB_PATTERNS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <span className="form-select-chevron" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
+              </div>
+            </label>
 
-            <button
-              type="button"
-              className="btn-pill-primary process-scan-submit"
-              onClick={() => onSubmit?.(record)}
-            >
-              Submit
-            </button>
+            {showRidgeInputs ? (
+              <div className="process-scan-ridge-grid">
+                <label className="form-field">
+                  <span className="form-label">URC</span>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={urc}
+                    onChange={(e) => setUrc(e.target.value)}
+                    aria-label="Ulnar Ridge Count"
+                  />
+                </label>
+                <label className="form-field">
+                  <span className="form-label">RRC</span>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={rrc}
+                    onChange={(e) => setRrc(e.target.value)}
+                    aria-label="Radial Ridge Count"
+                  />
+                </label>
+              </div>
+            ) : (
+              <p className="process-scan-preprocess-note">
+                URC, RRC and LFO are stored as 0 in preprocess. Enter ridge counts in Process.
+              </p>
+            )}
 
             <div className="process-scan-qc">
               <p className="process-scan-section-label">QC - Finger Prints</p>
@@ -250,33 +406,96 @@ export function ProcessScanModal({ open, record, onClose, onSubmit, onComplete, 
             </div>
           </div>
 
-          <FingerprintPanel side="right" activeFinger={finger} activeView={rightView} onViewChange={setRightView} />
+          <FingerprintPanel
+            side="right"
+            activeFinger={finger}
+            activeView={rightView}
+            onViewChange={setRightView}
+            showCornerValues={showRidgeInputs}
+            urc={urc}
+            rrc={rrc}
+          />
         </div>
 
         <div className="modal-footer process-scan-footer">
           <button type="button" className="btn-pill-secondary" onClick={onClose}>
             Close
           </button>
-          <button
-            type="button"
-            className="scans-action-btn"
-            onClick={() => {
-              onReview?.(record);
-              onClose();
-            }}
-          >
-            To be reviewed
-          </button>
-          <button
-            type="button"
-            className="scans-action-btn scans-action-export"
-            onClick={() => {
-              onComplete?.(record);
-              onClose();
-            }}
-          >
-            Completed
-          </button>
+
+          {mode === 'preprocess' ? (
+            <>
+              <button
+                type="button"
+                className="scans-action-btn scans-action-danger"
+                onClick={() => {
+                  onReject?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                className="scans-action-btn scans-action-export"
+                onClick={() => {
+                  onAccept?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Accept
+              </button>
+            </>
+          ) : null}
+
+          {mode === 'process' ? (
+            <>
+              <button
+                type="button"
+                className="scans-action-btn"
+                onClick={() => {
+                  onReview?.(buildPayload());
+                  onClose();
+                }}
+              >
+                To be reviewed
+              </button>
+              <button
+                type="button"
+                className="scans-action-btn scans-action-export"
+                onClick={() => {
+                  onComplete?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Completed
+              </button>
+            </>
+          ) : null}
+
+          {mode === 'verify' ? (
+            <>
+              <button
+                type="button"
+                className="scans-action-btn scans-action-danger"
+                onClick={() => {
+                  onReject?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Rejected
+              </button>
+              <button
+                type="button"
+                className="scans-action-btn scans-action-export"
+                onClick={() => {
+                  onComplete?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Completed
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

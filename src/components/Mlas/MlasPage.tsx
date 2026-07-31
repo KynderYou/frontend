@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -10,6 +10,7 @@ import {
   type Mla,
   type MlaStatus,
 } from './mlasData';
+import { scansForTrainee, type TraineeScanStatus } from '../Trainees/traineeScansData';
 
 const theme = colors.light;
 const PAGE_SIZE = 5;
@@ -38,6 +39,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | MlaStatus>('All');
   const [page, setPage] = useState(1);
+  const [scansMla, setScansMla] = useState<Mla | null>(null);
 
   const selectedMentor: Mentor | undefined = mentors.find((m) => m.id === selectedMentorId);
 
@@ -348,7 +350,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
                     <td colSpan={6}>No MLAs for this mentor.</td>
                   </tr>
                 ) : (
-                  pageRows.map((row) => <MlaRow key={row.id} mla={row} />)
+                  pageRows.map((row) => <MlaRow key={row.id} mla={row} onOpen={() => setScansMla(row)} />)
                 )}
               </tbody>
             </table>
@@ -396,14 +398,89 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
           </div>
         </div>
       </div>
+
+      <MlaScansModal open={Boolean(scansMla)} mla={scansMla} onClose={() => setScansMla(null)} />
     </section>
   );
 }
 
-function MlaRow({ mla }: { mla: Mla }) {
+function mlaScanStatusStyles(status: TraineeScanStatus) {
+  if (status === 'Exported' || status === 'Verified') return { color: theme.success, background: theme['success-bg'] };
+  if (status === 'Processing') return { color: theme.warning, background: theme['warning-bg'] };
+  return { color: theme.primary, background: theme['primary-soft'] };
+}
+
+function MlaScansModal({ open, mla, onClose }: { open: boolean; mla: Mla | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [open, onClose]);
+
+  if (!open || !mla) return null;
+  const scans = scansForTrainee(mla.id);
+
+  return (
+    <div className="modal-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal-panel trainee-scans-modal" role="dialog" aria-modal="true" aria-labelledby="mla-scans-title" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2 id="mla-scans-title" className="modal-title">{mla.name}&apos;s scans</h2>
+            <p className="modal-subtitle">{mla.email} · {scans.length} scan{scans.length === 1 ? '' : 's'}</p>
+          </div>
+          <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="modal-body trainee-scans-modal-body">
+          <div className="scans-table-wrap">
+            <table className="scans-table">
+              <thead>
+                <tr>
+                  <th>Sno</th><th>Scan Id</th><th>Name</th><th>Gender</th><th>Report Type</th><th>Cost</th><th>Uploaded</th><th className="col-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scans.length === 0 ? (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>No scans uploaded by this MLA yet.</td></tr>
+                ) : scans.map((scan, i) => {
+                  const chip = mlaScanStatusStyles(scan.status);
+                  return (
+                    <tr key={scan.id}>
+                      <td data-label="Sno">{i + 1}</td>
+                      <td data-label="Scan Id">{scan.scanId}</td>
+                      <td data-label="Name">{scan.clientName}</td>
+                      <td data-label="Gender">{scan.gender}</td>
+                      <td data-label="Report Type">{scan.reportType}</td>
+                      <td data-label="Cost">{scan.cost}</td>
+                      <td data-label="Uploaded">{scan.uploadedAt}</td>
+                      <td data-label="Status"><span className="scans-status-chip" style={chip}>{scan.status}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MlaRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
   const tone = statusStyles(mla.status);
   return (
-    <tr>
+    <tr
+      className="mentor-trainee-row"
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      tabIndex={0}
+      role="button"
+      aria-label={`View scans for ${mla.name}`}
+      style={{ cursor: 'pointer' }}
+    >
       <td data-label="MLA">
         <div className="trainees-person">
           <span className="trainees-avatar" aria-hidden="true">

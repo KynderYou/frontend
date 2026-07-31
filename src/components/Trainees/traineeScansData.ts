@@ -138,6 +138,20 @@ export const traineeScans: TraineeScan[] = [
   },
 ];
 
+/** Scans seeded for MLAs (reuses same shape) */
+const mlaScans: TraineeScan[] = [
+  { id: 'ms1', traineeId: 'm1', scanId: 'S50001', clientName: 'Aditi Rao', gender: 'Female', reportType: 'Career', cost: '2500.00', uploadedAt: '27 Jul 2026 · 11:00 AM', status: 'Exported' },
+  { id: 'ms2', traineeId: 'm1', scanId: 'S50002', clientName: 'Karthik Rajan', gender: 'Male', reportType: 'Business', cost: '3000.00', uploadedAt: '25 Jul 2026 · 09:30 AM', status: 'Verified' },
+  { id: 'ms3', traineeId: 'm2', scanId: 'S50010', clientName: 'Lakshmi Priya', gender: 'Female', reportType: 'Student', cost: '2000.00', uploadedAt: '26 Jul 2026 · 02:45 PM', status: 'Processing' },
+  { id: 'ms4', traineeId: 'm2', scanId: 'S50011', clientName: 'Raj Kumar', gender: 'Male', reportType: 'Institution', cost: '2000.00', uploadedAt: '23 Jul 2026 · 10:15 AM', status: 'Exported' },
+  { id: 'ms5', traineeId: 'm3', scanId: 'S50020', clientName: 'Shreya Das', gender: 'Female', reportType: 'Career', cost: '2500.00', uploadedAt: '24 Jul 2026 · 04:20 PM', status: 'Saved' },
+  { id: 'ms6', traineeId: 'm4', scanId: 'S50030', clientName: 'Vikram Joshi', gender: 'Male', reportType: 'Business', cost: '3000.00', uploadedAt: '22 Jul 2026 · 01:00 PM', status: 'Verified' },
+  { id: 'ms7', traineeId: 'm4', scanId: 'S50031', clientName: 'Pooja Menon', gender: 'Female', reportType: 'Student', cost: '1500.00', uploadedAt: '20 Jul 2026 · 03:30 PM', status: 'Exported' },
+  { id: 'ms8', traineeId: 'm5', scanId: 'S50040', clientName: 'Arjun Nair', gender: 'Male', reportType: 'Career', cost: '2500.00', uploadedAt: '28 Jul 2026 · 09:00 AM', status: 'Processing' },
+];
+
+const allScans = [...traineeScans, ...mlaScans];
+
 export function scansForTrainee(traineeId: string): TraineeScan[] {
-  return traineeScans.filter((scan) => scan.traineeId === traineeId);
+  return allScans.filter((scan) => scan.traineeId === traineeId);
 }

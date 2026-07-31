@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { ProcessScanModal } from './ProcessScanModal';
+import { ProcessScanModal, type ProcessScanMode } from './ProcessScanModal';
 
 const theme = colors.light;
 
@@ -222,7 +222,16 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const [records, setRecords] = useState<HoScanRecord[]>(seedRecords);
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
-  const [processTarget, setProcessTarget] = useState<HoScanRecord | null>(null);
+  const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
+  const [panelMode, setPanelMode] = useState<ProcessScanMode>('process');
+
+  const openFingerprintPanel = (row: HoScanRecord, mode: ProcessScanMode) => {
+    setPanelMode(mode);
+    setPanelTarget(row);
+  };
+
+  const canOpenFingerprint =
+    activeSection === 'preprocess' || activeSection === 'process' || activeSection === 'verify';
 
   useEffect(() => {
     if (!notice) return;
@@ -351,9 +360,6 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                 <th className="col-center">Images</th>
                 <th>Processed By</th>
                 <th className="col-center">Status</th>
-                {activeSection === 'preprocess' || activeSection === 'process' || activeSection === 'verify' ? (
-                  <th className="col-center">Action</th>
-                ) : null}
                 {activeSection === 'download' ? <th className="col-center">Download</th> : null}
                 {activeSection === 'report' ? (
                   <>
@@ -369,9 +375,45 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
               {rows.map((row, index) => {
                 const chip = hoStatusStyles(row.status);
                 return (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className={canOpenFingerprint ? 'ho-scans-row-clickable' : undefined}
+                    onClick={
+                      canOpenFingerprint
+                        ? () => openFingerprintPanel(row, activeSection as ProcessScanMode)
+                        : undefined
+                    }
+                    onKeyDown={
+                      canOpenFingerprint
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openFingerprintPanel(row, activeSection as ProcessScanMode);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={canOpenFingerprint ? 0 : undefined}
+                    role={canOpenFingerprint ? 'button' : undefined}
+                    aria-label={canOpenFingerprint ? `Open fingerprint panel for ${row.scanId}` : undefined}
+                  >
                     <td data-label="Sno">{index + 1}</td>
-                    <td data-label="Scan Id">{row.scanId}</td>
+                    <td data-label="Scan Id">
+                      {canOpenFingerprint ? (
+                        <button
+                          type="button"
+                          className="ho-scans-scan-id-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openFingerprintPanel(row, activeSection as ProcessScanMode);
+                          }}
+                        >
+                          {row.scanId}
+                        </button>
+                      ) : (
+                        row.scanId
+                      )}
+                    </td>
                     <td data-label="Name">{row.name}</td>
                     <td data-label="Scan By">{row.scanBy}</td>
                     <td data-label="Report Type">{row.reportType}</td>
@@ -386,64 +428,8 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                       </span>
                     </td>
 
-                    {activeSection === 'preprocess' ? (
-                      <td data-label="Action">
-                        <div className="ho-scans-action-stack">
-                          <button
-                            type="button"
-                            className="scans-action-btn scans-action-export"
-                            onClick={() =>
-                              updateRecord(
-                                row.id,
-                                { section: 'process', status: 'In Process' },
-                                `Scan ${row.scanId} moved to Process.`
-                              )
-                            }
-                          >
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            className="scans-action-btn scans-action-danger"
-                            onClick={() => updateRecord(row.id, { status: 'Rejected' }, `Scan ${row.scanId} rejected in preprocess.`)}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </td>
-                    ) : null}
-
-                    {activeSection === 'process' ? (
-                      <td data-label="Action">
-                        <button type="button" className="scans-action-btn scans-action-export" onClick={() => setProcessTarget(row)}>
-                          Process
-                        </button>
-                      </td>
-                    ) : null}
-
-                    {activeSection === 'verify' ? (
-                      <td data-label="Action">
-                        <div className="ho-scans-action-stack">
-                          <button
-                            type="button"
-                            className="scans-action-btn scans-action-export"
-                            onClick={() => updateRecord(row.id, { status: 'Verified' }, `Scan ${row.scanId} verified.`)}
-                          >
-                            Completed
-                          </button>
-                          <button
-                            type="button"
-                            className="scans-action-btn scans-action-danger"
-                            onClick={() => updateRecord(row.id, { status: 'Rejected' }, `Scan ${row.scanId} rejected in verify.`)}
-                          >
-                            Rejected
-                          </button>
-                        </div>
-                      </td>
-                    ) : null}
-
                     {activeSection === 'download' ? (
-                      <td data-label="Download">
+                      <td data-label="Download" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           className="scans-action-btn"
@@ -456,7 +442,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
 
                     {activeSection === 'report' ? (
                       <>
-                        <td data-label="Upload">
+                        <td data-label="Upload" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             className="scans-action-btn scans-action-export"
@@ -465,7 +451,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                             Upload
                           </button>
                         </td>
-                        <td data-label="DDS">
+                        <td data-label="DDS" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             className="scans-action-btn"
@@ -474,7 +460,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                             DDS
                           </button>
                         </td>
-                        <td data-label="Debit">
+                        <td data-label="Debit" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             className="scans-action-btn"
@@ -483,7 +469,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                             Debit
                           </button>
                         </td>
-                        <td data-label="Delete Scan">
+                        <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
                           <button type="button" className="scans-action-btn scans-action-danger" onClick={() => setDeleteTarget(row)}>
                             Delete scan
                           </button>
@@ -499,16 +485,37 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
       </div>
 
       <ProcessScanModal
-        open={Boolean(processTarget)}
-        record={processTarget ? toProcessRecord(processTarget) : null}
-        onClose={() => setProcessTarget(null)}
-        onSubmit={(record) => {
+        open={Boolean(panelTarget)}
+        mode={panelMode}
+        record={panelTarget ? toProcessRecord(panelTarget) : null}
+        onClose={() => setPanelTarget(null)}
+        onAccept={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) updateRecord(row.id, { status: 'Pattern saved' }, `Pattern saved for ${record.scanId}.`);
+          if (row) {
+            updateRecord(
+              row.id,
+              { section: 'process', status: 'In Process' },
+              `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'} · URC/RRC/LFO = 0.`
+            );
+          }
+        }}
+        onReject={(record) => {
+          const row = records.find((item) => item.scanId === record.scanId);
+          if (!row) return;
+          if (panelMode === 'verify') {
+            updateRecord(row.id, { status: 'Rejected' }, `Scan ${record.scanId} rejected in verify.`);
+          } else {
+            updateRecord(row.id, { status: 'Rejected' }, `Scan ${record.scanId} rejected in preprocess.`);
+          }
         }}
         onComplete={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) updateRecord(row.id, { status: 'Completed' }, `Scan ${record.scanId} marked completed.`);
+          if (!row) return;
+          if (panelMode === 'verify') {
+            updateRecord(row.id, { section: 'download', status: 'Ready to Download' }, `Scan ${record.scanId} verified.`);
+          } else {
+            updateRecord(row.id, { status: 'Completed' }, `Scan ${record.scanId} marked completed.`);
+          }
         }}
         onReview={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
