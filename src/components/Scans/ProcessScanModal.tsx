@@ -10,6 +10,7 @@ export type ProcessScanRecord = {
   phone?: string;
   defaultPattern?: string;
   defaultSubPattern?: string;
+  defaultFinger?: string;
   urc?: number;
   rrc?: number;
   lfo?: number;
@@ -200,6 +201,7 @@ export function ProcessScanModal({
   const [subPattern, setSubPattern] = useState('');
   const [urc, setUrc] = useState('0');
   const [rrc, setRrc] = useState('0');
+  const [lfo, setLfo] = useState('0');
 
   useEffect(() => {
     if (!open) return;
@@ -216,25 +218,28 @@ export function ProcessScanModal({
 
   useEffect(() => {
     if (!open || !record) return;
-    setFinger('L1');
+    setFinger(record.defaultFinger || 'L1');
     setLeftView('C');
     setRightView('C');
     setMainPattern(record.defaultPattern || '');
     setSubPattern(record.defaultSubPattern || '');
-    // Preprocess always stores ridge / LFO counts as 0
     if (mode === 'preprocess') {
       setUrc('0');
       setRrc('0');
+      setLfo('0');
     } else {
       setUrc(String(record.urc ?? 0));
       setRrc(String(record.rrc ?? 0));
+      setLfo(String(record.lfo ?? 0));
     }
   }, [open, record, mode]);
 
   if (!open || !record) return null;
 
   const displayName = [record.name, record.age, record.gender, record.phone].filter(Boolean).join(' / ');
-  const showRidgeInputs = mode === 'process' || mode === 'verify';
+  const showRidgeInputs = mode === 'process';
+  const isVerifyReadOnly = mode === 'verify';
+  const showPrefilledRidges = mode === 'verify';
 
   const buildPayload = (): ProcessScanPayload => ({
     ...record,
@@ -244,7 +249,7 @@ export function ProcessScanModal({
     // Preprocess: force URC / RRC / LFO to 0
     urc: mode === 'preprocess' ? 0 : Number(urc) || 0,
     rrc: mode === 'preprocess' ? 0 : Number(rrc) || 0,
-    lfo: mode === 'preprocess' ? 0 : record.lfo ?? 0,
+    lfo: mode === 'preprocess' ? 0 : Number(lfo) || 0,
   });
 
   return (
@@ -284,7 +289,7 @@ export function ProcessScanModal({
             activeFinger={finger}
             activeView={leftView}
             onViewChange={setLeftView}
-            showCornerValues={showRidgeInputs}
+            showCornerValues={showRidgeInputs || showPrefilledRidges}
             urc={urc}
             rrc={rrc}
           />
@@ -294,55 +299,73 @@ export function ProcessScanModal({
               <strong>Name:</strong> {displayName}
             </p>
 
-            <p className="process-scan-view-hint">
-              L / C / R = left, centre, and right sides of the finger print
-            </p>
+            {isVerifyReadOnly ? (
+              <p className="process-scan-view-hint">
+                Reviewing saved preprocess and process data before verification
+              </p>
+            ) : (
+              <p className="process-scan-view-hint">
+                L / C / R = left, centre, and right sides of the finger print
+              </p>
+            )}
 
-            <label className="form-field process-scan-pattern-block">
-              <span className="form-label process-scan-section-label">Main Pattern</span>
-              <div className="form-select-wrap">
-                <select
-                  className="form-select"
-                  value={mainPattern}
-                  onChange={(e) => setMainPattern(e.target.value)}
-                >
-                  <option value="">Select</option>
-                  {MAIN_PATTERNS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-                <span className="form-select-chevron" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </div>
-            </label>
+            <div className="process-scan-pattern-block">
+              <p className="process-scan-section-label">Main Pattern</p>
+              {isVerifyReadOnly ? (
+                <p className="process-scan-pattern-value">{mainPattern || '—'}</p>
+              ) : (
+                <label className="form-field">
+                  <div className="form-select-wrap">
+                    <select
+                      className="form-select"
+                      value={mainPattern}
+                      onChange={(e) => setMainPattern(e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {MAIN_PATTERNS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="form-select-chevron" aria-hidden="true">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </div>
+                </label>
+              )}
+            </div>
 
-            <label className="form-field process-scan-pattern-block">
-              <span className="form-label process-scan-section-label">Sub Pattern</span>
-              <div className="form-select-wrap">
-                <select
-                  className="form-select"
-                  value={subPattern}
-                  onChange={(e) => setSubPattern(e.target.value)}
-                >
-                  <option value="">Select</option>
-                  {SUB_PATTERNS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-                <span className="form-select-chevron" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </span>
-              </div>
-            </label>
+            <div className="process-scan-pattern-block">
+              <p className="process-scan-section-label">Sub Pattern</p>
+              {isVerifyReadOnly ? (
+                <p className="process-scan-pattern-value">{subPattern || '—'}</p>
+              ) : (
+                <label className="form-field">
+                  <div className="form-select-wrap">
+                    <select
+                      className="form-select"
+                      value={subPattern}
+                      onChange={(e) => setSubPattern(e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {SUB_PATTERNS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="form-select-chevron" aria-hidden="true">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </div>
+                </label>
+              )}
+            </div>
 
             {showRidgeInputs ? (
               <div className="process-scan-ridge-grid">
@@ -371,11 +394,30 @@ export function ProcessScanModal({
                   />
                 </label>
               </div>
-            ) : (
+            ) : null}
+
+            {showPrefilledRidges ? (
+              <div className="process-scan-ridge-grid process-scan-ridge-grid-readonly">
+                <div className="process-scan-pattern-block">
+                  <p className="process-scan-section-label">URC</p>
+                  <p className="process-scan-pattern-value">{urc}</p>
+                </div>
+                <div className="process-scan-pattern-block">
+                  <p className="process-scan-section-label">RRC</p>
+                  <p className="process-scan-pattern-value">{rrc}</p>
+                </div>
+                <div className="process-scan-pattern-block">
+                  <p className="process-scan-section-label">LFO</p>
+                  <p className="process-scan-pattern-value">{lfo}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {!showRidgeInputs && !showPrefilledRidges ? (
               <p className="process-scan-preprocess-note">
                 URC, RRC and LFO are stored as 0 in preprocess. Enter ridge counts in Process.
               </p>
-            )}
+            ) : null}
 
             <div className="process-scan-qc">
               <p className="process-scan-section-label">QC - Finger Prints</p>
@@ -384,7 +426,8 @@ export function ProcessScanModal({
                   <button
                     key={item}
                     type="button"
-                    className={`process-scan-qc-btn process-scan-qc-left${finger === item ? ' is-active' : ''}`}
+                    disabled={isVerifyReadOnly}
+                    className={`process-scan-qc-btn process-scan-qc-left${finger === item ? ' is-active' : ''}${isVerifyReadOnly ? ' is-readonly' : ''}`}
                     onClick={() => setFinger(item)}
                   >
                     {item}
@@ -396,7 +439,8 @@ export function ProcessScanModal({
                   <button
                     key={item}
                     type="button"
-                    className={`process-scan-qc-btn process-scan-qc-right${finger === item ? ' is-active' : ''}`}
+                    disabled={isVerifyReadOnly}
+                    className={`process-scan-qc-btn process-scan-qc-right${finger === item ? ' is-active' : ''}${isVerifyReadOnly ? ' is-readonly' : ''}`}
                     onClick={() => setFinger(item)}
                   >
                     {item}
@@ -411,7 +455,7 @@ export function ProcessScanModal({
             activeFinger={finger}
             activeView={rightView}
             onViewChange={setRightView}
-            showCornerValues={showRidgeInputs}
+            showCornerValues={showRidgeInputs || showPrefilledRidges}
             urc={urc}
             rrc={rrc}
           />

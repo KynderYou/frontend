@@ -1274,6 +1274,35 @@
   max-width: 100%;
 }
 
+.mis-year-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-divider, #e9ecef);
+  background: var(--color-bg-surface, #fff);
+}
+
+.mis-year-filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #495057);
+  white-space: nowrap;
+}
+
+.mis-year-filter-select {
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary, #212529);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
 .mis-table-panel {
   display: flex;
   flex-direction: column;
@@ -3378,6 +3407,10 @@
   gap: 10px;
 }
 
+.process-scan-ridge-grid-readonly {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .process-scan-ridge-grid .form-label {
   font-size: 12px;
   font-weight: 700;
@@ -3439,6 +3472,11 @@
 .process-scan-qc-btn.is-active {
   outline: 2px solid #212529;
   outline-offset: 2px;
+}
+
+.process-scan-qc-btn.is-readonly {
+  cursor: default;
+  opacity: 0.92;
 }
 
 .process-scan-footer {

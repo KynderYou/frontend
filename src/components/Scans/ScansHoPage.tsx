@@ -21,6 +21,12 @@ type HoScanRecord = {
   images: number;
   processedBy: string;
   preprocessedBy?: string;
+  mainPattern?: string;
+  subPattern?: string;
+  urc?: number;
+  rrc?: number;
+  lfo?: number;
+  finger?: string;
   status: string;
 };
 
@@ -100,6 +106,13 @@ const seedRecords: HoScanRecord[] = [
     cost: '1500.00',
     images: 12,
     processedBy: '9345678901',
+    preprocessedBy: 'Madhu Sharma',
+    mainPattern: 'Loop',
+    subPattern: 'Ulnar Loop',
+    urc: 12,
+    rrc: 8,
+    lfo: 0,
+    finger: 'L1',
     status: 'Awaiting Verification',
   },
   {
@@ -274,6 +287,12 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
     gender: row.gender,
     age: row.age,
     phone: row.processedBy,
+    defaultPattern: row.mainPattern,
+    defaultSubPattern: row.subPattern,
+    defaultFinger: row.finger,
+    urc: row.urc,
+    rrc: row.rrc,
+    lfo: row.lfo,
   });
 
   return (
@@ -503,7 +522,17 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
           if (row) {
             updateRecord(
               row.id,
-              { section: 'process', status: 'In Process', preprocessedBy: 'Madhu Sharma' },
+              {
+                section: 'process',
+                status: 'In Process',
+                preprocessedBy: 'Madhu Sharma',
+                mainPattern: record.mainPattern,
+                subPattern: record.subPattern,
+                finger: record.finger,
+                urc: 0,
+                rrc: 0,
+                lfo: 0,
+              },
               `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'} · URC/RRC/LFO = 0.`
             );
           }
@@ -523,7 +552,20 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
           if (panelMode === 'verify') {
             updateRecord(row.id, { section: 'download', status: 'Ready to Download' }, `Scan ${record.scanId} verified.`);
           } else {
-            updateRecord(row.id, { status: 'Completed' }, `Scan ${record.scanId} marked completed.`);
+            updateRecord(
+              row.id,
+              {
+                section: 'verify',
+                status: 'Awaiting Verification',
+                mainPattern: record.mainPattern,
+                subPattern: record.subPattern,
+                finger: record.finger,
+                urc: record.urc,
+                rrc: record.rrc,
+                lfo: record.lfo,
+              },
+              `Scan ${record.scanId} completed · moved to Verify.`
+            );
           }
         }}
         onReview={(record) => {

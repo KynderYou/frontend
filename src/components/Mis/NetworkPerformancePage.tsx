@@ -1,28 +1,19 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { MonthlyBarChart } from './MonthlyBarChart';
 import {
-  billingByMonth,
   formatCompactMoney,
   formatMoney,
-  LAST_QUARTER_LABEL,
+  getNetworkYearSnapshot,
   LOW_PERFORMER_THRESHOLD,
-  lowPerformers,
   MONTH_LABELS,
-  NETWORK_YEAR,
-  networkScans,
-  performanceRows,
-  reviewsByMonth,
-  scansByMonth,
-  yearTotals,
+  NETWORK_YEARS,
+  type NetworkYear,
 } from './misData';
 
 const theme = colors.light;
-
-/** Latest month that has data — used as the default drill-down target */
-const defaultMonth = Math.max(0, scansByMonth.filter((p) => p.value > 0).length - 1);
 
 type NetworkPerformancePageProps = {
   onOpenMobileMenu?: () => void;
@@ -30,15 +21,25 @@ type NetworkPerformancePageProps = {
 };
 
 export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: NetworkPerformancePageProps) {
-  const [scanMonth, setScanMonth] = useState(defaultMonth);
-  const [reviewMonth, setReviewMonth] = useState(defaultMonth);
-  const [billingMonth, setBillingMonth] = useState(defaultMonth);
+  const [selectedYear, setSelectedYear] = useState<NetworkYear>(NETWORK_YEARS[0]);
+  const yearData = useMemo(() => getNetworkYearSnapshot(selectedYear), [selectedYear]);
+
+  const [scanMonth, setScanMonth] = useState(yearData.defaultMonth);
+  const [reviewMonth, setReviewMonth] = useState(yearData.defaultMonth);
+  const [billingMonth, setBillingMonth] = useState(yearData.defaultMonth);
   const [drilldownMonth, setDrilldownMonth] = useState<number | null>(null);
   const [teamDbOpen, setTeamDbOpen] = useState(false);
 
+  useEffect(() => {
+    setScanMonth(yearData.defaultMonth);
+    setReviewMonth(yearData.defaultMonth);
+    setBillingMonth(yearData.defaultMonth);
+    setDrilldownMonth(null);
+  }, [selectedYear, yearData.defaultMonth]);
+
   const monthScans = useMemo(
-    () => (drilldownMonth === null ? [] : networkScans.filter((scan) => scan.month === drilldownMonth)),
-    [drilldownMonth]
+    () => (drilldownMonth === null ? [] : yearData.networkScans.filter((scan) => scan.month === drilldownMonth)),
+    [drilldownMonth, yearData.networkScans]
   );
 
   return (
@@ -59,10 +60,24 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
             Network Performance
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            How the entire network is performing across {NETWORK_YEAR}
+            How the entire network is performing across {selectedYear}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <label className="mis-year-filter" aria-label="Timeline year">
+            <span className="mis-year-filter-label">Timeline</span>
+            <select
+              className="mis-year-filter-select"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value) as NetworkYear)}
+            >
+              {NETWORK_YEARS.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="button" className="btn-icon mobile-menu-btn" aria-label="Open menu" onClick={onOpenMobileMenu}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M4 7h16M4 12h16M4 17h16" />
@@ -82,12 +97,12 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       </div>
 
       <div className="mis-kpi-row">
-        <KpiCard label="Scans this year" value={yearTotals.scans.toLocaleString('en-IN')} hint="Entire network" tone="blue" />
-        <KpiCard label="Reviews & testimonials" value={yearTotals.reviews.toLocaleString('en-IN')} hint="Received YTD" tone="green" />
-        <KpiCard label="Network billing" value={formatCompactMoney(yearTotals.billing)} hint="YTD" tone="purple" />
+        <KpiCard label="Scans this year" value={yearData.yearTotals.scans.toLocaleString('en-IN')} hint={`${selectedYear} network total`} tone="blue" />
+        <KpiCard label="Reviews & testimonials" value={yearData.yearTotals.reviews.toLocaleString('en-IN')} hint={`Received in ${selectedYear}`} tone="green" />
+        <KpiCard label="Network billing" value={formatCompactMoney(yearData.yearTotals.billing)} hint={`${selectedYear} total`} tone="purple" />
         <KpiCard
           label="Low performers"
-          value={String(lowPerformers.length)}
+          value={String(yearData.lowPerformers.length)}
           hint={`Under ${LOW_PERFORMER_THRESHOLD} scans last quarter`}
           tone="amber"
         />
@@ -96,8 +111,8 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       <div className="mis-summary-grid">
         <MonthlyBarChart
           title="Monthly progress"
-          subtitle="Scans uploaded each month by the entire network"
-          data={scansByMonth}
+          subtitle={`Scans uploaded each month in ${selectedYear}`}
+          data={yearData.scansByMonth}
           activeMonth={scanMonth}
           onSelectMonth={setScanMonth}
           formatValue={(v) => v.toLocaleString('en-IN')}
@@ -105,14 +120,14 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
           action={{
             label: `View ${MONTH_LABELS[scanMonth]} scans`,
             onClick: () => setDrilldownMonth(scanMonth),
-            disabled: scansByMonth[scanMonth].value === 0,
+            disabled: yearData.scansByMonth[scanMonth].value === 0,
           }}
         />
 
         <MonthlyBarChart
           title="Reviews & testimonials"
-          subtitle="Reviews and testimonials received each month"
-          data={reviewsByMonth}
+          subtitle={`Reviews and testimonials received in ${selectedYear}`}
+          data={yearData.reviewsByMonth}
           activeMonth={reviewMonth}
           onSelectMonth={setReviewMonth}
           formatValue={(v) => v.toLocaleString('en-IN')}
@@ -121,8 +136,8 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
 
         <MonthlyBarChart
           title="Monthly billing"
-          subtitle="Billing raised each month across the network"
-          data={billingByMonth}
+          subtitle={`Billing raised each month in ${selectedYear}`}
+          data={yearData.billingByMonth}
           activeMonth={billingMonth}
           onSelectMonth={setBillingMonth}
           formatValue={formatCompactMoney}
@@ -133,17 +148,17 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Quick insights</h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>
-              Members under {LOW_PERFORMER_THRESHOLD} scans in the last quarter ({LAST_QUARTER_LABEL})
+              Members under {LOW_PERFORMER_THRESHOLD} scans in the last quarter ({yearData.lastQuarterLabel})
             </p>
           </div>
 
-          {lowPerformers.length === 0 ? (
+          {yearData.lowPerformers.length === 0 ? (
             <p style={{ margin: `${spacing[5]} 0 0`, fontSize: 13, color: theme['text-muted'] }}>
               Every member cleared {LOW_PERFORMER_THRESHOLD} scans last quarter.
             </p>
           ) : (
             <ul className="mis-insight-list">
-              {lowPerformers.map((row) => (
+              {yearData.lowPerformers.map((row) => (
                 <li key={row.id}>
                   <span
                     aria-hidden="true"
@@ -167,7 +182,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                       {row.name}
                     </span>
                     <span style={{ display: 'block', fontSize: 12, color: theme['text-muted'], marginTop: 2 }}>
-                      {row.region} · {row.scansYear} scans this year
+                      {row.region} · {row.scansYear} scans in {selectedYear}
                     </span>
                   </span>
                   <span
@@ -201,15 +216,15 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
 
       {drilldownMonth !== null && (
         <MisOverlay
-          title={`${MONTH_LABELS[drilldownMonth]} ${NETWORK_YEAR} scans`}
-          subtitle={`${monthScans.length} scans from ${scansByMonth[drilldownMonth].contributors.length} contributors`}
+          title={`${MONTH_LABELS[drilldownMonth]} ${selectedYear} scans`}
+          subtitle={`${monthScans.length} scans from ${yearData.scansByMonth[drilldownMonth].contributors.length} contributors`}
           onClose={() => setDrilldownMonth(null)}
         >
           <div className="mis-drill-grid">
             <div>
               <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>Contributors</h4>
               <ul className="mis-insight-list mis-insight-list--compact">
-                {scansByMonth[drilldownMonth].contributors.map((c) => (
+                {yearData.scansByMonth[drilldownMonth].contributors.map((c) => (
                   <li key={c.id}>
                     <span style={{ minWidth: 0, flex: 1, fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>
                       {c.name}
@@ -254,7 +269,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       {teamDbOpen && (
         <MisOverlay
           title="Team DB"
-          subtitle="Column list is provisional — will be finalised once confirmed"
+          subtitle={`${selectedYear} performance · column list is provisional`}
           onClose={() => setTeamDbOpen(false)}
         >
           <div className="mis-overlay-table mis-overlay-table--tall">
@@ -270,7 +285,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                 </tr>
               </thead>
               <tbody>
-                {performanceRows.map((row) => (
+                {yearData.performanceRows.map((row) => (
                   <tr key={row.id}>
                     <td data-label="Member">
                       <span className="mis-scan-name">{row.name}</span>

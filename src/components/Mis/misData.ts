@@ -18,10 +18,11 @@ export const MONTH_LABELS = [
   'Dec',
 ] as const;
 
-export const NETWORK_YEAR = 2026;
+export const NETWORK_YEARS = [2026, 2025, 2024] as const;
+export type NetworkYear = (typeof NETWORK_YEARS)[number];
 
-/** Scans only exist up to the current working month in the mock year */
-const MONTHS_SO_FAR = 7;
+/** Latest working year in the mock dataset */
+export const NETWORK_YEAR: NetworkYear = NETWORK_YEARS[0];
 
 export type MlaMember = {
   id: string;
@@ -47,7 +48,8 @@ export type NetworkScan = {
   clientName: string;
   mlaId: string;
   mlaName: string;
-  /** Month index 0-11 within NETWORK_YEAR */
+  year: number;
+  /** Month index 0-11 within year */
   month: number;
   day: number;
   uploadedAt: string;
@@ -104,18 +106,24 @@ const mlaWeights: Record<string, number> = {
   'mla-karthik': 1,
 };
 
-function buildScans(): NetworkScan[] {
-  const random = makeRandom(20260725);
+function monthsForYear(year: number): number {
+  if (year === NETWORK_YEARS[0]) return 7;
+  return 12;
+}
+
+function buildScansForYear(year: number): NetworkScan[] {
+  const monthsSoFar = monthsForYear(year);
+  const random = makeRandom(year * 997 + 20260725);
   const weighted: MlaMember[] = mlaMembers.flatMap((mla) =>
     Array.from({ length: mlaWeights[mla.id] ?? 1 }, () => mla)
   );
 
   const scans: NetworkScan[] = [];
-  let counter = 42100;
+  let counter = 40000 + year * 100;
 
-  for (let month = 0; month < MONTHS_SO_FAR; month += 1) {
-    // Volume ramps up over the year with some month-to-month noise
-    const monthlyCount = 18 + month * 3 + Math.floor(random() * 9);
+  for (let month = 0; month < monthsSoFar; month += 1) {
+    const yearScale = year === NETWORK_YEARS[0] ? 1 : year === NETWORK_YEARS[1] ? 0.88 : 0.72;
+    const monthlyCount = Math.max(8, Math.floor((18 + month * 3 + Math.floor(random() * 9)) * yearScale));
 
     for (let i = 0; i < monthlyCount; i += 1) {
       const mla = weighted[Math.floor(random() * weighted.length)];
@@ -128,9 +136,10 @@ function buildScans(): NetworkScan[] {
         clientName,
         mlaId: mla.id,
         mlaName: mla.name,
+        year,
         month,
         day,
-        uploadedAt: `${String(day).padStart(2, '0')} ${MONTH_LABELS[month]} ${NETWORK_YEAR}`,
+        uploadedAt: `${String(day).padStart(2, '0')} ${MONTH_LABELS[month]} ${year}`,
       });
     }
   }
@@ -138,7 +147,10 @@ function buildScans(): NetworkScan[] {
   return scans.sort((a, b) => (b.month - a.month) || (b.day - a.day));
 }
 
-export const networkScans: NetworkScan[] = buildScans();
+export const allNetworkScans: NetworkScan[] = NETWORK_YEARS.flatMap((year) => buildScansForYear(year));
+
+/** Default scan list for the MIS scans page (current year) */
+export const networkScans: NetworkScan[] = allNetworkScans.filter((scan) => scan.year === NETWORK_YEAR);
 
 export type Contributor = {
   id: string;
@@ -163,30 +175,34 @@ function toContributors(counts: Map<string, number>): Contributor[] {
     .sort((a, b) => b.value - a.value);
 }
 
-/** Scans per month across the whole network, with per-MLA contributions */
-export const scansByMonth: MonthPoint[] = MONTH_LABELS.map((label, month) => {
-  const monthScans = networkScans.filter((scan) => scan.month === month);
-  const counts = new Map<string, number>();
-  monthScans.forEach((scan) => counts.set(scan.mlaId, (counts.get(scan.mlaId) ?? 0) + 1));
-
-  return {
-    month,
-    label,
-    value: monthScans.length,
-    contributors: toContributors(counts),
-  };
-});
-
-/** Reviews + testimonials received per month (was "team efficiency" in the reference) */
-export const reviewsByMonth: MonthPoint[] = (() => {
-  const random = makeRandom(778899);
+function buildScansByMonth(scans: NetworkScan[], monthsSoFar: number): MonthPoint[] {
   return MONTH_LABELS.map((label, month) => {
-    if (month >= MONTHS_SO_FAR) {
+    if (month >= monthsSoFar) {
+      return { month, label, value: 0, contributors: [] };
+    }
+
+    const monthScans = scans.filter((scan) => scan.month === month);
+    const counts = new Map<string, number>();
+    monthScans.forEach((scan) => counts.set(scan.mlaId, (counts.get(scan.mlaId) ?? 0) + 1));
+
+    return {
+      month,
+      label,
+      value: monthScans.length,
+      contributors: toContributors(counts),
+    };
+  });
+}
+
+function buildReviewsByMonth(year: number, monthsSoFar: number): MonthPoint[] {
+  const random = makeRandom(year * 778899);
+  return MONTH_LABELS.map((label, month) => {
+    if (month >= monthsSoFar) {
       return { month, label, value: 0, contributors: [] };
     }
 
     const counts = new Map<string, number>();
-    const total = 6 + Math.floor(random() * 12);
+    const total = 5 + Math.floor(random() * 14);
     for (let i = 0; i < total; i += 1) {
       const mla = mlaMembers[Math.floor(random() * mlaMembers.length)];
       counts.set(mla.id, (counts.get(mla.id) ?? 0) + 1);
@@ -194,21 +210,22 @@ export const reviewsByMonth: MonthPoint[] = (() => {
 
     return { month, label, value: total, contributors: toContributors(counts) };
   });
-})();
+}
 
-/** Network billing per month in rupees, split by contributing MLA */
-export const billingByMonth: MonthPoint[] = scansByMonth.map((point) => {
+function buildBillingByMonth(scansByMonth: MonthPoint[]): MonthPoint[] {
   const perScan = 1800;
-  const counts = new Map<string, number>();
-  point.contributors.forEach((c) => counts.set(c.id, c.value * perScan));
+  return scansByMonth.map((point) => {
+    const counts = new Map<string, number>();
+    point.contributors.forEach((c) => counts.set(c.id, c.value * perScan));
 
-  return {
-    month: point.month,
-    label: point.label,
-    value: point.value * perScan,
-    contributors: toContributors(counts),
-  };
-});
+    return {
+      month: point.month,
+      label: point.label,
+      value: point.value * perScan,
+      contributors: toContributors(counts),
+    };
+  });
+}
 
 export type PerformanceRow = {
   id: string;
@@ -220,39 +237,103 @@ export type PerformanceRow = {
   billing: number;
 };
 
-/** Last quarter = the 3 most recent months with data */
-export const LAST_QUARTER_MONTHS = [MONTHS_SO_FAR - 3, MONTHS_SO_FAR - 2, MONTHS_SO_FAR - 1];
-
-export const LAST_QUARTER_LABEL = LAST_QUARTER_MONTHS.map((m) => MONTH_LABELS[m]).join(' – ');
-
 export const LOW_PERFORMER_THRESHOLD = 10;
 
-export const performanceRows: PerformanceRow[] = mlaMembers
-  .map((mla) => {
-    const scansYear = networkScans.filter((scan) => scan.mlaId === mla.id).length;
-    const scansQuarter = networkScans.filter(
-      (scan) => scan.mlaId === mla.id && LAST_QUARTER_MONTHS.includes(scan.month)
-    ).length;
-    const reviews = reviewsByMonth.reduce(
-      (sum, point) => sum + (point.contributors.find((c) => c.id === mla.id)?.value ?? 0),
-      0
-    );
+function lastQuarterMonthsForYear(year: number): number[] {
+  const monthsSoFar = monthsForYear(year);
+  return [monthsSoFar - 3, monthsSoFar - 2, monthsSoFar - 1];
+}
 
-    return {
-      id: mla.id,
-      name: mla.name,
-      region: mla.region,
-      scansQuarter,
-      scansYear,
-      reviews,
-      billing: scansYear * 1800,
-    };
-  })
-  .sort((a, b) => b.scansYear - a.scansYear);
+function buildPerformanceRows(
+  yearScans: NetworkScan[],
+  reviewsByMonth: MonthPoint[],
+  lastQuarterMonths: number[]
+): PerformanceRow[] {
+  return mlaMembers
+    .map((mla) => {
+      const scansYear = yearScans.filter((scan) => scan.mlaId === mla.id).length;
+      const scansQuarter = yearScans.filter(
+        (scan) => scan.mlaId === mla.id && lastQuarterMonths.includes(scan.month)
+      ).length;
+      const reviews = reviewsByMonth.reduce(
+        (sum, point) => sum + (point.contributors.find((c) => c.id === mla.id)?.value ?? 0),
+        0
+      );
 
-export const lowPerformers: PerformanceRow[] = performanceRows
-  .filter((row) => row.scansQuarter < LOW_PERFORMER_THRESHOLD)
-  .sort((a, b) => a.scansQuarter - b.scansQuarter);
+      return {
+        id: mla.id,
+        name: mla.name,
+        region: mla.region,
+        scansQuarter,
+        scansYear,
+        reviews,
+        billing: scansYear * 1800,
+      };
+    })
+    .sort((a, b) => b.scansYear - a.scansYear);
+}
+
+export type NetworkYearSnapshot = {
+  year: NetworkYear;
+  monthsSoFar: number;
+  networkScans: NetworkScan[];
+  scansByMonth: MonthPoint[];
+  reviewsByMonth: MonthPoint[];
+  billingByMonth: MonthPoint[];
+  yearTotals: { scans: number; reviews: number; billing: number };
+  performanceRows: PerformanceRow[];
+  lowPerformers: PerformanceRow[];
+  lastQuarterMonths: number[];
+  lastQuarterLabel: string;
+  defaultMonth: number;
+};
+
+export function getNetworkYearSnapshot(year: NetworkYear): NetworkYearSnapshot {
+  const monthsSoFar = monthsForYear(year);
+  const yearScans = allNetworkScans.filter((scan) => scan.year === year);
+  const scansByMonth = buildScansByMonth(yearScans, monthsSoFar);
+  const reviewsByMonth = buildReviewsByMonth(year, monthsSoFar);
+  const billingByMonth = buildBillingByMonth(scansByMonth);
+  const lastQuarterMonths = lastQuarterMonthsForYear(year);
+  const lastQuarterLabel = lastQuarterMonths.map((m) => MONTH_LABELS[m]).join(' – ');
+  const performanceRows = buildPerformanceRows(yearScans, reviewsByMonth, lastQuarterMonths);
+  const lowPerformers = performanceRows
+    .filter((row) => row.scansQuarter < LOW_PERFORMER_THRESHOLD)
+    .sort((a, b) => a.scansQuarter - b.scansQuarter);
+
+  const defaultMonth = Math.max(0, scansByMonth.filter((p) => p.value > 0).length - 1);
+
+  return {
+    year,
+    monthsSoFar,
+    networkScans: yearScans,
+    scansByMonth,
+    reviewsByMonth,
+    billingByMonth,
+    yearTotals: {
+      scans: scansByMonth.reduce((sum, p) => sum + p.value, 0),
+      reviews: reviewsByMonth.reduce((sum, p) => sum + p.value, 0),
+      billing: billingByMonth.reduce((sum, p) => sum + p.value, 0),
+    },
+    performanceRows,
+    lowPerformers,
+    lastQuarterMonths,
+    lastQuarterLabel,
+    defaultMonth,
+  };
+}
+
+/** Backward-compatible exports for the current year */
+const currentYearSnapshot = getNetworkYearSnapshot(NETWORK_YEAR);
+
+export const scansByMonth = currentYearSnapshot.scansByMonth;
+export const reviewsByMonth = currentYearSnapshot.reviewsByMonth;
+export const billingByMonth = currentYearSnapshot.billingByMonth;
+export const yearTotals = currentYearSnapshot.yearTotals;
+export const performanceRows = currentYearSnapshot.performanceRows;
+export const lowPerformers = currentYearSnapshot.lowPerformers;
+export const LAST_QUARTER_MONTHS = currentYearSnapshot.lastQuarterMonths;
+export const LAST_QUARTER_LABEL = currentYearSnapshot.lastQuarterLabel;
 
 export function formatMoney(value: number): string {
   return `₹${value.toLocaleString('en-IN')}`;
@@ -264,9 +345,3 @@ export function formatCompactMoney(value: number): string {
   if (value >= 1000) return `₹${Math.round(value / 1000)}K`;
   return `₹${value}`;
 }
-
-export const yearTotals = {
-  scans: scansByMonth.reduce((sum, p) => sum + p.value, 0),
-  reviews: reviewsByMonth.reduce((sum, p) => sum + p.value, 0),
-  billing: billingByMonth.reduce((sum, p) => sum + p.value, 0),
-};
