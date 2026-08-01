@@ -20,6 +20,7 @@ type HoScanRecord = {
   cost: string;
   images: number;
   processedBy: string;
+  preprocessedBy?: string;
   status: string;
 };
 
@@ -86,6 +87,7 @@ const seedRecords: HoScanRecord[] = [
     cost: '2000.00',
     images: 31,
     processedBy: '9597770205',
+    preprocessedBy: 'Madhu Sharma',
     status: 'In Process',
   },
   {
@@ -262,6 +264,9 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
 
   const rows = grouped[activeSection];
   const meta = sectionMeta[activeSection];
+  const showImages = activeSection !== 'process';
+  const showProcessedBy = activeSection !== 'preprocess' && activeSection !== 'process';
+  const showPreprocessedBy = activeSection === 'process';
 
   const toProcessRecord = (row: HoScanRecord) => ({
     scanId: row.scanId,
@@ -357,8 +362,9 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                 <th>Scan By</th>
                 <th>Report Type</th>
                 <th>Cost</th>
-                <th className="col-center">Images</th>
-                <th>Processed By</th>
+                {showImages ? <th className="col-center">Images</th> : null}
+                {showPreprocessedBy ? <th>Preprocessed By</th> : null}
+                {showProcessedBy ? <th>Processed By</th> : null}
                 <th className="col-center">Status</th>
                 {activeSection === 'download' ? <th className="col-center">Download</th> : null}
                 {activeSection === 'report' ? (
@@ -418,10 +424,13 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                     <td data-label="Scan By">{row.scanBy}</td>
                     <td data-label="Report Type">{row.reportType}</td>
                     <td data-label="Cost">{row.cost}</td>
-                    <td data-label="Images">
-                      <span className="ho-scans-image-count">{row.images}</span>
-                    </td>
-                    <td data-label="Processed By">{row.processedBy}</td>
+                    {showImages ? (
+                      <td data-label="Images">
+                        <span className="ho-scans-image-count">{row.images}</span>
+                      </td>
+                    ) : null}
+                    {showPreprocessedBy ? <td data-label="Preprocessed By">{row.preprocessedBy ?? '—'}</td> : null}
+                    {showProcessedBy ? <td data-label="Processed By">{row.processedBy}</td> : null}
                     <td data-label="Status">
                       <span className="scans-status-chip" style={chip}>
                         {row.status}
@@ -494,7 +503,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
           if (row) {
             updateRecord(
               row.id,
-              { section: 'process', status: 'In Process' },
+              { section: 'process', status: 'In Process', preprocessedBy: 'Madhu Sharma' },
               `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'} · URC/RRC/LFO = 0.`
             );
           }
