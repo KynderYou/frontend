@@ -10,7 +10,6 @@ import { DashboardKpis } from './components/Home/DashboardKpis';
 import { NoticeBoard } from './components/Home/NoticeBoard';
 import { TopPerformers } from './components/Home/TopPerformers';
 import { ProfilePage } from './components/Profile/ProfilePage';
-import { PlaceholderPage } from './components/Placeholder/PlaceholderPage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
 import { ScansMlaPage } from './components/Scans/ScansMlaPage';
 import { ScansHoPage } from './components/Scans/ScansHoPage';
@@ -24,39 +23,13 @@ import { MentorMlasPage } from './components/Mlas/MentorMlasPage';
 import { CommunicationsPage } from './components/Communications/CommunicationsPage';
 import { MisScansPage } from './components/Mis/MisScansPage';
 import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
+import { MisCabPage } from './components/Mis/MisCabPage';
 
 /** Covers iPhone 14 Pro Max (430px) and similar phones / small tablets */
 const MOBILE_QUERY = '(max-width: 860px)';
 
-type PlaceholderViewId = Exclude<
-  AppView,
-  | 'dashboard'
-  | 'profile'
-  | 'ledger'
-  | 'scans-mla'
-  | 'scans-ho'
-  | 'reports'
-  | 'admin-members'
-  | 'trainees'
-  | 'mlas'
-  | 'mentor-trainees'
-  | 'mentor-mlas'
-  | 'mis-communications'
-  | 'mis-scans'
-  | 'mis-network'
->;
-
-/** Stub copy for the sections not yet built out — refine per-page as each is implemented */
-const placeholderPages: Record<PlaceholderViewId, { title: string; subtitle: string; actions?: string[] }> = {
-  'mis-cab': {
-    title: 'MIS · CAB',
-    subtitle: 'Manage CAB debit and delete actions.',
-    actions: ['Debit', 'Delete'],
-  },
-};
-
 /** Views whose panels manage their own scrolling and should fill the viewport height */
-const fillViews = new Set<AppView>(['trainees', 'mlas', 'mis-scans']);
+const fillViews = new Set<AppView>(['trainees', 'mlas', 'mis-scans', 'mis-cab']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
@@ -300,13 +273,12 @@ function App() {
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
-            ) : (
-              <PlaceholderPage
-                {...placeholderPages[view]}
+            ) : view === 'mis-cab' ? (
+              <MisCabPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
-            )}
+            ) : null}
           </main>
         </div>
       </div>

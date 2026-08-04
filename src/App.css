@@ -418,6 +418,75 @@
   min-height: 0;
 }
 
+.trainees-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mis-cab-page .mis-cab-view-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--color-bg-muted, #f1f3f5);
+  border: 1px solid var(--color-divider, #e9ecef);
+}
+
+.mis-cab-view-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #495057);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.mis-cab-view-btn.is-active {
+  background: var(--color-bg-surface, #fff);
+  color: var(--color-primary, #6d7af2);
+  box-shadow: var(--shadow-soft, 0 2px 8px rgba(80, 90, 140, 0.12));
+}
+
+.mis-cab-table {
+  min-width: 880px;
+}
+
+.mis-cab-audio-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mis-cab-audio-play {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.mis-cab-audio-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mis-cab-audio-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary, #212529);
+}
+
+.mis-cab-audio-meta {
+  font-size: 11px;
+  color: var(--color-text-muted, #868e96);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
 .app-main--fill {
   overflow: hidden;
 }
