@@ -76,3 +76,53 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
     signal?.removeEventListener('abort', onAbort);
   }
 }
+
+/** Multipart upload helper — do not set Content-Type (browser adds boundary). */
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  options: { method?: 'POST' | 'PUT' | 'PATCH'; signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<T> {
+  const { method = 'POST', signal, timeoutMs = env.apiTimeoutMs } = options;
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  const onAbort = () => controller.abort();
+  signal?.addEventListener('abort', onAbort);
+
+  const token = getToken();
+
+  try {
+    const response = await fetch(buildUrl(path), {
+      method,
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    const parsed = await parseBody(response);
+
+    if (!response.ok) {
+      throw new ApiError(response.status, response.statusText, parsed);
+    }
+
+    return parsed as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(0, 'Aborted', null, 'Request timed out or was cancelled');
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', onAbort);
+  }
+}

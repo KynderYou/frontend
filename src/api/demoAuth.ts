@@ -25,6 +25,7 @@ export const demoProfile: MemberProfile = {
   mobile_2: '',
   dob: '1990-01-01',
   country: 'India',
+  city: 'Chennai',
   state: 'Tamil Nadu',
   pincode: '600001',
   address: 'Midna Global Head Office',
@@ -44,6 +45,7 @@ export const demoProfile: MemberProfile = {
   mentored_by: '—',
   admin_by: 'System',
   remarks: 'Frontend-only demo account (no backend).',
+  avatar_url: null,
 };
 
 export function isDemoToken(token: string | null | undefined): boolean {

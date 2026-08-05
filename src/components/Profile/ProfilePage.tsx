@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
-import { getMyProfile } from '../../api';
-import type { MemberProfile } from '../../api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  deleteCertification,
+  fetchAuthenticatedAsset,
+  getCertifications,
+  getMyProfile,
+  uploadAvatar,
+} from '../../api';
+import type { Certification, MemberProfile } from '../../api';
 import { buttonTokens, colors, metricColors, radius, severityTokens, spacing, typography } from '../../styles/theme';
-import { EditProfileModal } from './EditProfileModal';
 import { AvatarCropModal } from './AvatarCropModal';
+import { CertificationCard } from './CertificationCard';
+import { ChangePasswordModal } from './ChangePasswordModal';
+import { EditProfileModal } from './EditProfileModal';
 
 const theme = colors.light;
 
@@ -54,6 +62,11 @@ function asStatus(value: string): MemberStatus {
 function asTier(value: string): SubscriptionTier {
   if (value === 'Gold' || value === 'Diamond' || value === 'Platinum' || value === 'Ultima') return value;
   return 'Gold';
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  return response.blob();
 }
 
 type PillProps = {
@@ -232,24 +245,32 @@ function LitePopup({ open, title, children, onClose }: LitePopupProps) {
 
 export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
   const [editOpen, setEditOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [liteSection, setLiteSection] = useState<string | null>(null);
   const [profile, setProfile] = useState<MemberProfile | null>(null);
+  const [certifications, setCertifications] = useState<Certification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
+  const loadProfile = useCallback(async () => {
+    const data = await getMyProfile();
+    setProfile(data);
+    setError('');
+    return data;
+  }, []);
+
+  const loadCertifications = useCallback(async () => {
+    const certs = await getCertifications();
+    setCertifications(certs);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getMyProfile()
-      .then((data) => {
-        if (!cancelled) {
-          setProfile(data);
-          setError('');
-        }
-      })
+    Promise.all([loadProfile(), loadCertifications()])
       .catch(() => {
         if (!cancelled) setError('Unable to load profile.');
       })
@@ -259,7 +280,35 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadProfile, loadCertifications]);
+
+  useEffect(() => {
+    if (!profile?.avatar_url) {
+      setAvatarUrl(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    fetchAuthenticatedAsset(profile.avatar_url)
+      .then((url) => {
+        if (!cancelled) {
+          objectUrl = url;
+          setAvatarUrl(url);
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAvatarUrl(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [profile?.avatar_url]);
 
   useEffect(() => {
     if (!liteSection) return;
@@ -286,9 +335,29 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
     setPendingImage(null);
   };
 
-  const handleCropSave = (dataUrl: string) => {
-    setAvatarUrl(dataUrl);
+  const handleCropSave = async (dataUrl: string) => {
     closeCropModal();
+    try {
+      const blob = await dataUrlToBlob(dataUrl);
+      const updated = await uploadAvatar(blob, 'avatar.jpg');
+      setProfile(updated);
+    } catch {
+      setAvatarUrl(dataUrl);
+    }
+  };
+
+  const handleProfileSaved = async (updated: MemberProfile) => {
+    setProfile(updated);
+    await loadCertifications();
+  };
+
+  const handleDeleteCert = async (certId: number) => {
+    try {
+      await deleteCertification(certId);
+      setCertifications((prev) => prev.filter((c) => c.id !== certId));
+    } catch {
+      /* keep list unchanged on failure */
+    }
   };
 
   if (loading) {
@@ -326,6 +395,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
       {profile.mobile_2 ? <DetailField label="Mobile 2" value={profile.mobile_2} /> : null}
       <DetailField label="Date of Birth" value={formatDate(profile.dob)} />
       <DetailField label="Country" value={profile.country || '—'} />
+      <DetailField label="City" value={profile.city || '—'} />
       <DetailField label="State" value={profile.state || '—'} />
       <DetailField label="Pincode" value={profile.pincode || '—'} />
       <DetailField label="Address" value={profile.address || '—'} />
@@ -600,6 +670,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
               type="button"
               className="btn-pill-secondary"
               style={{ height: buttonTokens.height.sm, padding: buttonTokens.padding.sm, fontSize: 13 }}
+              onClick={() => setPasswordOpen(true)}
             >
               Change password
             </button>
@@ -640,44 +711,60 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
         </p>
 
         <div
+          className={`profile-cert-grid${certifications.length === 1 ? ' profile-cert-grid--single' : ''}`}
           style={{
             marginTop: spacing[5],
             border: 'none',
             borderRadius: radius.lg,
-            padding: spacing[8],
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
+            padding: certifications.length ? spacing[4] : spacing[8],
+            display: certifications.length ? 'grid' : 'flex',
+            flexDirection: certifications.length ? undefined : 'column',
+            alignItems: certifications.length ? undefined : 'center',
+            justifyContent: certifications.length ? undefined : 'center',
+            gap: spacing[4],
             color: theme['text-muted'],
             background: theme['bg-muted'],
-            minHeight: 160,
+            minHeight: certifications.length ? 420 : 160,
           }}
         >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              background: theme['bg-surface'],
-              display: 'grid',
-              placeItems: 'center',
-              color: theme.primary,
-              boxShadow: 'var(--shadow-float)',
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="9" cy="9" r="2" />
-              <path d="m21 15-5-5L5 21" />
-            </svg>
-          </div>
-          <span style={{ fontSize: 13, fontStyle: 'italic' }}>No certifications added yet.</span>
+          {certifications.length === 0 ? (
+            <>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: theme['bg-surface'],
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: theme.primary,
+                  boxShadow: 'var(--shadow-float)',
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-5-5L5 21" />
+                </svg>
+              </div>
+              <span style={{ fontSize: 13, fontStyle: 'italic', textAlign: 'center' }}>No certifications added yet.</span>
+            </>
+          ) : (
+            certifications.map((cert) => (
+              <CertificationCard key={cert.id} cert={cert} onDelete={handleDeleteCert} />
+            ))
+          )}
         </div>
       </div>
 
-      <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} />
+      <EditProfileModal
+        open={editOpen}
+        profile={profile}
+        onClose={() => setEditOpen(false)}
+        onSaved={handleProfileSaved}
+      />
+
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
 
       <LitePopup
         open={Boolean(liteSection)}

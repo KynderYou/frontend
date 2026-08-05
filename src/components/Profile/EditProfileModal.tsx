@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import { updateMyProfile, uploadCertification } from '../../api';
+import type { MemberProfile } from '../../api';
 import { colors, radius, shadow, spacing } from '../../styles/theme';
 
 const theme = colors.light;
 
 type EditProfileModalProps = {
   open: boolean;
+  profile: MemberProfile;
   onClose: () => void;
+  onSaved: (profile: MemberProfile) => void;
 };
 
 type FormState = {
@@ -19,19 +23,6 @@ type FormState = {
   uid: string;
   mailId: string;
   nurturingServices: string;
-};
-
-const initialForm: FormState = {
-  name: 'MiDNA (H.O)',
-  mobileAccounts: '9364233342',
-  mobileCounselling: '9791770205',
-  city: 'Coimbatore',
-  state: 'Tamil Nadu',
-  pincode: '641024',
-  address: '123 Sample Street, Coimbatore',
-  uid: 'C3C3x | C3xA1 | A1A1 | C3C3 | A1A1',
-  mailId: 'midna.global@gmail.com',
-  nurturingServices: 'MiDNA Global, 123 Sample Street, Coimbatore – 641024, Tamil Nadu, India',
 };
 
 const stateOptions = [
@@ -57,11 +48,36 @@ const textFields: { key: FieldKey; label: string; type?: string }[] = [
   { key: 'mailId', label: 'Mail ID', type: 'email' },
 ];
 
-export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
-  const [form, setForm] = useState<FormState>(initialForm);
+function profileToForm(profile: MemberProfile): FormState {
+  return {
+    name: profile.name,
+    mobileAccounts: profile.mobile_1,
+    mobileCounselling: profile.mobile_2,
+    city: profile.city,
+    state: profile.state,
+    pincode: profile.pincode,
+    address: profile.address,
+    uid: profile.uid,
+    mailId: profile.mail_id,
+    nurturingServices: profile.services,
+  };
+}
+
+export function EditProfileModal({ open, profile, onClose, onSaved }: EditProfileModalProps) {
+  const [form, setForm] = useState<FormState>(() => profileToForm(profile));
+  const [certFile, setCertFile] = useState<File | null>(null);
   const [certPreview, setCertPreview] = useState<string | null>(null);
   const [certName, setCertName] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const certInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setForm(profileToForm(profile));
+      setError('');
+    }
+  }, [open, profile]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,6 +99,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
       return null;
     });
     setCertName(null);
+    setCertFile(null);
   }, [open]);
 
   if (!open) return null;
@@ -96,6 +113,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
   const handleCertChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCertFile(file);
     setCertPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
@@ -105,6 +123,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
   };
 
   const clearCert = () => {
+    setCertFile(null);
     setCertPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -112,9 +131,33 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     setCertName(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onClose();
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateMyProfile({
+        name: form.name,
+        mail_id: form.mailId,
+        mobile_1: form.mobileAccounts,
+        mobile_2: form.mobileCounselling,
+        city: form.city,
+        state: form.state,
+        pincode: form.pincode,
+        address: form.address,
+        uid: form.uid,
+        services: form.nurturingServices,
+      });
+      if (certFile) {
+        await uploadCertification(certFile);
+      }
+      onSaved(updated);
+      onClose();
+    } catch {
+      setError('Unable to save profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -140,6 +183,11 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            {error ? (
+              <p role="alert" style={{ color: theme.error, fontSize: 13, marginBottom: spacing[3] }}>
+                {error}
+              </p>
+            ) : null}
             <div className="form-grid">
               {textFields.map((field) => (
                 <label key={field.key} className="form-field">
@@ -193,7 +241,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
               <input
                 ref={certInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept="image/png,image/jpeg,image/webp,application/pdf"
                 onChange={handleCertChange}
                 style={{ display: 'none' }}
               />
@@ -268,17 +316,17 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
                 </button>
               )}
               <span style={{ fontSize: 12, color: theme['text-muted'], marginTop: spacing[1] }}>
-                PNG, JPG, or WebP
+                PNG, JPG, WebP, or PDF
               </span>
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-pill-secondary" onClick={onClose}>
+            <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="btn-pill-primary">
-              Submit
+            <button type="submit" className="btn-pill-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Submit'}
             </button>
           </div>
         </form>

@@ -38,6 +38,7 @@ export type MemberProfile = {
   mobile_2: string;
   dob: string | null;
   country: string;
+  city: string;
   state: string;
   pincode: string;
   address: string;
@@ -57,6 +58,32 @@ export type MemberProfile = {
   mentored_by: string;
   admin_by: string;
   remarks: string;
+  avatar_url: string | null;
+};
+
+export type ProfileUpdatePayload = {
+  name?: string;
+  mail_id?: string;
+  mobile_1?: string;
+  mobile_2?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  address?: string;
+  uid?: string;
+  services?: string;
+};
+
+export type Certification = {
+  id: number;
+  file_name: string;
+  url: string;
+  created_at: string;
+};
+
+export type ChangePasswordPayload = {
+  current_password: string;
+  new_password: string;
 };
 
 export type LoginRequest = {
