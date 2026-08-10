@@ -99,3 +99,37 @@ export type LoginResponse = {
 export type MessageResponse = {
   message: string;
 };
+
+export type DashboardKpis = {
+  scans_this_year: number;
+  scans_total: number;
+  billing_this_year: number | null;
+  billing_total: number | null;
+};
+
+export type DashboardNotice = {
+  id: number;
+  title: string;
+  body: string;
+  severity: 'high' | 'medium' | 'low';
+  author_name: string;
+  author_initials: string;
+  created_at: string;
+  reply_count: number;
+  seen_count: number;
+  has_poll: boolean;
+};
+
+export type TopPerformer = {
+  rank: number;
+  member_id: number;
+  name: string;
+  region: string;
+  scan_count: number;
+};
+
+export type DashboardData = {
+  kpis: DashboardKpis;
+  notices: DashboardNotice[];
+  top_performers: TopPerformer[];
+};

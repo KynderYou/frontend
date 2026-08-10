@@ -6,9 +6,7 @@ import { getThemeCssVars } from './styles/theme';
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileNavDrawer } from './components/Layout/MobileNavDrawer';
 import { isAppView, type AppView } from './components/Layout/navItems';
-import { DashboardKpis } from './components/Home/DashboardKpis';
-import { NoticeBoard } from './components/Home/NoticeBoard';
-import { TopPerformers } from './components/Home/TopPerformers';
+import { HomeDashboard } from './components/Home/HomeDashboard';
 import { ProfilePage } from './components/Profile/ProfilePage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
 import { ScansMlaPage } from './components/Scans/ScansMlaPage';
@@ -200,17 +198,12 @@ function App() {
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
               />
             ) : view === 'dashboard' ? (
-              <>
-                <DashboardKpis
-                  onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                  onOpenProfile={() => navigate('profile')}
-                  onNavigate={navigate}
-                />
-                <div className="home-lower">
-                  <NoticeBoard onReply={openCommunicationThread} />
-                  <TopPerformers />
-                </div>
-              </>
+              <HomeDashboard
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+                onNavigate={navigate}
+                onReply={openCommunicationThread}
+              />
             ) : view === 'ledger' ? (
               <LedgerPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}

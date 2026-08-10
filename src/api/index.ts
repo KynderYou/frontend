@@ -17,6 +17,9 @@ export { DEMO_EMAIL, DEMO_PASSWORD } from './demoAuth';
 export type {
   Certification,
   ChangePasswordPayload,
+  DashboardData,
+  DashboardKpis,
+  DashboardNotice,
   HealthResponse,
   HelloResponse,
   HttpMethod,
@@ -27,4 +30,5 @@ export type {
   MessageResponse,
   ProfileUpdatePayload,
   RequestOptions,
+  TopPerformer,
 } from './types';

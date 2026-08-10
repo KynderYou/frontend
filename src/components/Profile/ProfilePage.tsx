@@ -8,7 +8,7 @@ import {
 } from '../../api';
 import type { Certification, MemberProfile } from '../../api';
 import { buttonTokens, colors, metricColors, radius, severityTokens, spacing, typography } from '../../styles/theme';
-import { AvatarCropModal } from './AvatarCropModal';
+import { EmptyState } from '../common/EmptyState';
 import { CertificationCard } from './CertificationCard';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { EditProfileModal } from './EditProfileModal';
@@ -156,13 +156,21 @@ function DetailField({ label, value }: DetailFieldProps) {
   );
 }
 
+function isBlank(value: string | null | undefined): boolean {
+  if (value == null) return true;
+  const trimmed = String(value).trim();
+  return trimmed === '' || trimmed === '—';
+}
+
 type DetailSectionProps = {
   title: string;
   children: React.ReactNode;
   onOpen?: () => void;
+  empty?: boolean;
+  emptyDescription?: string;
 };
 
-function DetailSection({ title, children, onOpen }: DetailSectionProps) {
+function DetailSection({ title, children, onOpen, empty, emptyDescription }: DetailSectionProps) {
   return (
     <button
       type="button"
@@ -198,7 +206,17 @@ function DetailSection({ title, children, onOpen }: DetailSectionProps) {
           </svg>
         </span>
       </div>
-      <div className="detail-list profile-tile-body">{children}</div>
+      <div className="detail-list profile-tile-body">
+        {empty ? (
+          <EmptyState
+            title="No details yet"
+            description={emptyDescription ?? 'Update your profile to add information here.'}
+            compact
+          />
+        ) : (
+          children
+        )}
+      </div>
     </button>
   );
 }
@@ -491,6 +509,30 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
     </>
   );
 
+  const personalEmpty = [
+    profile.name,
+    profile.mobile_1,
+    profile.mobile_2,
+    profile.dob,
+    profile.country,
+    profile.city,
+    profile.state,
+    profile.pincode,
+    profile.address,
+  ].every(isBlank);
+
+  const membershipEmpty =
+    [profile.doj, profile.mas_type, profile.expiry_date, profile.billing].every(isBlank) && profile.op_bal == null;
+
+  const professionalEmpty =
+    isBlank(profile.uid) &&
+    isBlank(profile.services) &&
+    isBlank(profile.availability) &&
+    isBlank(profile.cr_date) &&
+    !profile.certified;
+
+  const visibilityEmpty = [profile.mrp, profile.branding, profile.mis_training, profile.mentored_by, profile.admin_by, profile.remarks].every(isBlank);
+
   const liteContent: Record<string, React.ReactNode> = {
     'Personal Details': personalFields,
     'Membership & Billing': membershipFields,
@@ -685,19 +727,19 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
           alignItems: 'stretch',
         }}
       >
-        <DetailSection title="Personal Details" onOpen={() => setLiteSection('Personal Details')}>
+        <DetailSection title="Personal Details" onOpen={() => setLiteSection('Personal Details')} empty={personalEmpty} emptyDescription="Add your contact and address details in Edit profile.">
           {personalFields}
         </DetailSection>
 
-        <DetailSection title="Membership & Billing" onOpen={() => setLiteSection('Membership & Billing')}>
+        <DetailSection title="Membership & Billing" onOpen={() => setLiteSection('Membership & Billing')} empty={membershipEmpty} emptyDescription="Membership details are assigned by admin.">
           {membershipFields}
         </DetailSection>
 
-        <DetailSection title="Professional Details" onOpen={() => setLiteSection('Professional Details')}>
+        <DetailSection title="Professional Details" onOpen={() => setLiteSection('Professional Details')} empty={professionalEmpty} emptyDescription="Add your UID and services in Edit profile.">
           {professionalFields}
         </DetailSection>
 
-        <DetailSection title="Visibility & Admin" onOpen={() => setLiteSection('Visibility & Admin')}>
+        <DetailSection title="Visibility & Admin" onOpen={() => setLiteSection('Visibility & Admin')} empty={visibilityEmpty} emptyDescription="Visibility settings are managed by admin.">
           {visibilityFields}
         </DetailSection>
       </div>
@@ -728,27 +770,10 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
           }}
         >
           {certifications.length === 0 ? (
-            <>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: theme['bg-surface'],
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: theme.primary,
-                  boxShadow: 'var(--shadow-float)',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="3" />
-                  <circle cx="9" cy="9" r="2" />
-                  <path d="m21 15-5-5L5 21" />
-                </svg>
-              </div>
-              <span style={{ fontSize: 13, fontStyle: 'italic', textAlign: 'center' }}>No certifications added yet.</span>
-            </>
+            <EmptyState
+              title="No certifications yet"
+              description="Upload certificates from Edit profile."
+            />
           ) : (
             certifications.map((cert) => (
               <CertificationCard key={cert.id} cert={cert} onDelete={handleDeleteCert} />

@@ -1,9 +1,7 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
+import type { DashboardNotice } from '../../api';
 import { colors, layoutTokens, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
-import {
-  getCommunicationsState,
-  subscribeCommunications,
-} from '../Communications/communicationsData';
+import { EmptyState } from '../common/EmptyState';
 
 const theme = colors.light;
 
@@ -30,17 +28,16 @@ const severityIcon: Record<SeverityLevel, React.ReactNode> = {
   ),
 };
 
-export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) => void }) {
-  const { communications } = useSyncExternalStore(
-    subscribeCommunications,
-    getCommunicationsState,
-    getCommunicationsState
-  );
-  const [acknowledged, setAcknowledged] = useState<Record<string, boolean>>({});
+type NoticeBoardProps = {
+  notices: DashboardNotice[];
+  loading?: boolean;
+  onReply?: (communicationId: string) => void;
+};
 
-  const notices = communications;
+export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
+  const [acknowledged, setAcknowledged] = useState<Record<number, boolean>>({});
 
-  const toggleAcknowledged = (id: string) => {
+  const toggleAcknowledged = (id: number) => {
     setAcknowledged((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -114,10 +111,15 @@ export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) =
           marginRight: -4,
         }}
       >
-        {notices.length === 0 ? (
-          <p style={{ margin: 'auto 0', textAlign: 'center', fontSize: 13, color: theme['text-muted'] }}>
-            No notices yet. Publish one from Communications.
+        {loading ? (
+          <p style={{ margin: 'auto 0', textAlign: 'center', fontSize: 13, color: theme['text-secondary'] }}>
+            Loading notices…
           </p>
+        ) : notices.length === 0 ? (
+          <EmptyState
+            title="No notices yet"
+            description="Publish one from Communications to share updates with everyone."
+          />
         ) : (
           notices.map((notice) => {
             const tone = severityTokens[notice.severity];
@@ -171,7 +173,7 @@ export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) =
                       {notice.body}
                     </p>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
                       <div
                         style={{
                           width: 24,
@@ -187,16 +189,16 @@ export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) =
                           boxShadow: shadow.float,
                         }}
                       >
-                        {notice.authorInitials}
+                        {notice.author_initials}
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-primary'] }}>{notice.author}</span>
-                      <span style={{ fontSize: 12, color: theme['text-muted'] }}>· {notice.createdAt}</span>
-                      {notice.replies.length > 0 && (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-primary'] }}>{notice.author_name}</span>
+                      <span style={{ fontSize: 12, color: theme['text-muted'] }}>· {notice.created_at}</span>
+                      {notice.reply_count > 0 && (
                         <span style={{ fontSize: 12, color: theme['text-muted'] }}>
-                          · {notice.replies.length} repl{notice.replies.length === 1 ? 'y' : 'ies'}
+                          · {notice.reply_count} repl{notice.reply_count === 1 ? 'y' : 'ies'}
                         </span>
                       )}
-                      {notice.poll && (
+                      {notice.has_poll && (
                         <span
                           style={{
                             fontSize: 11,
@@ -216,7 +218,7 @@ export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) =
                           <button
                             type="button"
                             className="notice-ack-btn"
-                            onClick={() => onReply(notice.id)}
+                            onClick={() => onReply(String(notice.id))}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -264,8 +266,8 @@ export function NoticeBoard({ onReply }: { onReply?: (communicationId: string) =
                             <path d="M20 6 9 17l-5-5" />
                           </svg>
                           {acknowledged[notice.id]
-                            ? `Read · ${notice.seenCount + 1}`
-                            : `Mark as read · ${notice.seenCount}`}
+                            ? `Read · ${notice.seen_count + 1}`
+                            : `Mark as read · ${notice.seen_count}`}
                         </button>
                       </div>
                     </div>
