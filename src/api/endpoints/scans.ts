@@ -2,7 +2,8 @@ import { fetchAuthenticatedAsset } from '../assetUrl';
 import { apiClient, apiUpload } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
-import type { MlaScan, MlaScanUpdatePayload } from '../types';
+import { isApiError } from '../errors';
+import type { HoScan, HoScanActionPayload, MlaScan, MlaScanUpdatePayload } from '../types';
 
 /** GET /api/scans/me */
 export async function getMyMlaScans(signal?: AbortSignal): Promise<MlaScan[]> {
@@ -81,4 +82,27 @@ export async function resolveMlaScanImages(scan: MlaScan): Promise<MlaScan> {
 
 export async function resolveMlaScanListImages(scans: MlaScan[]): Promise<MlaScan[]> {
   return Promise.all(scans.map((scan) => resolveMlaScanImages(scan)));
+}
+
+/** GET /api/scans/ho */
+export async function getHoScans(signal?: AbortSignal): Promise<HoScan[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<HoScan[]>('/api/scans/ho', { signal });
+}
+
+/** POST /api/scans/ho/{id}/action */
+export async function hoScanAction(scanId: number, body: HoScanActionPayload): Promise<HoScan | null> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Action not available in demo mode');
+  }
+  try {
+    return await apiClient<HoScan>(`/api/scans/ho/${scanId}/action`, { method: 'POST', body });
+  } catch (error) {
+    if (body.action === 'delete' && isApiError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }

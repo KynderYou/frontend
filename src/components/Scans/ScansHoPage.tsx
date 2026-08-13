@@ -1,34 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getHoScans, hoScanAction } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { ProcessScanModal, type ProcessScanMode } from './ProcessScanModal';
+import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
+import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload } from './ProcessScanModal';
 
 const theme = colors.light;
-
-type HoSectionId = 'preprocess' | 'process' | 'verify' | 'download' | 'report';
-
-type HoScanRecord = {
-  id: string;
-  section: HoSectionId;
-  scanId: string;
-  name: string;
-  gender?: string;
-  age?: string;
-  scanBy: string;
-  reportType: string;
-  cost: string;
-  images: number;
-  processedBy: string;
-  preprocessedBy?: string;
-  mainPattern?: string;
-  subPattern?: string;
-  urc?: number;
-  rrc?: number;
-  lfo?: number;
-  finger?: string;
-  status: string;
-};
 
 type ScansHoPageProps = {
   onOpenMobileMenu?: () => void;
@@ -66,81 +45,6 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
   },
 };
 
-const seedRecords: HoScanRecord[] = [
-  {
-    id: 'ho-1',
-    section: 'preprocess',
-    scanId: 'S42667',
-    name: 'TEST - FEMALE',
-    gender: 'F',
-    age: '27',
-    scanBy: 'Rathinaswamy A',
-    reportType: 'Dermatoglyphics',
-    cost: '3000.00',
-    images: 10,
-    processedBy: '9597770205',
-    status: 'Pending Preprocess',
-  },
-  {
-    id: 'ho-2',
-    section: 'process',
-    scanId: 'S42668',
-    name: 'ANMOL VIJ',
-    gender: 'M',
-    age: '39',
-    scanBy: 'Rathinaswamy A',
-    reportType: 'Business',
-    cost: '2000.00',
-    images: 31,
-    processedBy: '9597770205',
-    preprocessedBy: 'Madhu Sharma',
-    status: 'In Process',
-  },
-  {
-    id: 'ho-3',
-    section: 'verify',
-    scanId: 'S42669',
-    name: 'RIYA SARAVANAN /10',
-    scanBy: 'Team Mentor',
-    reportType: 'Student',
-    cost: '1500.00',
-    images: 12,
-    processedBy: '9345678901',
-    preprocessedBy: 'Madhu Sharma',
-    mainPattern: 'Loop',
-    subPattern: 'Ulnar Loop',
-    urc: 12,
-    rrc: 8,
-    lfo: 0,
-    finger: 'L1',
-    status: 'Awaiting Verification',
-  },
-  {
-    id: 'ho-4',
-    section: 'download',
-    scanId: 'S42670',
-    name: 'RUDRA VIJ /12',
-    scanBy: 'SELF',
-    reportType: 'Institution',
-    cost: '2000.00',
-    images: 15,
-    processedBy: '9345678901',
-    status: 'Ready to Download',
-  },
-  {
-    id: 'ho-5',
-    section: 'report',
-    scanId: 'S42671',
-    name: 'MEERA /18',
-    scanBy: 'SELF',
-    reportType: 'Career',
-    cost: '2500.00',
-    images: 14,
-    processedBy: '9090909090',
-    status: 'Awaiting Report Upload',
-  },
-];
-
 function hoStatusStyles(status: string) {
   const value = status.toLowerCase();
   if (value.includes('completed') || value.includes('verified') || value.includes('uploaded') || value.includes('debited') || value.includes('downloaded')) {
@@ -153,6 +57,17 @@ function hoStatusStyles(status: string) {
     return { color: theme.error, background: theme['error-bg'] };
   }
   return { color: theme.primary, background: theme['primary-soft'] };
+}
+
+function actionPayloadFromProcess(record: ProcessScanPayload) {
+  return {
+    main_pattern: record.mainPattern,
+    sub_pattern: record.subPattern,
+    finger: record.finger,
+    urc: record.urc,
+    rrc: record.rrc,
+    lfo: record.lfo,
+  };
 }
 
 function HoDeleteScanModal({
@@ -234,11 +149,33 @@ function HoDeleteScanModal({
 
 export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProps) {
   const [activeSection, setActiveSection] = useState<HoSectionId>('preprocess');
-  const [records, setRecords] = useState<HoScanRecord[]>(seedRecords);
+  const [records, setRecords] = useState<HoScanRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
   const [panelMode, setPanelMode] = useState<ProcessScanMode>('process');
+
+  const loadScans = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const scans = await getHoScans(signal);
+      setRecords(hoScanListToRecords(scans));
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load Head Office scans.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadScans(controller.signal);
+    return () => controller.abort();
+  }, [loadScans]);
 
   const openFingerprintPanel = (row: HoScanRecord, mode: ProcessScanMode) => {
     setPanelMode(mode);
@@ -265,14 +202,30 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
     [records]
   );
 
-  const updateRecord = (id: string, patch: Partial<HoScanRecord>, message: string) => {
-    setRecords((prev) => prev.map((record) => (record.id === id ? { ...record, ...patch } : record)));
-    setNotice(message);
-  };
-
-  const removeRecord = (record: HoScanRecord) => {
-    setRecords((prev) => prev.filter((item) => item.id !== record.id));
-    setNotice(`Scan ${record.scanId} deleted from report upload.`);
+  const runAction = async (
+    row: HoScanRecord,
+    action: string,
+    fields?: ReturnType<typeof actionPayloadFromProcess>,
+    message?: string,
+  ) => {
+    if (acting) return;
+    setActing(true);
+    try {
+      const result = await hoScanAction(row.numericId, { action, ...fields });
+      const defaultMessage = `Scan ${row.scanId} updated.`;
+      if (result === null) {
+        setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
+        setNotice(message ?? `Scan ${row.scanId} deleted from report upload.`);
+      } else {
+        const mapped = hoScanListToRecords([result]);
+        setRecords((prev) => prev.map((item) => (item.numericId === row.numericId ? mapped[0] : item)));
+        setNotice(message ?? defaultMessage);
+      }
+    } catch {
+      setNotice('Action failed. Please try again.');
+    } finally {
+      setActing(false);
+    }
   };
 
   const rows = grouped[activeSection];
@@ -362,6 +315,12 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         </div>
       )}
 
+      {loadError && (
+        <p role="alert" style={{ margin: `0 0 ${spacing[4]}`, color: theme.error, fontSize: 14 }}>
+          {loadError}
+        </p>
+      )}
+
       <div className="dash-card scans-table-card ho-scans-card">
         <div className="scans-card-head">
           <div>
@@ -371,145 +330,159 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
           <span className="scans-card-meta">{rows.length}</span>
         </div>
 
-        <div className="scans-table-wrap">
-          <table className="scans-table ho-scans-table">
-            <thead>
-              <tr>
-                <th>Sno</th>
-                <th>Scan Id</th>
-                <th>Name</th>
-                <th>Scan By</th>
-                <th>Report Type</th>
-                <th>Cost</th>
-                {showImages ? <th className="col-center">Images</th> : null}
-                {showPreprocessedBy ? <th>Preprocessed By</th> : null}
-                {showProcessedBy ? <th>Processed By</th> : null}
-                <th className="col-center">Status</th>
-                {activeSection === 'download' ? <th className="col-center">Download</th> : null}
-                {activeSection === 'report' ? (
-                  <>
-                    <th className="col-center">Upload</th>
-                    <th className="col-center">DDS</th>
-                    <th className="col-center">Debit</th>
-                    <th className="col-center">Delete Scan</th>
-                  </>
-                ) : null}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => {
-                const chip = hoStatusStyles(row.status);
-                return (
-                  <tr
-                    key={row.id}
-                    className={canOpenFingerprint ? 'ho-scans-row-clickable' : undefined}
-                    onClick={
-                      canOpenFingerprint
-                        ? () => openFingerprintPanel(row, activeSection as ProcessScanMode)
-                        : undefined
-                    }
-                    onKeyDown={
-                      canOpenFingerprint
-                        ? (e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              openFingerprintPanel(row, activeSection as ProcessScanMode);
+        {loading ? (
+          <EmptyState title="Loading scans…" compact />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            title={`No scans in ${sectionLabels[activeSection]}`}
+            description="Exported MLA scans will appear here when they reach this Head Office stage."
+            compact
+          />
+        ) : (
+          <div className="scans-table-wrap">
+            <table className="scans-table ho-scans-table">
+              <thead>
+                <tr>
+                  <th>Sno</th>
+                  <th>Scan Id</th>
+                  <th>Name</th>
+                  <th>Scan By</th>
+                  <th>Report Type</th>
+                  <th>Cost</th>
+                  {showImages ? <th className="col-center">Images</th> : null}
+                  {showPreprocessedBy ? <th>Preprocessed By</th> : null}
+                  {showProcessedBy ? <th>Processed By</th> : null}
+                  <th className="col-center">Status</th>
+                  {activeSection === 'download' ? <th className="col-center">Download</th> : null}
+                  {activeSection === 'report' ? (
+                    <>
+                      <th className="col-center">Upload</th>
+                      <th className="col-center">DDS</th>
+                      <th className="col-center">Debit</th>
+                      <th className="col-center">Delete Scan</th>
+                    </>
+                  ) : null}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => {
+                  const chip = hoStatusStyles(row.status);
+                  return (
+                    <tr
+                      key={row.id}
+                      className={canOpenFingerprint ? 'ho-scans-row-clickable' : undefined}
+                      onClick={
+                        canOpenFingerprint
+                          ? () => openFingerprintPanel(row, activeSection as ProcessScanMode)
+                          : undefined
+                      }
+                      onKeyDown={
+                        canOpenFingerprint
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                openFingerprintPanel(row, activeSection as ProcessScanMode);
+                              }
                             }
-                          }
-                        : undefined
-                    }
-                    tabIndex={canOpenFingerprint ? 0 : undefined}
-                    role={canOpenFingerprint ? 'button' : undefined}
-                    aria-label={canOpenFingerprint ? `Open fingerprint panel for ${row.scanId}` : undefined}
-                  >
-                    <td data-label="Sno">{index + 1}</td>
-                    <td data-label="Scan Id">
-                      {canOpenFingerprint ? (
-                        <button
-                          type="button"
-                          className="ho-scans-scan-id-link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openFingerprintPanel(row, activeSection as ProcessScanMode);
-                          }}
-                        >
-                          {row.scanId}
-                        </button>
-                      ) : (
-                        row.scanId
-                      )}
-                    </td>
-                    <td data-label="Name">{row.name}</td>
-                    <td data-label="Scan By">{row.scanBy}</td>
-                    <td data-label="Report Type">{row.reportType}</td>
-                    <td data-label="Cost">{row.cost}</td>
-                    {showImages ? (
-                      <td data-label="Images">
-                        <span className="ho-scans-image-count">{row.images}</span>
-                      </td>
-                    ) : null}
-                    {showPreprocessedBy ? <td data-label="Preprocessed By">{row.preprocessedBy ?? '—'}</td> : null}
-                    {showProcessedBy ? <td data-label="Processed By">{row.processedBy}</td> : null}
-                    <td data-label="Status">
-                      <span className="scans-status-chip" style={chip}>
-                        {row.status}
-                      </span>
-                    </td>
-
-                    {activeSection === 'download' ? (
-                      <td data-label="Download" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="scans-action-btn"
-                          onClick={() => updateRecord(row.id, { status: 'Downloaded' }, `Excel download started for ${row.scanId}.`)}
-                        >
-                          Download as XL
-                        </button>
-                      </td>
-                    ) : null}
-
-                    {activeSection === 'report' ? (
-                      <>
-                        <td data-label="Upload" onClick={(e) => e.stopPropagation()}>
+                          : undefined
+                      }
+                      tabIndex={canOpenFingerprint ? 0 : undefined}
+                      role={canOpenFingerprint ? 'button' : undefined}
+                      aria-label={canOpenFingerprint ? `Open fingerprint panel for ${row.scanId}` : undefined}
+                    >
+                      <td data-label="Sno">{index + 1}</td>
+                      <td data-label="Scan Id">
+                        {canOpenFingerprint ? (
                           <button
                             type="button"
-                            className="scans-action-btn scans-action-export"
-                            onClick={() => updateRecord(row.id, { status: 'Uploaded' }, `Report uploaded for ${row.scanId}.`)}
+                            className="ho-scans-scan-id-link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFingerprintPanel(row, activeSection as ProcessScanMode);
+                            }}
                           >
-                            Upload
+                            {row.scanId}
                           </button>
+                        ) : (
+                          row.scanId
+                        )}
+                      </td>
+                      <td data-label="Name">{row.name}</td>
+                      <td data-label="Scan By">{row.scanBy}</td>
+                      <td data-label="Report Type">{row.reportType}</td>
+                      <td data-label="Cost">{row.cost}</td>
+                      {showImages ? (
+                        <td data-label="Images">
+                          <span className="ho-scans-image-count">{row.images}</span>
                         </td>
-                        <td data-label="DDS" onClick={(e) => e.stopPropagation()}>
+                      ) : null}
+                      {showPreprocessedBy ? <td data-label="Preprocessed By">{row.preprocessedBy ?? '—'}</td> : null}
+                      {showProcessedBy ? <td data-label="Processed By">{row.processedBy}</td> : null}
+                      <td data-label="Status">
+                        <span className="scans-status-chip" style={chip}>
+                          {row.status}
+                        </span>
+                      </td>
+
+                      {activeSection === 'download' ? (
+                        <td data-label="Download" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             className="scans-action-btn"
-                            onClick={() => updateRecord(row.id, { status: 'DDS Done' }, `DDS marked for ${row.scanId}.`)}
+                            disabled={acting}
+                            onClick={() => runAction(row, 'download', undefined, `Excel download started for ${row.scanId}.`)}
                           >
-                            DDS
+                            Download as XL
                           </button>
                         </td>
-                        <td data-label="Debit" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            className="scans-action-btn"
-                            onClick={() => updateRecord(row.id, { status: 'Debited' }, `Debit recorded for ${row.scanId}.`)}
-                          >
-                            Debit
-                          </button>
-                        </td>
-                        <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" className="scans-action-btn scans-action-danger" onClick={() => setDeleteTarget(row)}>
-                            Delete scan
-                          </button>
-                        </td>
-                      </>
-                    ) : null}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      ) : null}
+
+                      {activeSection === 'report' ? (
+                        <>
+                          <td data-label="Upload" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="scans-action-btn scans-action-export"
+                              disabled={acting}
+                              onClick={() => runAction(row, 'upload', undefined, `Report uploaded for ${row.scanId}.`)}
+                            >
+                              Upload
+                            </button>
+                          </td>
+                          <td data-label="DDS" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="scans-action-btn"
+                              disabled={acting}
+                              onClick={() => runAction(row, 'dds', undefined, `DDS marked for ${row.scanId}.`)}
+                            >
+                              DDS
+                            </button>
+                          </td>
+                          <td data-label="Debit" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="scans-action-btn"
+                              disabled={acting}
+                              onClick={() => runAction(row, 'debit', undefined, `Debit recorded for ${row.scanId}.`)}
+                            >
+                              Debit
+                            </button>
+                          </td>
+                          <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="scans-action-btn scans-action-danger" disabled={acting} onClick={() => setDeleteTarget(row)}>
+                              Delete scan
+                            </button>
+                          </td>
+                        </>
+                      ) : null}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <ProcessScanModal
@@ -520,19 +493,10 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         onAccept={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
           if (row) {
-            updateRecord(
-              row.id,
-              {
-                section: 'process',
-                status: 'In Process',
-                preprocessedBy: 'Madhu Sharma',
-                mainPattern: record.mainPattern,
-                subPattern: record.subPattern,
-                finger: record.finger,
-                urc: 0,
-                rrc: 0,
-                lfo: 0,
-              },
+            void runAction(
+              row,
+              'accept',
+              actionPayloadFromProcess(record),
               `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'} · URC/RRC/LFO = 0.`
             );
           }
@@ -540,37 +504,30 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         onReject={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
           if (!row) return;
-          if (panelMode === 'verify') {
-            updateRecord(row.id, { status: 'Rejected' }, `Scan ${record.scanId} rejected in verify.`);
-          } else {
-            updateRecord(row.id, { status: 'Rejected' }, `Scan ${record.scanId} rejected in preprocess.`);
-          }
+          void runAction(
+            row,
+            'reject',
+            actionPayloadFromProcess(record),
+            panelMode === 'verify'
+              ? `Scan ${record.scanId} rejected in verify.`
+              : `Scan ${record.scanId} rejected in preprocess.`
+          );
         }}
         onComplete={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
           if (!row) return;
-          if (panelMode === 'verify') {
-            updateRecord(row.id, { section: 'download', status: 'Ready to Download' }, `Scan ${record.scanId} verified.`);
-          } else {
-            updateRecord(
-              row.id,
-              {
-                section: 'verify',
-                status: 'Awaiting Verification',
-                mainPattern: record.mainPattern,
-                subPattern: record.subPattern,
-                finger: record.finger,
-                urc: record.urc,
-                rrc: record.rrc,
-                lfo: record.lfo,
-              },
-              `Scan ${record.scanId} completed · moved to Verify.`
-            );
-          }
+          void runAction(
+            row,
+            'complete',
+            actionPayloadFromProcess(record),
+            panelMode === 'verify'
+              ? `Scan ${record.scanId} verified.`
+              : `Scan ${record.scanId} completed · moved to Verify.`
+          );
         }}
         onReview={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) updateRecord(row.id, { status: 'To be reviewed' }, `Scan ${record.scanId} moved to review.`);
+          if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} moved to review.`);
         }}
       />
 
@@ -578,7 +535,9 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         open={Boolean(deleteTarget)}
         record={deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={removeRecord}
+        onConfirm={(record) => {
+          void runAction(record, 'delete');
+        }}
       />
     </section>
   );

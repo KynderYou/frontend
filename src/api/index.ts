@@ -23,6 +23,8 @@ export type {
   HealthResponse,
   HelloResponse,
   HttpMethod,
+  LedgerData,
+  LedgerEntryRow,
   LoginRequest,
   LoginResponse,
   Member,

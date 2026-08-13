@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  createCommGroup,
+  deleteCommGroup,
+  getCommunicationsState as fetchCommunicationsState,
+  publishCommunication as publishCommunicationApi,
+  replyToCommunication as replyToCommunicationApi,
+  voteOnPoll as voteOnPollApi,
+} from '../../api';
 import {
   colors,
   radius,
@@ -7,21 +15,17 @@ import {
   severityTokens,
   type SeverityLevel,
 } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { mapCommunicationsState } from './communicationsApiMapper';
 import {
   audienceLabel,
-  commMembers,
-  createGroup,
-  deleteGroup,
-  getCommunicationsState,
   pollTotalVotes,
-  publishCommunication,
-  replyToCommunication,
   sortCommunicationReplies,
-  subscribeCommunications,
-  voteOnPoll,
   type AudienceMode,
+  type CommGroup,
+  type CommMember,
   type Communication,
 } from './communicationsData';
 
@@ -37,17 +41,18 @@ type CommunicationsPageProps = {
 
 type TabId = 'compose' | 'groups' | 'sent';
 
-function useCommunicationsStore() {
-  return useSyncExternalStore(subscribeCommunications, getCommunicationsState, getCommunicationsState);
-}
-
 export function CommunicationsPage({
   onOpenMobileMenu,
   onOpenProfile,
   initialThreadId = null,
   onThreadSelect,
 }: CommunicationsPageProps) {
-  const { groups, communications } = useCommunicationsStore();
+  const [groups, setGroups] = useState<CommGroup[]>([]);
+  const [communications, setCommunications] = useState<Communication[]>([]);
+  const [members, setMembers] = useState<CommMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState<TabId>(initialThreadId ? 'sent' : 'compose');
   const [selectedId, setSelectedId] = useState<string | null>(initialThreadId);
 
@@ -73,6 +78,31 @@ export function CommunicationsPage({
   const [replyError, setReplyError] = useState('');
   const [seenModalItem, setSeenModalItem] = useState<Communication | null>(null);
 
+  const applyState = useCallback((state: ReturnType<typeof mapCommunicationsState>) => {
+    setGroups(state.groups);
+    setCommunications(state.communications);
+    setMembers(state.members);
+  }, []);
+
+  const loadState = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const state = await fetchCommunicationsState(signal);
+      applyState(mapCommunicationsState(state));
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load communications.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [applyState]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadState(controller.signal);
+    return () => controller.abort();
+  }, [loadState]);
+
   useEffect(() => {
     if (!initialThreadId) return;
     setTab('sent');
@@ -92,14 +122,14 @@ export function CommunicationsPage({
 
   const filteredPeople = useMemo(() => {
     const q = peopleQuery.trim().toLowerCase();
-    if (!q) return commMembers;
-    return commMembers.filter(
+    if (!q) return members;
+    return members.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.email.toLowerCase().includes(q) ||
         m.role.toLowerCase().includes(q)
     );
-  }, [peopleQuery]);
+  }, [peopleQuery, members]);
 
   const selectThread = (id: string) => {
     setSelectedId(id);
@@ -132,7 +162,7 @@ export function CommunicationsPage({
     setPollOptions((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     setComposeNotice('');
     if (!title.trim() || !body.trim()) {
       setComposeError('Add a title and message before publishing.');
@@ -154,37 +184,43 @@ export function CommunicationsPage({
       }
     }
 
-    const created = publishCommunication({
-      title,
-      body,
-      severity,
-      audienceMode,
-      recipientIds: selectedPeople,
-      groupIds: audienceMode === 'groups' ? selectedGroupIds : [],
-      poll: includePoll
-        ? {
-            question: pollQuestion,
-            options: pollOptions,
-          }
-        : null,
-    });
+    setSubmitting(true);
+    try {
+      const state = await publishCommunicationApi({
+        title,
+        body,
+        severity,
+        audience_mode: audienceMode,
+        recipient_ids: selectedPeople.map(Number),
+        group_ids: selectedGroupIds.map(Number),
+        poll_question: includePoll ? pollQuestion : null,
+        poll_options: includePoll ? pollOptions : [],
+      });
+      const mapped = mapCommunicationsState(state);
+      applyState(mapped);
+      const created = mapped.communications[0];
 
-    setTitle('');
-    setBody('');
-    setSeverity('medium');
-    setAudienceMode('everyone');
-    setSelectedPeople([]);
-    setSelectedGroupIds([]);
-    setIncludePoll(false);
-    setPollQuestion('');
-    setPollOptions(['', '']);
-    setComposeError('');
-    setComposeNotice('Published — it will show on the dashboard notice board.');
-    setTab('sent');
-    selectThread(created.id);
+      setTitle('');
+      setBody('');
+      setSeverity('medium');
+      setAudienceMode('everyone');
+      setSelectedPeople([]);
+      setSelectedGroupIds([]);
+      setIncludePoll(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
+      setComposeError('');
+      setComposeNotice('Published — it will show on the dashboard notice board.');
+      setTab('sent');
+      if (created) selectThread(created.id);
+    } catch {
+      setComposeError('Publish failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       setGroupError('Enter a group name.');
       return;
@@ -193,23 +229,70 @@ export function CommunicationsPage({
       setGroupError('Select at least one member for the group.');
       return;
     }
-    const created = createGroup(groupName, groupMembers);
-    setGroupName('');
-    setGroupMembers([]);
-    setGroupError('');
-    setSelectedGroupIds((prev) => [...prev, created.id]);
-    setComposeNotice(`Group “${created.name}” created. You can broadcast to it from Compose.`);
+    setSubmitting(true);
+    try {
+      const state = await createCommGroup(groupName, groupMembers.map(Number));
+      const mapped = mapCommunicationsState(state);
+      applyState(mapped);
+      const created = mapped.groups[0];
+      setGroupName('');
+      setGroupMembers([]);
+      setGroupError('');
+      if (created) {
+        setSelectedGroupIds((prev) => [...prev, created.id]);
+        setComposeNotice(`Group “${created.name}” created. You can broadcast to it from Compose.`);
+      }
+    } catch {
+      setGroupError('Could not create group. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     if (!selected) return;
     setReplyError('');
-    const reply = replyToCommunication(selected.id, replyDraft);
-    if (!reply) {
+    const text = replyDraft.trim();
+    if (!text) {
       setReplyError('Write a reply before sending.');
       return;
     }
-    setReplyDraft('');
+    setSubmitting(true);
+    try {
+      const state = await replyToCommunicationApi(Number(selected.id), text);
+      applyState(mapCommunicationsState(state));
+      setReplyDraft('');
+    } catch {
+      setReplyError('Reply failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVote = async (optionId: string) => {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      const state = await voteOnPollApi(Number(selected.id), Number(optionId));
+      applyState(mapCommunicationsState(state));
+    } catch {
+      setReplyError('Vote failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    setSubmitting(true);
+    try {
+      const state = await deleteCommGroup(Number(groupId));
+      applyState(mapCommunicationsState(state));
+      setSelectedGroupIds((prev) => prev.filter((id) => id !== groupId));
+    } catch {
+      setGroupError('Could not delete group. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -264,6 +347,12 @@ export function CommunicationsPage({
           </button>
         ))}
       </div>
+
+      {loadError && (
+        <p role="alert" style={{ margin: `0 0 ${spacing[4]}`, color: theme.error, fontSize: 14 }}>
+          {loadError}
+        </p>
+      )}
 
       {composeNotice && (
         <p
@@ -445,8 +534,9 @@ export function CommunicationsPage({
                 className="btn-pill-primary"
                 style={{ height: 36, fontSize: 13, padding: '8px 16px' }}
                 onClick={handlePublish}
+                disabled={submitting}
               >
-                Publish notice
+                {submitting ? 'Publishing…' : 'Publish notice'}
               </button>
             </div>
           </div>
@@ -486,7 +576,7 @@ export function CommunicationsPage({
               <div className="comm-groups-field">
                 <span className="comm-groups-label">Members</span>
                 <div className="comm-groups-members">
-                  {commMembers.map((member) => {
+                  {members.map((member) => {
                     const checked = groupMembers.includes(member.id);
                     return (
                       <label
@@ -512,8 +602,8 @@ export function CommunicationsPage({
               )}
             </div>
             <div className="comm-groups-form-foot">
-              <button type="button" className="btn-pill-secondary comm-groups-save" onClick={handleCreateGroup}>
-                Save group
+              <button type="button" className="btn-pill-secondary comm-groups-save" onClick={handleCreateGroup} disabled={submitting}>
+                {submitting ? 'Saving…' : 'Save group'}
               </button>
             </div>
           </div>
@@ -524,7 +614,7 @@ export function CommunicationsPage({
               <p className="comm-groups-card-subtitle">Reuse recipient lists for broadcasts.</p>
             </div>
             {groups.length === 0 ? (
-              <p className="comm-groups-empty">No groups yet.</p>
+              <EmptyState title="No groups yet" description="Create a group to reuse recipient lists." compact />
             ) : (
               <ul className="comm-groups-list">
                 {groups.map((group) => (
@@ -538,7 +628,8 @@ export function CommunicationsPage({
                     <button
                       type="button"
                       className="btn-pill-secondary comm-groups-delete"
-                      onClick={() => deleteGroup(group.id)}
+                      onClick={() => handleDeleteGroup(group.id)}
+                      disabled={submitting}
                     >
                       Delete
                     </button>
@@ -559,10 +650,10 @@ export function CommunicationsPage({
                 {communications.length} broadcast{communications.length === 1 ? '' : 's'}
               </p>
             </div>
-            {communications.length === 0 ? (
-              <p style={{ padding: spacing[8], margin: 0, textAlign: 'center', color: theme['text-muted'] }}>
-                Nothing sent yet.
-              </p>
+            {loading ? (
+              <EmptyState title="Loading notices…" compact />
+            ) : communications.length === 0 ? (
+              <EmptyState title="Nothing sent yet" description="Published notices will appear here." compact />
             ) : (
               <ul className="comm-sent-scroll" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {communications.map((item) => {
@@ -611,7 +702,7 @@ export function CommunicationsPage({
                 replyError={replyError}
                 onReplyDraftChange={setReplyDraft}
                 onReply={handleReply}
-                onVote={(optionId) => voteOnPoll(selected.id, optionId)}
+                onVote={handleVote}
                 onOpenSeenBy={() => setSeenModalItem(selected)}
               />
             )}
@@ -640,12 +731,12 @@ function AudiencePanel({
 }: {
   audienceMode: AudienceMode;
   setAudienceMode: (mode: AudienceMode) => void;
-  filteredPeople: typeof commMembers;
+  filteredPeople: CommMember[];
   peopleQuery: string;
   setPeopleQuery: (value: string) => void;
   selectedPeople: string[];
   togglePerson: (id: string) => void;
-  groups: ReturnType<typeof getCommunicationsState>['groups'];
+  groups: CommGroup[];
   selectedGroupIds: string[];
   toggleSelectedGroup: (id: string) => void;
 }) {

@@ -6,12 +6,16 @@ const theme = colors.light;
 type TopUpModalProps = {
   open: boolean;
   onClose: () => void;
+  onSubmit?: (amount: string, proof: File) => Promise<void>;
+  submitting?: boolean;
+  error?: string;
 };
 
-export function TopUpModal({ open, onClose }: TopUpModalProps) {
+export function TopUpModal({ open, onClose, onSubmit, submitting = false, error = '' }: TopUpModalProps) {
   const [amount, setAmount] = useState('');
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [proofName, setProofName] = useState<string | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -35,6 +39,7 @@ export function TopUpModal({ open, onClose }: TopUpModalProps) {
       return null;
     });
     setProofName(null);
+    setProofFile(null);
   }, [open]);
 
   if (!open) return null;
@@ -45,6 +50,7 @@ export function TopUpModal({ open, onClose }: TopUpModalProps) {
     if (proofPreview) URL.revokeObjectURL(proofPreview);
     setProofPreview(URL.createObjectURL(file));
     setProofName(file.name);
+    setProofFile(file);
     e.target.value = '';
   };
 
@@ -52,9 +58,10 @@ export function TopUpModal({ open, onClose }: TopUpModalProps) {
     if (proofPreview) URL.revokeObjectURL(proofPreview);
     setProofPreview(null);
     setProofName(null);
+    setProofFile(null);
   };
 
-  const canSubmit = amount.trim().length > 0 && Boolean(proofPreview);
+  const canSubmit = amount.trim().length > 0 && Boolean(proofFile) && !submitting;
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
@@ -185,18 +192,27 @@ export function TopUpModal({ open, onClose }: TopUpModalProps) {
           </div>
         </div>
 
+        {error ? (
+          <p role="alert" style={{ margin: `0 ${spacing[5]}`, color: theme.error, fontSize: 13 }}>
+            {error}
+          </p>
+        ) : null}
+
         <div className="modal-footer">
-          <button type="button" className="btn-pill-secondary" onClick={onClose}>
+          <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={submitting}>
             Cancel
           </button>
           <button
             type="button"
             className="btn-pill-primary"
             disabled={!canSubmit}
-            onClick={onClose}
+            onClick={() => {
+              if (!canSubmit || !proofFile || !onSubmit) return;
+              void onSubmit(amount, proofFile);
+            }}
             style={{ opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
           >
-            Submit top up
+            {submitting ? 'Submitting…' : 'Submit top up'}
           </button>
         </div>
       </div>

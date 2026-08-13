@@ -174,3 +174,136 @@ export type MlaScanUpdatePayload = {
   gender?: string;
   mrp?: string;
 };
+
+export type HoScan = {
+  id: number;
+  section: string;
+  scan_code: string;
+  name: string;
+  gender: string;
+  age: string;
+  scan_by: string;
+  report_type: string;
+  cost: string;
+  images: number;
+  processed_by: string;
+  preprocessed_by: string | null;
+  main_pattern: string | null;
+  sub_pattern: string | null;
+  urc: number | null;
+  rrc: number | null;
+  lfo: number | null;
+  finger: string | null;
+  status: string;
+};
+
+export type HoScanActionPayload = {
+  action: string;
+  main_pattern?: string;
+  sub_pattern?: string;
+  finger?: string;
+  urc?: number;
+  rrc?: number;
+  lfo?: number;
+};
+
+export type CommMemberApi = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+};
+
+export type CommGroupApi = {
+  id: number;
+  name: string;
+  member_ids: number[];
+};
+
+export type CommReplyApi = {
+  id: number;
+  author: string;
+  author_initials: string;
+  body: string;
+  created_at: string;
+  created_at_ms: number;
+};
+
+export type CommPollOptionApi = {
+  id: number;
+  label: string;
+  votes: number;
+};
+
+export type CommPollApi = {
+  question: string;
+  options: CommPollOptionApi[];
+};
+
+export type CommunicationApi = {
+  id: number;
+  title: string;
+  body: string;
+  severity: string;
+  author: string;
+  author_initials: string;
+  created_at: string;
+  created_at_ms: number;
+  audience_mode: string;
+  recipient_ids: number[];
+  group_ids: number[];
+  group_names: string[];
+  seen_count: number;
+  viewers: { id: string; name: string; initials: string; role: string; seen_at: string }[];
+  poll: CommPollApi | null;
+  replies: CommReplyApi[];
+};
+
+export type CommunicationsStateApi = {
+  groups: CommGroupApi[];
+  communications: CommunicationApi[];
+  members: CommMemberApi[];
+};
+
+export type PublishCommunicationPayload = {
+  title: string;
+  body: string;
+  severity: string;
+  audience_mode: string;
+  recipient_ids: number[];
+  group_ids: number[];
+  poll_question?: string | null;
+  poll_options: string[];
+};
+
+export type LedgerEntryRow = {
+  id: number;
+  title: string;
+  date: string;
+  amount: string;
+  amount_value: number;
+  initials: string;
+  pastel: string;
+};
+
+export type LedgerMonthBar = {
+  month: number;
+  label: string;
+  value: number;
+};
+
+export type LedgerKpis = {
+  total_receipts: number;
+  billing_last_30_days: number;
+  receipts_display: string;
+  billing_display: string;
+};
+
+export type LedgerData = {
+  kpis: LedgerKpis;
+  receipts: LedgerEntryRow[];
+  billing: LedgerEntryRow[];
+  expenses_by_month: LedgerMonthBar[];
+  billing_window_days: number;
+  expenses_year: number;
+};
