@@ -276,6 +276,75 @@ export type PublishCommunicationPayload = {
   poll_options: string[];
 };
 
+export type ReportDetailsApi = {
+  client_type: string;
+  referred_by: string;
+  name: string;
+  age: string;
+  phone: string;
+  gender: string;
+  mrp: string;
+};
+
+export type CabAudioApi = {
+  id: number;
+  title: string;
+  counsellor: string;
+  duration_sec: number;
+};
+
+export type ReportRecordApi = {
+  id: number;
+  scan_code: string;
+  report_name: string;
+  size: string;
+  generated_at: string;
+  status: string;
+  plan: string;
+  details: ReportDetailsApi;
+  cab_audios: CabAudioApi[];
+  cab_requested_at: string | null;
+  report_file_url: string | null;
+};
+
+export type MentorApi = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  region: string;
+  trainee_count: number;
+};
+
+export type TraineeApi = {
+  id: number;
+  mentor_id: number;
+  name: string;
+  email: string;
+  doj: string;
+  billing_percent: number;
+  scan_count: number;
+  doex: string;
+  status: string;
+  role: string;
+};
+
+export type TraineesStateApi = {
+  mentors: MentorApi[];
+  trainees: TraineeApi[];
+};
+
+export type TraineeScanApi = {
+  id: number;
+  scan_code: string;
+  client_name: string;
+  gender: string;
+  report_type: string;
+  cost: string;
+  uploaded_at: string;
+  status: string;
+};
+
 export type LedgerEntryRow = {
   id: number;
   title: string;

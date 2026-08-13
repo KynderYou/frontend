@@ -9,4 +9,6 @@ export * from './dashboard';
 export * from './health';
 export * from './ledger';
 export * from './profile';
+export * from './reports';
 export * from './scans';
+export * from './trainees';

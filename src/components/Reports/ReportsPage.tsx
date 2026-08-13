@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { deleteReport, getMyReports, requestReportCab, upgradeReport } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabModal } from './CabModal';
 import { DeleteScanModal } from './DeleteScanModal';
 import { downloadReportPdf } from './downloadReportPdf';
-import { seedReports, type ReportRecord, type ReportStatus } from './reportTypes';
+import { applyReportUpdate, reportListToRecords } from './reportApiMapper';
+import { type ReportRecord, type ReportStatus } from './reportTypes';
 import { UpgradeReportModal } from './UpgradeReportModal';
 
 const theme = colors.light;
@@ -34,25 +37,16 @@ function initials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function formatStamp(date = new Date()) {
-  return date
-    .toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    .replace(',', ' ·');
-}
-
 type ReportsPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
 };
 
 export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProps) {
-  const [records, setRecords] = useState<ReportRecord[]>(seedReports);
+  const [records, setRecords] = useState<ReportRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [layout, setLayout] = useState<'cards' | 'table'>('table');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
@@ -60,6 +54,25 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const [cabRecord, setCabRecord] = useState<ReportRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const loadReports = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const reports = await getMyReports(signal);
+      setRecords(reportListToRecords(reports));
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load reports.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadReports(controller.signal);
+    return () => controller.abort();
+  }, [loadReports]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -89,34 +102,59 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     window.setTimeout(() => setNotice(null), 5000);
   };
 
-  const handleDownload = (record: ReportRecord) => {
-    downloadReportPdf(record);
-    showNotice(`Report for scan ${record.scanId} downloaded.`);
+  const handleDownload = async (record: ReportRecord) => {
+    try {
+      await downloadReportPdf(record);
+      showNotice(`Report for scan ${record.scanId} downloaded.`);
+    } catch {
+      showNotice('Download failed. Please try again.');
+    }
   };
 
-  const handleUpgrade = (record: ReportRecord) => {
-    setRecords((prev) =>
-      prev.map((row) =>
-        row.id === record.id ? { ...row, plan: 'Premium', status: 'Upgraded' } : row
-      )
-    );
-    showNotice(`Scan ${record.scanId} upgraded to Premium. The upgraded report will be available shortly.`);
+  const handleUpgrade = async (record: ReportRecord) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const updated = await upgradeReport(record.numericId);
+      setRecords((prev) => applyReportUpdate(prev, updated));
+      showNotice(`Scan ${record.scanId} upgraded to Premium. The upgraded report will be available shortly.`);
+    } catch {
+      showNotice('Upgrade failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleCabRequest = (record: ReportRecord) => {
-    const stamp = formatStamp();
-    setRecords((prev) =>
-      prev.map((row) => (row.id === record.id ? { ...row, cabRequestedAt: stamp } : row))
-    );
-    setCabRecord((current) =>
-      current && current.id === record.id ? { ...current, cabRequestedAt: stamp } : current
-    );
-    showNotice(`CAB requested for scan ${record.scanId}. The counselling team has been notified.`);
+  const handleCabRequest = async (record: ReportRecord) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const updated = await requestReportCab(record.numericId);
+      setRecords((prev) => applyReportUpdate(prev, updated));
+      setCabRecord((current) => {
+        if (!current || current.id !== record.id) return current;
+        return applyReportUpdate([current], updated)[0] ?? current;
+      });
+      showNotice(`CAB requested for scan ${record.scanId}. The counselling team has been notified.`);
+    } catch {
+      showNotice('CAB request failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDelete = (record: ReportRecord) => {
-    setRecords((prev) => prev.filter((row) => row.id !== record.id));
-    showNotice(`Scan ${record.scanId} and its report were deleted.`);
+  const handleDelete = async (record: ReportRecord) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await deleteReport(record.numericId);
+      setRecords((prev) => prev.filter((row) => row.id !== record.id));
+      showNotice(`Scan ${record.scanId} and its report were deleted.`);
+    } catch {
+      showNotice('Delete failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const renderCard = (row: ReportRecord, index: number) => {
@@ -519,17 +557,24 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           </div>
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="reports-empty">
-            <p className="reports-empty-title">
-              {records.length === 0 ? 'No scans yet' : 'No scans match your search'}
-            </p>
-            <p className="reports-empty-sub">
-              {records.length === 0
-                ? 'Scans you upload will appear here once processed.'
-                : 'Try a different name, scan id, or status filter.'}
-            </p>
-          </div>
+        {loadError && (
+          <p role="alert" style={{ margin: `0 0 ${spacing[4]}`, color: theme.error, fontSize: 14 }}>
+            {loadError}
+          </p>
+        )}
+
+        {loading ? (
+          <EmptyState title="Loading reports…" compact />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title={records.length === 0 ? 'No reports yet' : 'No reports match your search'}
+            description={
+              records.length === 0
+                ? 'Scans you upload will appear here once processing completes.'
+                : 'Try a different name, scan id, or status filter.'
+            }
+            compact
+          />
         ) : layout === 'cards' ? (
           <div className="reports-card-grid">{filtered.map(renderCard)}</div>
         ) : (

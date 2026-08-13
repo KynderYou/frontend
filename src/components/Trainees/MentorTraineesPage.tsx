@@ -2,12 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import {
-  mentors,
-  trainees,
-  type Trainee,
-  type TraineeStatus,
-} from './traineesData';
+import { mentors, trainees } from './traineesMockData';
+import type { Trainee, TraineeStatus } from './traineesData';
 import { scansForTrainee, type TraineeScan, type TraineeScanStatus } from './traineeScansData';
 
 const theme = colors.light;

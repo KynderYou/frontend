@@ -14,6 +14,13 @@
 
 export type ThemeMode = 'light';
 
+/**
+ * Desktop UI density — tuned to match ~90% browser zoom at 100% zoom.
+ * Applied via `--ui-zoom` on `.app-frame` / `.auth-page` (see index.css).
+ * Mobile keeps full size for touch targets and readability.
+ */
+export const UI_DENSITY = 0.9;
+
 // ─── Brand scale (vivid blue → #5C7CFA) ───────────────────────────────────────
 
 /** Monochrome brand ladder for fills, charts, gradients, patterns */
@@ -484,6 +491,8 @@ export const getThemeCssVars = (mode: ThemeMode = 'light'): Record<string, strin
   vars['--input-padding'] = inputTokens.padding;
   vars['--table-row-height'] = tableTokens.rowHeight;
   vars['--pattern-gradient'] = patternTokens.gradient;
+  vars['--ui-density'] = String(UI_DENSITY);
+  vars['--ui-zoom'] = String(UI_DENSITY);
 
   for (const [key, val] of Object.entries(typography.sizes)) {
     vars[`--text-${key}-font-size`] = val.fontSize;

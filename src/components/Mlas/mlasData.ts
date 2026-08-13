@@ -1,6 +1,6 @@
 /** Mock data for My MLAs — trainees promoted after ~1 year, still mentored. */
 
-import { mentors, type Mentor } from '../Trainees/traineesData';
+import { mentors, type Mentor } from '../Trainees/traineesMockData';
 
 export type { Mentor };
 export { mentors };

@@ -1,16 +1,15 @@
+import { fetchAuthenticatedAsset } from '../../api/assetUrl';
 import type { ReportRecord } from './reportTypes';
 
 /**
- * Builds a minimal single-page PDF locally so Download works before the
- * backend serves real report files. Swap this for a fetched Blob once the
- * reports endpoint exists.
+ * Download report PDF — uses backend file when available, otherwise a local preview PDF.
  */
 
 function pdfEscape(text: string) {
   return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
-function buildPdf(title: string, lines: string[]): Blob {
+function buildPreviewPdf(title: string, lines: string[]): Blob {
   const encoder = new TextEncoder();
 
   const streamOps = ['BT', '/F1 16 Tf', '50 780 Td', `(${pdfEscape(title)}) Tj`, '/F1 11 Tf', '0 -30 Td'];
@@ -47,8 +46,27 @@ function buildPdf(title: string, lines: string[]): Blob {
   return new Blob([encoder.encode(body)], { type: 'application/pdf' });
 }
 
-export function downloadReportPdf(record: ReportRecord) {
-  const blob = buildPdf('Midna Global - DMIT Report', [
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadReportPdf(record: ReportRecord) {
+  if (record.reportFileUrl) {
+    const blobUrl = await fetchAuthenticatedAsset(record.reportFileUrl);
+    const response = await fetch(blobUrl);
+    const blob = await response.blob();
+    triggerBlobDownload(blob, record.reportName);
+    return;
+  }
+
+  const blob = buildPreviewPdf('Midna Global - DMIT Report', [
     `Scan Id: ${record.scanId}`,
     `Client: ${record.details.name || '-'}`,
     `Age: ${record.details.age || '-'}    Gender: ${record.details.gender || '-'}`,
@@ -59,13 +77,5 @@ export function downloadReportPdf(record: ReportRecord) {
     '',
     'This is a system-generated preview of the report package.',
   ]);
-
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = record.reportName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  triggerBlobDownload(blob, record.reportName);
 }

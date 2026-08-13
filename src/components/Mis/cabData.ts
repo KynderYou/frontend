@@ -1,6 +1,6 @@
 /** CAB debit queue — counselling audio bytes taken by mentees from mentors. */
 
-import { mentors, trainees } from '../Trainees/traineesData';
+import { mentors, trainees } from '../Trainees/traineesMockData';
 import { formatDuration } from '../Reports/reportTypes';
 
 export type CabDebitStatus = 'Pending' | 'Debited';

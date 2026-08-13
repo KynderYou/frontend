@@ -6,6 +6,7 @@
 
 :root {
   font-family: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 16px;
   line-height: 1.5;
   font-weight: 400;
   color: var(--color-text-primary, #212529);
@@ -14,6 +15,18 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/**
+ * Desktop compact density (~90% browser zoom feel at 100% zoom).
+ * Scales App.css px rules and layout chrome; mobile stays full size.
+ */
+@media (min-width: 861px) {
+  .app-frame,
+  .auth-page {
+    zoom: var(--ui-zoom, 0.9);
+    width: 100%;
+  }
 }
 
 html,
