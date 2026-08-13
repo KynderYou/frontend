@@ -133,3 +133,44 @@ export type DashboardData = {
   notices: DashboardNotice[];
   top_performers: TopPerformer[];
 };
+
+export type MlaScanDetails = {
+  client_type: string;
+  referred_by: string;
+  name: string;
+  age: string;
+  phone: string;
+  gender: string;
+  mrp: string;
+};
+
+export type MlaScanImage = {
+  name: string;
+  label: string;
+  url: string;
+};
+
+export type MlaScan = {
+  id: number;
+  scan_code: string;
+  file_name: string;
+  file_url: string | null;
+  size: string;
+  uploaded_at: string;
+  exported_at: string | null;
+  status: string;
+  details: MlaScanDetails;
+  details_saved: boolean;
+  exported: boolean;
+  images: MlaScanImage[];
+};
+
+export type MlaScanUpdatePayload = {
+  client_type?: string;
+  referred_by?: string;
+  name?: string;
+  age?: string;
+  phone?: string;
+  gender?: string;
+  mrp?: string;
+};

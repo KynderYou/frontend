@@ -1,14 +1,22 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  createMlaScan,
+  deleteMlaScan,
+  exportMlaScan,
+  getMyMlaScans,
+  resolveMlaScanListImages,
+  updateMlaScan,
+} from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
 import { EditScanModal } from './EditScanModal';
 import { extractClientFromZip, revokeScanZipImages, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
+import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
 import {
-  defaultScanDetails,
-  nextScanId,
   type ScanDetails,
   type ScanRecord,
   type ScanRecordStatus,
@@ -38,64 +46,10 @@ const emptyClientForm: UploadClientForm = {
   mrp: '',
 };
 
-const seedRecords: ScanRecord[] = [
-  {
-    id: 'u1',
-    scanId: 'S42487',
-    fileName: 'nest-south-batch-14.zip',
-    size: '12.4 MB',
-    uploadedAt: '14 Jul 2026 · 10:22 AM',
-    status: 'Saved',
-    details: {
-      clientType: 'Individual',
-      referredBy: 'SELF',
-      name: 'RUDRA VIJ',
-      age: '12',
-      phone: '9876543210',
-      gender: 'Male',
-      mrp: '₹2,000',
-    },
-    detailsSaved: true,
-    exported: false,
-  },
-  {
-    id: 'u2',
-    scanId: 'S42486',
-    fileName: 'mla-scans-jul-week2.zip',
-    size: '8.1 MB',
-    uploadedAt: '12 Jul 2026 · 04:05 PM',
-    exportedAt: '12 Jul 2026 · 05:10 PM',
-    status: 'Exported',
-    details: {
-      clientType: 'Individual',
-      referredBy: 'SELF',
-      name: 'Riya Saravanan',
-      age: '10',
-      phone: '9123456780',
-      gender: 'Female',
-      mrp: '₹1,500',
-    },
-    detailsSaved: true,
-    exported: true,
-  },
-];
-
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatStamp(date = new Date()) {
-  return date
-    .toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    .replace(',', ' ·');
 }
 
 function statusStyles(status: ScanRecordStatus) {
@@ -122,7 +76,10 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const [file, setFile] = useState<File | null>(null);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
   const [extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
-  const [records, setRecords] = useState<ScanRecord[]>(seedRecords);
+  const [records, setRecords] = useState<ScanRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [extractNotice, setExtractNotice] = useState<string | null>(null);
   const [extractOk, setExtractOk] = useState(false);
@@ -134,6 +91,37 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const inputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const extractRequestId = useRef(0);
+  const blobUrlsRef = useRef<string[]>([]);
+
+  const replaceRecords = (next: ScanRecord[]) => {
+    revokeBlobUrls(blobUrlsRef.current);
+    blobUrlsRef.current = collectBlobUrls(next);
+    setRecords(next);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getMyMlaScans()
+      .then(async (scans) => {
+        if (cancelled) return;
+        const resolved = await resolveMlaScanListImages(scans);
+        if (cancelled) return;
+        replaceRecords(resolved.map(mlaScanToRecord));
+        setLoadError('');
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('Unable to load scans.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      revokeBlobUrls(blobUrlsRef.current);
+      blobUrlsRef.current = [];
+    };
+  }, []);
 
   const clientComplete =
     clientForm.name.trim().length > 0 &&
@@ -239,84 +227,76 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     clearFile();
   };
 
-  const handleSubmit = () => {
-    if (!canSubmit || !file) return;
-    const fileUrl = URL.createObjectURL(file);
-    const scanId = clientForm.scanId.trim() || nextScanId();
-    const storedImages = extractedImages.map((image) => ({ ...image }));
-    setRecords((prev) => [
-      {
-        id: `u-${Date.now()}`,
-        scanId,
-        fileName: file.name,
-        fileUrl,
-        size: formatBytes(file.size),
-        uploadedAt: formatStamp(),
-        status: 'Saved',
-        details: {
-          ...defaultScanDetails(),
-          clientType: clientForm.clientType,
-          referredBy: clientForm.referredBy,
-          name: clientForm.name.trim(),
-          age: clientForm.age.trim(),
-          phone: clientForm.phone.trim(),
-          gender: clientForm.gender,
-          mrp: clientForm.mrp,
-        },
-        detailsSaved: true,
-        exported: false,
-        images: storedImages,
-      },
-      ...prev,
-    ]);
-    setExtractedImages([]);
-    resetForm();
-    setDeclarationOpen(false);
-    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const handleSubmit = async () => {
+    if (!canSubmit || !file || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const created = await createMlaScan(file, {
+        scan_code: clientForm.scanId.trim() || undefined,
+        client_name: clientForm.name.trim(),
+        age: clientForm.age.trim(),
+        phone: clientForm.phone.trim(),
+        gender: clientForm.gender,
+        client_type: clientForm.clientType,
+        referred_by: clientForm.referredBy,
+        mrp: clientForm.mrp,
+      });
+      const resolved = await resolveMlaScanListImages([created]);
+      replaceRecords([mlaScanToRecord(resolved[0]), ...records]);
+      setExtractedImages([]);
+      resetForm();
+      setDeclarationOpen(false);
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch {
+      setError('Could not upload scan. Check your connection and try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSaveDetails = (details: ScanDetails) => {
+  const handleSaveDetails = async (details: ScanDetails) => {
     if (!editingRecord) return;
-    setRecords((prev) =>
-      prev.map((row) =>
-        row.id === editingRecord.id
-          ? {
-              ...row,
-              details,
-              detailsSaved: true,
-              status: row.exported ? row.status : 'Saved',
-            }
-          : row
-      )
-    );
-    setEditingRecord(null);
+    const scanId = Number(editingRecord.id);
+    if (Number.isNaN(scanId)) return;
+    try {
+      const updated = await updateMlaScan(scanId, detailsToUpdatePayload(details));
+      const resolved = await resolveMlaScanListImages([updated]);
+      const nextRecord = mlaScanToRecord(resolved[0]);
+      replaceRecords(records.map((row) => (row.id === editingRecord.id ? nextRecord : row)));
+      setEditingRecord(null);
+    } catch {
+      setError('Could not save scan details.');
+    }
   };
 
-  const handleExport = (record: ScanRecord) => {
+  const handleExport = async (record: ScanRecord) => {
     if (!canExport(record)) return;
-    const stamp = formatStamp();
-    setRecords((prev) =>
-      prev.map((row) =>
-        row.id === record.id
-          ? {
-              ...row,
-              exported: true,
-              exportedAt: stamp,
-              status: 'Exported',
-            }
-          : row
-      )
-    );
-    setExportNotice(`Scan ${record.scanId} exported to scans DB. Head Office has been notified.`);
-    window.setTimeout(() => setExportNotice(null), 5000);
+    const scanId = Number(record.id);
+    if (Number.isNaN(scanId)) return;
+    try {
+      const exported = await exportMlaScan(scanId);
+      replaceRecords(records.filter((row) => row.id !== record.id));
+      setExportNotice(`Scan ${exported.scan_code} exported to scans DB. Head Office has been notified.`);
+      window.setTimeout(() => setExportNotice(null), 5000);
+    } catch {
+      setError('Could not export scan.');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    const row = records.find((r) => r.id === id);
-    if (row?.fileUrl) URL.revokeObjectURL(row.fileUrl);
-    revokeScanZipImages(row?.images);
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    if (editingRecord?.id === id) setEditingRecord(null);
+  const handleDelete = async (id: string) => {
+    const scanId = Number(id);
+    if (Number.isNaN(scanId)) return;
+    try {
+      await deleteMlaScan(scanId);
+      const row = records.find((r) => r.id === id);
+      if (row?.fileUrl?.startsWith('blob:')) URL.revokeObjectURL(row.fileUrl);
+      revokeScanZipImages(row?.images);
+      replaceRecords(records.filter((r) => r.id !== id));
+      if (editingRecord?.id === id) setEditingRecord(null);
+    } catch {
+      setError('Could not delete scan.');
+    }
   };
 
   return (
@@ -351,6 +331,12 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
+
+      {loadError ? (
+        <p role="alert" style={{ marginBottom: spacing[4], color: theme.error, fontSize: 14 }}>
+          {loadError}
+        </p>
+      ) : null}
 
       {exportNotice && (
         <div
@@ -491,13 +477,13 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           <button
             type="button"
             className="btn-pill-primary scans-submit-btn"
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
             onClick={() => {
-              if (!canSubmit) return;
+              if (!canSubmit || submitting) return;
               setDeclarationOpen(true);
             }}
           >
-            Submit scan
+            {submitting ? 'Uploading…' : 'Submit scan'}
           </button>
         </div>
 
@@ -517,6 +503,14 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         </div>
 
         <div className="scans-table-wrap">
+          {loading ? (
+            <p style={{ padding: spacing[4], color: theme['text-secondary'], fontSize: 14 }}>Loading scans…</p>
+          ) : records.length === 0 ? (
+            <EmptyState
+              title="No scans uploaded yet"
+              description="Upload a zip package above to add your first scan."
+            />
+          ) : (
           <table className="scans-table">
             <thead>
               <tr>
@@ -587,6 +581,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               })}
             </tbody>
           </table>
+          )}
         </div>
       </div>
 

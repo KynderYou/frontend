@@ -28,6 +28,8 @@ export type {
   Member,
   MemberProfile,
   MessageResponse,
+  MlaScan,
+  MlaScanUpdatePayload,
   ProfileUpdatePayload,
   RequestOptions,
   TopPerformer,
