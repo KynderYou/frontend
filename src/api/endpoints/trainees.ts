@@ -3,12 +3,16 @@ import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
 import type { TraineeScanApi, TraineesStateApi } from '../types';
 
-/** GET /api/trainees/state */
-export async function getTraineesState(signal?: AbortSignal): Promise<TraineesStateApi> {
+/** GET /api/trainees/state — pass scope=mine for mentor Trainee List */
+export async function getTraineesState(
+  signal?: AbortSignal,
+  scope?: 'mine',
+): Promise<TraineesStateApi> {
   if (isDemoToken(getToken())) {
     return { mentors: [], trainees: [] };
   }
-  return apiClient<TraineesStateApi>('/api/trainees/state', { signal });
+  const query = scope === 'mine' ? '?scope=mine' : '';
+  return apiClient<TraineesStateApi>(`/api/trainees/state${query}`, { signal });
 }
 
 /** GET /api/trainees/{id}/scans */

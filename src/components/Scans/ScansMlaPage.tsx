@@ -75,7 +75,7 @@ type ScansMlaPageProps = {
 export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
   const [file, setFile] = useState<File | null>(null);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
-  const [extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
+  const [_extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
   const [records, setRecords] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);

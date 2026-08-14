@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getMe, getTraineeScans, getTraineesState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { mentors, trainees } from './traineesMockData';
-import type { Trainee, TraineeStatus } from './traineesData';
-import { scansForTrainee, type TraineeScan, type TraineeScanStatus } from './traineeScansData';
+import { mapTraineeScans, mapTraineesState } from './traineesApiMapper';
+import type { Trainee, TraineeScan, TraineeScanStatus, TraineeStatus } from './traineesData';
 
 const theme = colors.light;
-
-/** Demo: logged-in mentor. Replace with auth member → mentor mapping later. */
-const CURRENT_MENTOR_ID = 'mentor-madhu';
 
 type MentorTraineesPageProps = {
   onOpenMobileMenu?: () => void;
@@ -40,19 +38,38 @@ function initials(name: string) {
 }
 
 export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTraineesPageProps) {
-  const mentor = mentors.find((m) => m.id === CURRENT_MENTOR_ID);
-  const myTrainees = useMemo(
-    () => trainees.filter((trainee) => trainee.mentorId === CURRENT_MENTOR_ID),
-    []
-  );
-
+  const [mentorName, setMentorName] = useState('');
+  const [trainees, setTrainees] = useState<Trainee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | TraineeStatus>('All');
   const [selectedTrainee, setSelectedTrainee] = useState<Trainee | null>(null);
 
+  const loadState = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const [member, state] = await Promise.all([getMe(signal), getTraineesState(signal, 'mine')]);
+      const mapped = mapTraineesState(state);
+      setMentorName(member.name || mapped.mentors[0]?.name || '');
+      setTrainees(mapped.trainees);
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load trainees.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadState(controller.signal);
+    return () => controller.abort();
+  }, [loadState]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return myTrainees.filter((trainee) => {
+    return trainees.filter((trainee) => {
       if (statusFilter !== 'All' && trainee.status !== statusFilter) return false;
       if (!q) return true;
       return (
@@ -60,7 +77,37 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
         trainee.email.toLowerCase().includes(q)
       );
     });
-  }, [myTrainees, query, statusFilter]);
+  }, [trainees, query, statusFilter]);
+
+  if (loading) {
+    return (
+      <section className="page-section">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              Trainee List
+            </h1>
+          </div>
+        </div>
+        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading trainees…</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="page-section">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              Trainee List
+            </h1>
+          </div>
+        </div>
+        <EmptyState title={loadError} description="Check your connection and try again." />
+      </section>
+    );
+  }
 
   return (
     <section className="page-section">
@@ -80,8 +127,8 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
             Trainee List
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            {mentor
-              ? `${mentor.name} · view your trainees and open a row to see their scans`
+            {mentorName
+              ? `${mentorName} · view your trainees and open a row to see their scans`
               : 'View your trainees and open a row to see their scans'}
           </p>
         </div>
@@ -221,6 +268,10 @@ function TraineeScansModal({
   trainee: Trainee | null;
   onClose: () => void;
 }) {
+  const [scans, setScans] = useState<TraineeScan[]>([]);
+  const [loadingScans, setLoadingScans] = useState(false);
+  const [scanError, setScanError] = useState('');
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -234,9 +285,29 @@ function TraineeScansModal({
     };
   }, [open, onClose]);
 
-  if (!open || !trainee) return null;
+  useEffect(() => {
+    if (!open || !trainee) {
+      setScans([]);
+      setScanError('');
+      return;
+    }
+    const controller = new AbortController();
+    setLoadingScans(true);
+    getTraineeScans(Number(trainee.id), controller.signal)
+      .then((rows) => {
+        setScans(mapTraineeScans(rows));
+        setScanError('');
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setScanError('Unable to load scans.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingScans(false);
+      });
+    return () => controller.abort();
+  }, [open, trainee]);
 
-  const traineeScans = scansForTrainee(trainee.id);
+  if (!open || !trainee) return null;
 
   return (
     <div
@@ -259,7 +330,7 @@ function TraineeScansModal({
               {trainee.name}&apos;s scans
             </h2>
             <p className="modal-subtitle">
-              {trainee.email} · {traineeScans.length} scan{traineeScans.length === 1 ? '' : 's'}
+              {trainee.email} · {trainee.scanCount} scan{trainee.scanCount === 1 ? '' : 's'}
             </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
@@ -270,33 +341,39 @@ function TraineeScansModal({
         </div>
 
         <div className="modal-body trainee-scans-modal-body">
-          <div className="scans-table-wrap">
-            <table className="scans-table">
-              <thead>
-                <tr>
-                  <th>Sno</th>
-                  <th>Scan Id</th>
-                  <th>Name</th>
-                  <th>Gender</th>
-                  <th>Report Type</th>
-                  <th>Cost</th>
-                  <th>Uploaded</th>
-                  <th className="col-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {traineeScans.length === 0 ? (
+          {loadingScans ? (
+            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>Loading scans…</p>
+          ) : scanError ? (
+            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>{scanError}</p>
+          ) : (
+            <div className="scans-table-wrap">
+              <table className="scans-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>
-                      No scans uploaded by this trainee yet.
-                    </td>
+                    <th>Sno</th>
+                    <th>Scan Id</th>
+                    <th>Name</th>
+                    <th>Gender</th>
+                    <th>Report Type</th>
+                    <th>Cost</th>
+                    <th>Uploaded</th>
+                    <th className="col-center">Status</th>
                   </tr>
-                ) : (
-                  traineeScans.map((scan, index) => <TraineeScanRow key={scan.id} scan={scan} index={index} />)
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {scans.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>
+                        No scans uploaded by this trainee yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    scans.map((scan, index) => <TraineeScanRow key={scan.id} scan={scan} index={index} />)
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

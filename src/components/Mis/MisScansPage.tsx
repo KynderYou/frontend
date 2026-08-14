@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { getMisScans } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { MONTH_LABELS, mlaMembers, networkScans, NETWORK_YEAR } from './misData';
+import { mapMisScans } from './misApiMapper';
+import { MONTH_LABELS, NETWORK_YEAR, type MlaMember, type NetworkScan } from './misData';
 
 const theme = colors.light;
 const PAGE_SIZE = 12;
@@ -19,24 +22,47 @@ export function MisScansPage({ onOpenMobileMenu, onOpenProfile, initialMonth }: 
   const [mlaFilter, setMlaFilter] = useState('All');
   const [monthFilter, setMonthFilter] = useState<string>(initialMonth === undefined ? 'All' : String(initialMonth));
   const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<NetworkScan[]>([]);
+  const [mlaMembers, setMlaMembers] = useState<MlaMember[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return networkScans.filter((scan) => {
-      if (mlaFilter !== 'All' && scan.mlaId !== mlaFilter) return false;
-      if (monthFilter !== 'All' && scan.month !== Number(monthFilter)) return false;
-      if (!q) return true;
-      return (
-        scan.scanId.toLowerCase().includes(q) ||
-        scan.clientName.toLowerCase().includes(q) ||
-        scan.mlaName.toLowerCase().includes(q)
+  const loadScans = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const result = await getMisScans(
+        {
+          year: NETWORK_YEAR,
+          page,
+          pageSize: PAGE_SIZE,
+          mlaId: mlaFilter === 'All' ? undefined : Number(mlaFilter),
+          month: monthFilter === 'All' ? undefined : Number(monthFilter),
+          q: query.trim() || undefined,
+        },
+        signal,
       );
-    });
-  }, [query, mlaFilter, monthFilter]);
+      const mapped = mapMisScans(result);
+      setRows(mapped.rows);
+      setMlaMembers(mapped.mlaMembers);
+      setTotal(mapped.total);
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load scans.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [page, mlaFilter, monthFilter, query]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    const controller = new AbortController();
+    loadScans(controller.signal);
+    return () => controller.abort();
+  }, [loadScans]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = rows;
 
   const resetFilters = () => {
     setQuery('');
@@ -46,6 +72,17 @@ export function MisScansPage({ onOpenMobileMenu, onOpenProfile, initialMonth }: 
   };
 
   const hasFilters = query.trim() !== '' || mlaFilter !== 'All' || monthFilter !== 'All';
+
+  if (loadError) {
+    return (
+      <section className="page-section mis-page">
+        <EmptyState title="Could not load scans" description={loadError} />
+        <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadScans()}>
+          Retry
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="page-section mis-page">
@@ -95,8 +132,8 @@ export function MisScansPage({ onOpenMobileMenu, onOpenProfile, initialMonth }: 
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>All scans</h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
-              {filtered.length} record{filtered.length === 1 ? '' : 's'}
-              {hasFilters ? ` of ${networkScans.length}` : ''}
+              {loading ? 'Loading…' : `${total} record${total === 1 ? '' : 's'}`}
+              {hasFilters && !loading ? ` (filtered)` : ''}
             </p>
           </div>
 
@@ -217,9 +254,11 @@ export function MisScansPage({ onOpenMobileMenu, onOpenProfile, initialMonth }: 
 
         <div className="mis-table-footer">
           <span>
-            {filtered.length === 0
-              ? '0 scans'
-              : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
+            {loading
+              ? 'Loading scans'
+              : total === 0
+                ? '0 scans'
+                : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, total)} of ${total}`}
           </span>
           <div className="mis-pager">
             <button

@@ -1,18 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getMe, getMlaScans, getMlasState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import {
-  mentors,
-  mlas,
-  type Mla,
-  type MlaStatus,
-} from './mlasData';
-import { scansForTrainee, type TraineeScan, type TraineeScanStatus } from '../Trainees/traineeScansData';
+import { mapMlaScans, mapMlasState } from './mlasApiMapper';
+import type { Mla, MlaScan, MlaScanStatus, MlaStatus } from './mlasData';
 
 const theme = colors.light;
-
-const CURRENT_MENTOR_ID = 'mentor-madhu';
 
 type MentorMlasPageProps = {
   onOpenMobileMenu?: () => void;
@@ -24,32 +19,95 @@ function mlaStatusStyles(status: MlaStatus) {
   return { color: theme['text-muted'], background: theme['bg-muted'] };
 }
 
-function scanStatusStyles(status: TraineeScanStatus) {
-  if (status === 'Exported' || status === 'Verified') return { color: theme.success, background: theme['success-bg'] };
-  if (status === 'Processing') return { color: theme.warning, background: theme['warning-bg'] };
+function scanStatusStyles(status: MlaScanStatus) {
+  if (status === 'Exported' || status === 'Verified') {
+    return { color: theme.success, background: theme['success-bg'] };
+  }
+  if (status === 'Processing') {
+    return { color: theme.warning, background: theme['warning-bg'] };
+  }
   return { color: theme.primary, background: theme['primary-soft'] };
 }
 
 function initials(name: string) {
-  return name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
 }
 
 export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPageProps) {
-  const mentor = mentors.find((m) => m.id === CURRENT_MENTOR_ID);
-  const myMlas = useMemo(() => mlas.filter((m) => m.mentorId === CURRENT_MENTOR_ID), []);
-
+  const [mentorName, setMentorName] = useState('');
+  const [mlas, setMlas] = useState<Mla[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | MlaStatus>('All');
   const [selectedMla, setSelectedMla] = useState<Mla | null>(null);
 
+  const loadState = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const [member, state] = await Promise.all([getMe(signal), getMlasState(signal, 'mine')]);
+      const mapped = mapMlasState(state);
+      setMentorName(member.name || mapped.mentors[0]?.name || '');
+      setMlas(mapped.mlas);
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load MLAs.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadState(controller.signal);
+    return () => controller.abort();
+  }, [loadState]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return myMlas.filter((m) => {
-      if (statusFilter !== 'All' && m.status !== statusFilter) return false;
+    return mlas.filter((mla) => {
+      if (statusFilter !== 'All' && mla.status !== statusFilter) return false;
       if (!q) return true;
-      return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+      return (
+        mla.name.toLowerCase().includes(q) ||
+        mla.email.toLowerCase().includes(q)
+      );
     });
-  }, [myMlas, query, statusFilter]);
+  }, [mlas, query, statusFilter]);
+
+  if (loading) {
+    return (
+      <section className="page-section">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              MLA List
+            </h1>
+          </div>
+        </div>
+        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading MLAs…</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="page-section">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              MLA List
+            </h1>
+          </div>
+        </div>
+        <EmptyState title={loadError} description="Check your connection and try again." />
+      </section>
+    );
+  }
 
   return (
     <section className="page-section">
@@ -69,8 +127,8 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
             MLA List
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            {mentor
-              ? `${mentor.name} · view your MLAs and open a row to see their scans`
+            {mentorName
+              ? `${mentorName} · view your MLAs and open a row to see their scans`
               : 'View your MLAs and open a row to see their scans'}
           </p>
         </div>
@@ -85,9 +143,9 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
         </div>
       </div>
 
-      <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0, width: '100%' }}>
+      <div className="dash-card mlas-table-panel" style={{ padding: 0, minWidth: 0, width: '100%' }}>
         <div
-          className="trainees-table-toolbar"
+          className="mlas-table-toolbar"
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -99,7 +157,9 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Your MLAs</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
+              Your MLAs
+            </h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
               {filtered.length} result{filtered.length === 1 ? '' : 's'} · click a row to view scans
             </p>
@@ -159,8 +219,8 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
           </div>
         </div>
 
-        <div className="trainees-table-body">
-          <table className="mis-data-table trainees-data-table">
+        <div className="mlas-table-body">
+          <table className="mis-data-table mlas-data-table">
             <thead>
               <tr>
                 <th>MLA</th>
@@ -177,8 +237,12 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
                   <td colSpan={6}>No MLAs found.</td>
                 </tr>
               ) : (
-                filtered.map((m) => (
-                  <MlaListRow key={m.id} mla={m} onOpen={() => setSelectedMla(m)} />
+                filtered.map((mla) => (
+                  <MlaListRow
+                    key={mla.id}
+                    mla={mla}
+                    onOpen={() => setSelectedMla(mla)}
+                  />
                 ))
               )}
             </tbody>
@@ -186,50 +250,130 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
         </div>
       </div>
 
-      <MlaScansModal open={Boolean(selectedMla)} mla={selectedMla} onClose={() => setSelectedMla(null)} />
+      <MlaScansModal
+        open={Boolean(selectedMla)}
+        mla={selectedMla}
+        onClose={() => setSelectedMla(null)}
+      />
     </section>
   );
 }
 
-function MlaScansModal({ open, mla, onClose }: { open: boolean; mla: Mla | null; onClose: () => void }) {
+function MlaScansModal({
+  open,
+  mla,
+  onClose,
+}: {
+  open: boolean;
+  mla: Mla | null;
+  onClose: () => void;
+}) {
+  const [scans, setScans] = useState<MlaScan[]>([]);
+  const [loadingScans, setLoadingScans] = useState(false);
+  const [scanError, setScanError] = useState('');
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open || !mla) {
+      setScans([]);
+      setScanError('');
+      return;
+    }
+    const controller = new AbortController();
+    setLoadingScans(true);
+    getMlaScans(Number(mla.id), controller.signal)
+      .then((rows) => {
+        setScans(mapMlaScans(rows));
+        setScanError('');
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setScanError('Unable to load scans.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingScans(false);
+      });
+    return () => controller.abort();
+  }, [open, mla]);
+
   if (!open || !mla) return null;
-  const mlaScans = scansForTrainee(mla.id);
 
   return (
-    <div className="modal-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-panel trainee-scans-modal" role="dialog" aria-modal="true" aria-labelledby="mla-list-scans-title" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal-panel mla-scans-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mla-scans-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h2 id="mla-list-scans-title" className="modal-title">{mla.name}&apos;s scans</h2>
-            <p className="modal-subtitle">{mla.email} · {mlaScans.length} scan{mlaScans.length === 1 ? '' : 's'}</p>
+            <h2 id="mla-scans-title" className="modal-title">
+              {mla.name}&apos;s scans
+            </h2>
+            <p className="modal-subtitle">
+              {mla.email} · {mla.scanCount} scan{mla.scanCount === 1 ? '' : 's'}
+            </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
-        <div className="modal-body trainee-scans-modal-body">
-          <div className="scans-table-wrap">
-            <table className="scans-table">
-              <thead>
-                <tr>
-                  <th>Sno</th><th>Scan Id</th><th>Name</th><th>Gender</th><th>Report Type</th><th>Cost</th><th>Uploaded</th><th className="col-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mlaScans.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>No scans uploaded by this MLA yet.</td></tr>
-                ) : mlaScans.map((scan, i) => <MlaScanRow key={scan.id} scan={scan} index={i} />)}
-              </tbody>
-            </table>
-          </div>
+
+        <div className="modal-body mla-scans-modal-body">
+          {loadingScans ? (
+            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>Loading scans…</p>
+          ) : scanError ? (
+            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>{scanError}</p>
+          ) : (
+            <div className="scans-table-wrap">
+              <table className="scans-table">
+                <thead>
+                  <tr>
+                    <th>Sno</th>
+                    <th>Scan Id</th>
+                    <th>Name</th>
+                    <th>Gender</th>
+                    <th>Report Type</th>
+                    <th>Cost</th>
+                    <th>Uploaded</th>
+                    <th className="col-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scans.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>
+                        No scans uploaded by this MLA yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    scans.map((scan, index) => <MlaScanRow key={scan.id} scan={scan} index={index} />)
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -240,35 +384,48 @@ function MlaListRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
   const tone = mlaStatusStyles(mla.status);
   return (
     <tr
-      className="mentor-trainee-row"
+      className="mentor-mla-row"
       onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       tabIndex={0}
       role="button"
       aria-label={`View scans for ${mla.name}`}
       style={{ cursor: 'pointer' }}
     >
       <td data-label="MLA">
-        <div className="trainees-person">
-          <span className="trainees-avatar" aria-hidden="true">{initials(mla.name)}</span>
+        <div className="mlas-person">
+          <span className="mlas-avatar" aria-hidden="true">
+            {initials(mla.name)}
+          </span>
           <div>
-            <div className="trainees-person-name">{mla.name}</div>
-            <div className="trainees-person-email">{mla.email}</div>
+            <div className="mlas-person-name">{mla.name}</div>
+            <div className="mlas-person-email">{mla.email}</div>
           </div>
         </div>
       </td>
       <td data-label="DOJ">{mla.doj}</td>
-      <td data-label="Billing %" className="col-center">{mla.billingPercent}%</td>
-      <td data-label="Number of scans" className="col-center">{mla.scanCount}</td>
+      <td data-label="Billing %" className="col-center">
+        {mla.billingPercent}%
+      </td>
+      <td data-label="Number of scans" className="col-center">
+        {mla.scanCount}
+      </td>
       <td data-label="DOEx">{mla.doex}</td>
       <td data-label="Status" className="col-center">
-        <span className="trainees-status" style={{ color: tone.color, background: tone.background }}>{mla.status}</span>
+        <span className="mlas-status" style={{ color: tone.color, background: tone.background }}>
+          {mla.status}
+        </span>
       </td>
     </tr>
   );
 }
 
-function MlaScanRow({ scan, index }: { scan: TraineeScan; index: number }) {
+function MlaScanRow({ scan, index }: { scan: MlaScan; index: number }) {
   const chip = scanStatusStyles(scan.status);
   return (
     <tr>
@@ -279,7 +436,11 @@ function MlaScanRow({ scan, index }: { scan: TraineeScan; index: number }) {
       <td data-label="Report Type">{scan.reportType}</td>
       <td data-label="Cost">{scan.cost}</td>
       <td data-label="Uploaded">{scan.uploadedAt}</td>
-      <td data-label="Status"><span className="scans-status-chip" style={chip}>{scan.status}</span></td>
+      <td data-label="Status">
+        <span className="scans-status-chip" style={chip}>
+          {scan.status}
+        </span>
+      </td>
     </tr>
   );
 }

@@ -345,6 +345,44 @@ export type TraineeScanApi = {
   status: string;
 };
 
+export type MlaMentorApi = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  region: string;
+  mla_count: number;
+};
+
+export type MlaApi = {
+  id: number;
+  mentor_id: number;
+  name: string;
+  email: string;
+  doj: string;
+  billing_percent: number;
+  scan_count: number;
+  doex: string;
+  status: string;
+  role: string;
+};
+
+export type MlasStateApi = {
+  mentors: MlaMentorApi[];
+  mlas: MlaApi[];
+};
+
+export type MlaScanApi = {
+  id: number;
+  scan_code: string;
+  client_name: string;
+  gender: string;
+  report_type: string;
+  cost: string;
+  uploaded_at: string;
+  status: string;
+};
+
 export type LedgerEntryRow = {
   id: number;
   title: string;
@@ -375,4 +413,119 @@ export type LedgerData = {
   expenses_by_month: LedgerMonthBar[];
   billing_window_days: number;
   expenses_year: number;
+};
+
+export type CabDebitAudioApi = {
+  id: number;
+  title: string;
+  file_name: string;
+  duration_sec: number;
+};
+
+export type CabDebitApi = {
+  id: number;
+  scan_id: string;
+  client_name: string;
+  mentor_id: number;
+  mentor_name: string;
+  mentee_id: number;
+  mentee_name: string;
+  audio: CabDebitAudioApi;
+  debit_amount: string;
+  status: string;
+  debited_at: string | null;
+};
+
+export type CabStateApi = {
+  mentors: MentorApi[];
+  records: CabDebitApi[];
+};
+
+export type MisContributorApi = {
+  id: number;
+  name: string;
+  value: number;
+};
+
+export type MisMonthPointApi = {
+  month: number;
+  label: string;
+  value: number;
+  contributors: MisContributorApi[];
+};
+
+export type MisPerformanceRowApi = {
+  id: number;
+  name: string;
+  region: string;
+  scans_quarter: number;
+  scans_year: number;
+  reviews: number;
+  billing: number;
+};
+
+export type MisNetworkStateApi = {
+  year: number;
+  months_so_far: number;
+  default_month: number;
+  last_quarter_label: string;
+  low_performer_threshold: number;
+  year_totals: { scans: number; reviews: number; billing: number };
+  scans_by_month: MisMonthPointApi[];
+  reviews_by_month: MisMonthPointApi[];
+  billing_by_month: MisMonthPointApi[];
+  performance_rows: MisPerformanceRowApi[];
+  low_performers: MisPerformanceRowApi[];
+};
+
+export type MisMlaOptionApi = {
+  id: number;
+  name: string;
+  region: string;
+};
+
+export type MisScanRowApi = {
+  scan_id: string;
+  client_name: string;
+  mla_id: number;
+  mla_name: string;
+  year: number;
+  month: number;
+  uploaded_at: string;
+};
+
+export type MisScansPageApi = {
+  year: number;
+  total: number;
+  page: number;
+  page_size: number;
+  rows: MisScanRowApi[];
+  mla_options: MisMlaOptionApi[];
+};
+
+export type AdminMemberApi = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  created_at: string;
+  status: string;
+};
+
+export type AdminMembersStateApi = {
+  members: AdminMemberApi[];
+};
+
+export type CreateAdminMemberPayload = {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: string;
+};
+
+export type AdminActionApi = {
+  message: string;
+  members: AdminMemberApi[];
 };

@@ -1,16 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getMlaScans, getMlasState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import {
-  mentors,
-  mlas,
-  mlaCountFor,
-  type Mentor,
-  type Mla,
-  type MlaStatus,
-} from './mlasData';
-import { scansForTrainee, type TraineeScanStatus } from '../Trainees/traineeScansData';
+import { mapMlaScans, mapMlasState, mlaCountFor } from './mlasApiMapper';
+import { type Mentor, type Mla, type MlaScan, type MlaScanStatus, type MlaStatus } from './mlasData';
 
 const theme = colors.light;
 const PAGE_SIZE = 5;
@@ -34,12 +29,47 @@ function initials(name: string) {
 }
 
 export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
-  const [selectedMentorId, setSelectedMentorId] = useState<string>(mentors[0]?.id ?? '');
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [mlas, setMlas] = useState<Mla[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [selectedMentorId, setSelectedMentorId] = useState('');
   const [mentorQuery, setMentorQuery] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | MlaStatus>('All');
   const [page, setPage] = useState(1);
   const [scansMla, setScansMla] = useState<Mla | null>(null);
+
+  const loadState = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const state = await getMlasState(signal);
+      const mapped = mapMlasState(state);
+      setMentors(mapped.mentors);
+      setMlas(mapped.mlas);
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load mlas.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadState(controller.signal);
+    return () => controller.abort();
+  }, [loadState]);
+
+  useEffect(() => {
+    if (mentors.length === 0) {
+      setSelectedMentorId('');
+      return;
+    }
+    if (!selectedMentorId || !mentors.some((mentor) => mentor.id === selectedMentorId)) {
+      setSelectedMentorId(mentors[0].id);
+    }
+  }, [mentors, selectedMentorId]);
 
   const selectedMentor: Mentor | undefined = mentors.find((m) => m.id === selectedMentorId);
 
@@ -53,21 +83,21 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
         m.region.toLowerCase().includes(q) ||
         m.role.toLowerCase().includes(q)
     );
-  }, [mentorQuery]);
+  }, [mentorQuery, mentors]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return mlas.filter((m) => {
-      if (m.mentorId !== selectedMentorId) return false;
-      if (statusFilter !== 'All' && m.status !== statusFilter) return false;
+    return mlas.filter((t) => {
+      if (t.mentorId !== selectedMentorId) return false;
+      if (statusFilter !== 'All' && t.status !== statusFilter) return false;
       if (!q) return true;
       return (
-        m.name.toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q) ||
-        m.role.toLowerCase().includes(q)
+        t.name.toLowerCase().includes(q) ||
+        t.email.toLowerCase().includes(q) ||
+        t.role.toLowerCase().includes(q)
       );
     });
-  }, [selectedMentorId, query, statusFilter]);
+  }, [selectedMentorId, query, statusFilter, mlas]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -79,6 +109,65 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
     setQuery('');
     setStatusFilter('All');
   };
+
+  if (loading) {
+    return (
+      <section className="page-section trainees-page">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              My Mlas
+            </h1>
+          </div>
+        </div>
+        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading mlas…</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="page-section trainees-page">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              My Mlas
+            </h1>
+          </div>
+        </div>
+        <EmptyState title={loadError} description="Check your connection and try again." />
+      </section>
+    );
+  }
+
+  if (mentors.length === 0) {
+    return (
+      <section className="page-section trainees-page">
+        <div className="page-header">
+          <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
+            <h1
+              className="page-title"
+              style={{
+                margin: 0,
+                fontSize: typography.roles.pageTitle.fontSize,
+                lineHeight: typography.roles.pageTitle.lineHeight,
+                fontWeight: typography.roles.pageTitle.fontWeight,
+                letterSpacing: typography.roles.pageTitle.letterSpacing,
+                color: theme['text-primary'],
+              }}
+            >
+              My Mlas
+            </h1>
+          </div>
+          <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NotificationButton />
+            <ProfileAvatarButton onClick={onOpenProfile} />
+          </div>
+        </div>
+        <EmptyState title="No mentors with mlas yet" description="When members mentor mlas, they will appear here." />
+      </section>
+    );
+  }
 
   return (
     <section className="page-section trainees-page">
@@ -95,10 +184,10 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
               color: theme['text-primary'],
             }}
           >
-            My MLAs
+            My Mlas
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Trainees promoted to MLA after one year — still linked to their mentors.
+            Search a mentor, then manage their mlas.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -108,14 +197,14 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
             </svg>
           </button>
           <button type="button" className="btn-pill-primary" style={{ height: 36, fontSize: 13, padding: '8px 14px' }}>
-            + Promote trainee
+            + Add mla
           </button>
           <NotificationButton />
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
 
-      <div className="trainees-layout" style={{ gap: spacing[5] }}>
+      <div className="mlas-layout" style={{ gap: spacing[5] }}>
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Mentors</h2>
@@ -162,7 +251,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
               </p>
             ) : (
               filteredMentors.map((mentor) => {
-                const count = mlaCountFor(mentor.id);
+                const count = mentor.traineeCount ?? mlaCountFor(mentor.id, mlas);
                 const selected = mentor.id === selectedMentorId;
                 return (
                   <button
@@ -294,7 +383,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
                     setQuery(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search MLAs"
+                  placeholder="Search mlas"
                   style={{
                     border: 'none',
                     outline: 'none',
@@ -333,7 +422,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
           </div>
 
           <div className="trainees-table-body">
-            <table className="mis-data-table trainees-data-table">
+            <table className="mis-data-table mlas-data-table">
               <thead>
                 <tr>
                   <th>MLA</th>
@@ -347,7 +436,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={6}>No MLAs for this mentor.</td>
+                    <td colSpan={6}>No mlas for this mentor.</td>
                   </tr>
                 ) : (
                   pageRows.map((row) => <MlaRow key={row.id} mla={row} onOpen={() => setScansMla(row)} />)
@@ -372,7 +461,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
           >
             <span>
               {filtered.length === 0
-                ? '0 MLAs'
+                ? '0 mlas'
                 : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -404,23 +493,53 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
   );
 }
 
-function mlaScanStatusStyles(status: TraineeScanStatus) {
+function scanStatusStyles(status: MlaScanStatus) {
   if (status === 'Exported' || status === 'Verified') return { color: theme.success, background: theme['success-bg'] };
   if (status === 'Processing') return { color: theme.warning, background: theme['warning-bg'] };
   return { color: theme.primary, background: theme['primary-soft'] };
 }
 
 function MlaScansModal({ open, mla, onClose }: { open: boolean; mla: Mla | null; onClose: () => void }) {
+  const [scans, setScans] = useState<MlaScan[]>([]);
+  const [loadingScans, setLoadingScans] = useState(false);
+  const [scanError, setScanError] = useState('');
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open || !mla) {
+      setScans([]);
+      setScanError('');
+      return;
+    }
+    const controller = new AbortController();
+    setLoadingScans(true);
+    getMlaScans(Number(mla.id), controller.signal)
+      .then((rows) => {
+        setScans(mapMlaScans(rows));
+        setScanError('');
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setScanError('Unable to load scans.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingScans(false);
+      });
+    return () => controller.abort();
+  }, [open, mla]);
+
   if (!open || !mla) return null;
-  const scans = scansForTrainee(mla.id);
 
   return (
     <div className="modal-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -428,41 +547,47 @@ function MlaScansModal({ open, mla, onClose }: { open: boolean; mla: Mla | null;
         <div className="modal-header">
           <div>
             <h2 id="mla-scans-title" className="modal-title">{mla.name}&apos;s scans</h2>
-            <p className="modal-subtitle">{mla.email} · {scans.length} scan{scans.length === 1 ? '' : 's'}</p>
+            <p className="modal-subtitle">{mla.email} · {mla.scanCount} scan{mla.scanCount === 1 ? '' : 's'}</p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
-        <div className="modal-body trainee-scans-modal-body">
-          <div className="scans-table-wrap">
-            <table className="scans-table">
-              <thead>
-                <tr>
-                  <th>Sno</th><th>Scan Id</th><th>Name</th><th>Gender</th><th>Report Type</th><th>Cost</th><th>Uploaded</th><th className="col-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scans.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>No scans uploaded by this MLA yet.</td></tr>
-                ) : scans.map((scan, i) => {
-                  const chip = mlaScanStatusStyles(scan.status);
-                  return (
-                    <tr key={scan.id}>
-                      <td data-label="Sno">{i + 1}</td>
-                      <td data-label="Scan Id">{scan.scanId}</td>
-                      <td data-label="Name">{scan.clientName}</td>
-                      <td data-label="Gender">{scan.gender}</td>
-                      <td data-label="Report Type">{scan.reportType}</td>
-                      <td data-label="Cost">{scan.cost}</td>
-                      <td data-label="Uploaded">{scan.uploadedAt}</td>
-                      <td data-label="Status"><span className="scans-status-chip" style={chip}>{scan.status}</span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="modal-body mla-scans-modal-body">
+          {loadingScans ? (
+            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>Loading scans…</p>
+          ) : scanError ? (
+            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>{scanError}</p>
+          ) : (
+            <div className="scans-table-wrap">
+              <table className="scans-table">
+                <thead>
+                  <tr>
+                    <th>Sno</th><th>Scan Id</th><th>Name</th><th>Gender</th><th>Report Type</th><th>Cost</th><th>Uploaded</th><th className="col-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scans.length === 0 ? (
+                    <tr><td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>No scans uploaded by this mla yet.</td></tr>
+                  ) : scans.map((scan, i) => {
+                    const chip = scanStatusStyles(scan.status);
+                    return (
+                      <tr key={scan.id}>
+                        <td data-label="Sno">{i + 1}</td>
+                        <td data-label="Scan Id">{scan.scanId}</td>
+                        <td data-label="Name">{scan.clientName}</td>
+                        <td data-label="Gender">{scan.gender}</td>
+                        <td data-label="Report Type">{scan.reportType}</td>
+                        <td data-label="Cost">{scan.cost}</td>
+                        <td data-label="Uploaded">{scan.uploadedAt}</td>
+                        <td data-label="Status"><span className="scans-status-chip" style={chip}>{scan.status}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -473,7 +598,7 @@ function MlaRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
   const tone = statusStyles(mla.status);
   return (
     <tr
-      className="mentor-trainee-row"
+      className="mentor-mla-row"
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       tabIndex={0}
@@ -482,13 +607,13 @@ function MlaRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
       style={{ cursor: 'pointer' }}
     >
       <td data-label="MLA">
-        <div className="trainees-person">
-          <span className="trainees-avatar" aria-hidden="true">
+        <div className="mlas-person">
+          <span className="mlas-avatar" aria-hidden="true">
             {initials(mla.name)}
           </span>
           <div>
-            <div className="trainees-person-name">{mla.name}</div>
-            <div className="trainees-person-email">{mla.email}</div>
+            <div className="mlas-person-name">{mla.name}</div>
+            <div className="mlas-person-email">{mla.email}</div>
           </div>
         </div>
       </td>
@@ -502,7 +627,7 @@ function MlaRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
       <td data-label="DOEx">{mla.doex}</td>
       <td data-label="Status" className="col-center">
         <span
-          className="trainees-status"
+          className="mlas-status"
           style={{
             color: tone.color,
             background: tone.background,

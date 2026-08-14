@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { getMisNetwork, getMisScans } from '../../api';
 import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { MonthlyBarChart } from './MonthlyBarChart';
+import { mapMisNetwork, mapMisScanRows } from './misApiMapper';
 import {
   formatCompactMoney,
   formatMoney,
-  getNetworkYearSnapshot,
   LOW_PERFORMER_THRESHOLD,
   MONTH_LABELS,
   NETWORK_YEARS,
+  type NetworkScan,
   type NetworkYear,
 } from './misData';
 
@@ -22,25 +25,82 @@ type NetworkPerformancePageProps = {
 
 export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: NetworkPerformancePageProps) {
   const [selectedYear, setSelectedYear] = useState<NetworkYear>(NETWORK_YEARS[0]);
-  const yearData = useMemo(() => getNetworkYearSnapshot(selectedYear), [selectedYear]);
-
-  const [scanMonth, setScanMonth] = useState(yearData.defaultMonth);
-  const [reviewMonth, setReviewMonth] = useState(yearData.defaultMonth);
-  const [billingMonth, setBillingMonth] = useState(yearData.defaultMonth);
+  const [yearData, setYearData] = useState(() => mapMisNetwork({
+    year: NETWORK_YEARS[0],
+    months_so_far: 0,
+    default_month: 0,
+    last_quarter_label: '',
+    low_performer_threshold: LOW_PERFORMER_THRESHOLD,
+    year_totals: { scans: 0, reviews: 0, billing: 0 },
+    scans_by_month: [],
+    reviews_by_month: [],
+    billing_by_month: [],
+    performance_rows: [],
+    low_performers: [],
+  }));
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [scanMonth, setScanMonth] = useState(0);
+  const [reviewMonth, setReviewMonth] = useState(0);
+  const [billingMonth, setBillingMonth] = useState(0);
   const [drilldownMonth, setDrilldownMonth] = useState<number | null>(null);
+  const [monthScans, setMonthScans] = useState<NetworkScan[]>([]);
   const [teamDbOpen, setTeamDbOpen] = useState(false);
 
-  useEffect(() => {
-    setScanMonth(yearData.defaultMonth);
-    setReviewMonth(yearData.defaultMonth);
-    setBillingMonth(yearData.defaultMonth);
-    setDrilldownMonth(null);
-  }, [selectedYear, yearData.defaultMonth]);
+  const loadNetwork = useCallback(async (year: NetworkYear, signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const state = await getMisNetwork(year, signal);
+      const mapped = mapMisNetwork(state);
+      setYearData(mapped);
+      setScanMonth(mapped.defaultMonth);
+      setReviewMonth(mapped.defaultMonth);
+      setBillingMonth(mapped.defaultMonth);
+      setDrilldownMonth(null);
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load network performance.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
 
-  const monthScans = useMemo(
-    () => (drilldownMonth === null ? [] : yearData.networkScans.filter((scan) => scan.month === drilldownMonth)),
-    [drilldownMonth, yearData.networkScans]
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    loadNetwork(selectedYear, controller.signal);
+    return () => controller.abort();
+  }, [selectedYear, loadNetwork]);
+
+  useEffect(() => {
+    if (drilldownMonth === null) {
+      setMonthScans([]);
+      return;
+    }
+    const controller = new AbortController();
+    getMisScans({ year: selectedYear, month: drilldownMonth, pageSize: 500 }, controller.signal)
+      .then((page) => setMonthScans(mapMisScanRows(page)))
+      .catch(() => setMonthScans([]));
+    return () => controller.abort();
+  }, [drilldownMonth, selectedYear]);
+
+  if (loading) {
+    return (
+      <section className="page-section mis-page">
+        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading network performance…</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="page-section mis-page">
+        <EmptyState title="Could not load network data" description={loadError} />
+        <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadNetwork(selectedYear)}>
+          Retry
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="page-section mis-page">

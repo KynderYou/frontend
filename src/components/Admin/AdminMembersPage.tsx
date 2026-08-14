@@ -1,4 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  createAdminMember,
+  deleteAdminMember,
+  getAdminMembers,
+  resetAdminMemberPassword,
+  updateAdminMemberStatus,
+} from '../../api';
+import type { AdminMemberApi } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -20,45 +28,6 @@ type MemberAccount = {
   status: MemberStatus;
 };
 
-const seedAccounts: MemberAccount[] = [
-  {
-    id: 'm1',
-    name: 'Madhu Sharma',
-    email: 'madhu@midna.com',
-    phone: '9597770205',
-    role: 'Admin',
-    createdAt: '02 Jan 2026',
-    status: 'Active',
-  },
-  {
-    id: 'm2',
-    name: 'Priya Nair',
-    email: 'priya@midna.com',
-    phone: '9364233342',
-    role: 'MLA Member',
-    createdAt: '18 Mar 2026',
-    status: 'Active',
-  },
-  {
-    id: 'm3',
-    name: 'Arjun Dev',
-    email: 'arjun@midna.com',
-    phone: '9791770205',
-    role: 'Counsellor',
-    createdAt: '05 Jun 2026',
-    status: 'Active',
-  },
-  {
-    id: 'm4',
-    name: 'Riya Saravanan',
-    email: 'riya@midna.com',
-    phone: '9123456780',
-    role: 'MLA Member',
-    createdAt: '14 Jul 2026',
-    status: 'Invited',
-  },
-];
-
 type MemberForm = {
   name: string;
   email: string;
@@ -69,14 +38,22 @@ type MemberForm = {
 
 const emptyForm: MemberForm = { name: '', email: '', phone: '', password: '', role: '' };
 
+function mapAccounts(members: AdminMemberApi[]): MemberAccount[] {
+  return members.map((member) => ({
+    id: String(member.id),
+    name: member.name,
+    email: member.email,
+    phone: member.phone,
+    role: member.role as MemberRole,
+    createdAt: member.created_at,
+    status: member.status as MemberStatus,
+  }));
+}
+
 function statusStyles(status: MemberStatus) {
   if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };
   if (status === 'Invited') return { color: theme.warning, background: theme['warning-bg'] };
   return { color: theme.error, background: theme['error-bg'] };
-}
-
-function formatDate(date = new Date()) {
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 type AdminMembersPageProps = {
@@ -85,15 +62,37 @@ type AdminMembersPageProps = {
 };
 
 export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembersPageProps) {
-  const [accounts, setAccounts] = useState<MemberAccount[]>(seedAccounts);
+  const [accounts, setAccounts] = useState<MemberAccount[]>([]);
   const [form, setForm] = useState<MemberForm>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const showNotice = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(null), 5000);
   };
+
+  const loadAccounts = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const state = await getAdminMembers(signal);
+      setAccounts(mapAccounts(state.members));
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load member accounts.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadAccounts(controller.signal);
+    return () => controller.abort();
+  }, [loadAccounts]);
 
   const update = (key: keyof MemberForm) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -101,7 +100,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
     setForm((f) => ({ ...f, [key]: e.target.value }));
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = form.name.trim();
     const email = form.email.trim().toLowerCase();
@@ -120,51 +119,78 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
       setError('Password must be at least 8 characters.');
       return;
     }
-    if (accounts.some((a) => a.email === email)) {
-      setError('Email already has an account.');
-      return;
-    }
 
-    setError(null);
-    setAccounts((prev) => [
-      {
-        id: `m-${Date.now()}`,
+    setSubmitting(true);
+    try {
+      const result = await createAdminMember({
         name,
         email,
         phone,
-        role: form.role as MemberRole,
-        createdAt: formatDate(),
-        status: 'Active',
-      },
-      ...prev,
-    ]);
-    setForm(emptyForm);
-    showNotice(`Account created for ${name} · they can sign in with ${email}.`);
+        password,
+        role: form.role,
+      });
+      setAccounts(mapAccounts(result.members));
+      setError(null);
+      setForm(emptyForm);
+      showNotice(result.message);
+    } catch {
+      setError('Unable to create account.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleReset = (account: MemberAccount) => {
-    showNotice(`Password reset link sent to ${account.email}.`);
+  const handleReset = async (account: MemberAccount) => {
+    try {
+      const result = await resetAdminMemberPassword(Number(account.id));
+      setAccounts(mapAccounts(result.members));
+      showNotice(result.message);
+    } catch {
+      showNotice(`Unable to reset password for ${account.email}.`);
+    }
   };
 
-  const handleToggle = (account: MemberAccount) => {
-    setAccounts((prev) =>
-      prev.map((a) =>
-        a.id === account.id
-          ? { ...a, status: a.status === 'Disabled' ? 'Active' : 'Disabled' }
-          : a
-      )
+  const handleToggle = async (account: MemberAccount) => {
+    const nextStatus = account.status === 'Disabled' ? 'Active' : 'Disabled';
+    try {
+      const result = await updateAdminMemberStatus(Number(account.id), nextStatus);
+      setAccounts(mapAccounts(result.members));
+      showNotice(result.message);
+    } catch {
+      showNotice(`Unable to update ${account.name}.`);
+    }
+  };
+
+  const handleDelete = async (account: MemberAccount) => {
+    try {
+      const result = await deleteAdminMember(Number(account.id));
+      setAccounts(mapAccounts(result.members));
+      showNotice(result.message);
+    } catch {
+      showNotice(`Unable to delete ${account.name}.`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section className="page-section">
+        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading member accounts…</p>
+      </section>
     );
-    showNotice(
-      account.status === 'Disabled'
-        ? `${account.name} enabled.`
-        : `${account.name} disabled · sign-in blocked.`
-    );
-  };
+  }
 
-  const handleDelete = (account: MemberAccount) => {
-    setAccounts((prev) => prev.filter((a) => a.id !== account.id));
-    showNotice(`Account for ${account.name} deleted.`);
-  };
+  if (loadError) {
+    return (
+      <section className="page-section">
+        <div className="dash-card" style={{ padding: spacing[5] }}>
+          <p style={{ margin: 0, color: theme.error }}>{loadError}</p>
+          <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadAccounts()}>
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="page-section">
@@ -292,8 +318,8 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
 
           <div className="admin-create-footer">
             {error ? <p className="scans-upload-error" style={{ margin: 0 }}>{error}</p> : <span />}
-            <button type="submit" className="btn-pill-primary">
-              Create account
+            <button type="submit" className="btn-pill-primary" disabled={submitting}>
+              {submitting ? 'Creating…' : 'Create account'}
             </button>
           </div>
         </form>

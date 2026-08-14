@@ -9,6 +9,7 @@ import {
 import type { Certification, MemberProfile } from '../../api';
 import { buttonTokens, colors, metricColors, radius, severityTokens, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { AvatarCropModal } from './AvatarCropModal';
 import { CertificationCard } from './CertificationCard';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { EditProfileModal } from './EditProfileModal';

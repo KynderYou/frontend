@@ -4,10 +4,14 @@
  * Each module should only export typed request helpers — no UI logic.
  */
 export * from './auth';
+export * from './admin';
+export * from './cab';
 export * from './communications';
 export * from './dashboard';
 export * from './health';
 export * from './ledger';
+export * from './mis';
+export * from './mlas';
 export * from './profile';
 export * from './reports';
 export * from './scans';

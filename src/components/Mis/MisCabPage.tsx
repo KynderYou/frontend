@@ -1,21 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { debitCabRecord, getCabState, getMe } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { cabCountFor, mapCabState, pendingCabCountFor } from './cabApiMapper';
 import {
-  cabCountFor,
-  cabDebitRecords,
-  CURRENT_CAB_MENTOR_ID,
   formatAudioLabel,
-  mentors,
-  pendingCabCountFor,
   type CabDebitRecord,
   type CabDebitStatus,
 } from './cabData';
+import type { Mentor } from '../Trainees/traineesData';
 
 const theme = colors.light;
-
-type CabViewMode = 'admin' | 'mentor';
 
 type MisCabPageProps = {
   onOpenMobileMenu?: () => void;
@@ -112,17 +109,41 @@ function CabDebitConfirmModal({
 }
 
 export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps) {
-  /** Replace with role gate: admin vs mentor login. */
-  const [viewMode, setViewMode] = useState<CabViewMode>('admin');
-  const [records, setRecords] = useState<CabDebitRecord[]>(() => [...cabDebitRecords]);
-  const [selectedMentorId, setSelectedMentorId] = useState<string>(mentors[0]?.id ?? '');
+  const [isAdmin, setIsAdmin] = useState(true);
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [records, setRecords] = useState<CabDebitRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [selectedMentorId, setSelectedMentorId] = useState('');
   const [mentorQuery, setMentorQuery] = useState('');
   const [query, setQuery] = useState('');
   const [debitTarget, setDebitTarget] = useState<CabDebitRecord | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const isAdmin = viewMode === 'admin';
-  const mentorScopeId = CURRENT_CAB_MENTOR_ID;
+  const loadState = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const member = await getMe(signal);
+      const admin = member.role === 'Admin';
+      setIsAdmin(admin);
+      const state = await getCabState(signal, admin ? undefined : 'mine');
+      const mapped = mapCabState(state);
+      setMentors(mapped.mentors);
+      setRecords(mapped.records);
+      setSelectedMentorId((prev) => prev || mapped.mentors[0]?.id || '');
+      setLoadError('');
+    } catch {
+      if (!signal?.aborted) setLoadError('Unable to load CAB entries.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadState(controller.signal);
+    return () => controller.abort();
+  }, [loadState]);
 
   useEffect(() => {
     if (!notice) return;
@@ -140,13 +161,13 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
         m.email.toLowerCase().includes(q) ||
         m.region.toLowerCase().includes(q)
     );
-  }, [mentorQuery, records]);
+  }, [mentorQuery, mentors, records]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return records.filter((row) => {
       if (isAdmin && row.mentorId !== selectedMentorId) return false;
-      if (!isAdmin && row.mentorId !== mentorScopeId) return false;
+      if (!isAdmin && row.mentorId !== mentors[0]?.id) return false;
       if (!q) return true;
       return (
         row.scanId.toLowerCase().includes(q) ||
@@ -156,21 +177,48 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
         row.audio.fileName.toLowerCase().includes(q)
       );
     });
-  }, [records, isAdmin, selectedMentorId, mentorScopeId, query]);
+  }, [records, isAdmin, selectedMentorId, mentors, query]);
 
   const selectedMentor = mentors.find((m) => m.id === selectedMentorId);
   const pendingCount = filtered.filter((row) => row.status === 'Pending').length;
 
-  const handleDebit = (record: CabDebitRecord) => {
-    setRecords((prev) =>
-      prev.map((row) =>
-        row.id === record.id
-          ? { ...row, status: 'Debited' as CabDebitStatus, debitedAt: 'Today' }
-          : row
-      )
-    );
-    setNotice(`${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`);
+  const handleDebit = async (record: CabDebitRecord) => {
+    try {
+      const state = await debitCabRecord(Number(record.id));
+      const mapped = mapCabState(state);
+      setMentors(mapped.mentors);
+      setRecords(mapped.records);
+      setNotice(`${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`);
+    } catch {
+      setNotice('Unable to record debit. Please try again.');
+    }
   };
+
+  if (loading) {
+    return (
+      <section className="page-section trainees-page mis-cab-page">
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+              MIS · CAB
+            </h1>
+          </div>
+        </div>
+        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading CAB entries…</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="page-section trainees-page mis-cab-page">
+        <EmptyState title="Could not load CAB" description={loadError} />
+        <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadState()}>
+          Retry
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="page-section trainees-page mis-cab-page">
@@ -196,22 +244,6 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div className="mis-cab-view-toggle" role="group" aria-label="CAB view mode">
-            <button
-              type="button"
-              className={`mis-cab-view-btn${isAdmin ? ' is-active' : ''}`}
-              onClick={() => setViewMode('admin')}
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              className={`mis-cab-view-btn${!isAdmin ? ' is-active' : ''}`}
-              onClick={() => setViewMode('mentor')}
-            >
-              Mentor
-            </button>
-          </div>
           <button type="button" className="btn-icon mobile-menu-btn" aria-label="Open menu" onClick={onOpenMobileMenu}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M4 7h16M4 12h16M4 17h16" />
@@ -445,7 +477,9 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
         open={Boolean(debitTarget)}
         record={debitTarget}
         onClose={() => setDebitTarget(null)}
-        onConfirm={handleDebit}
+        onConfirm={(record) => {
+          void handleDebit(record);
+        }}
       />
     </section>
   );
