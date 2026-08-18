@@ -2,46 +2,66 @@ import { apiClient } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
 import type {
-  CommunicationsStateApi,
+  CommGroupApi,
+  CommMemberApi,
+  CommunicationApi,
+  DeleteCommGroupResponse,
+  PollVoteResultApi,
   PublishCommunicationPayload,
 } from '../types';
 
-/** GET /api/communications/state */
-export async function getCommunicationsState(signal?: AbortSignal): Promise<CommunicationsStateApi> {
+/** GET /api/communications/notices */
+export async function getCommunicationsNotices(signal?: AbortSignal): Promise<CommunicationApi[]> {
   if (isDemoToken(getToken())) {
-    return { groups: [], communications: [], members: [] };
+    return [];
   }
-  return apiClient<CommunicationsStateApi>('/api/communications/state', { signal });
+  return apiClient<CommunicationApi[]>('/api/communications/notices', { signal });
+}
+
+/** GET /api/communications/groups */
+export async function getCommGroups(signal?: AbortSignal): Promise<CommGroupApi[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<CommGroupApi[]>('/api/communications/groups', { signal });
+}
+
+/** GET /api/communications/members */
+export async function getCommMembers(signal?: AbortSignal): Promise<CommMemberApi[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<CommMemberApi[]>('/api/communications/members', { signal });
 }
 
 /** POST /api/communications/publish */
-export async function publishCommunication(body: PublishCommunicationPayload): Promise<CommunicationsStateApi> {
+export async function publishCommunication(body: PublishCommunicationPayload): Promise<CommunicationApi> {
   if (isDemoToken(getToken())) {
     throw new Error('Publish not available in demo mode');
   }
-  return apiClient<CommunicationsStateApi>('/api/communications/publish', { method: 'POST', body });
+  return apiClient<CommunicationApi>('/api/communications/publish', { method: 'POST', body });
 }
 
 /** POST /api/communications/{id}/replies */
 export async function replyToCommunication(
   messageId: number,
   body: string,
-): Promise<CommunicationsStateApi> {
+): Promise<CommunicationApi> {
   if (isDemoToken(getToken())) {
     throw new Error('Reply not available in demo mode');
   }
-  return apiClient<CommunicationsStateApi>(`/api/communications/${messageId}/replies`, {
+  return apiClient<CommunicationApi>(`/api/communications/${messageId}/replies`, {
     method: 'POST',
     body: { body },
   });
 }
 
 /** POST /api/communications/{id}/poll-vote */
-export async function voteOnPoll(messageId: number, optionId: number): Promise<CommunicationsStateApi> {
+export async function voteOnPoll(messageId: number, optionId: number): Promise<PollVoteResultApi> {
   if (isDemoToken(getToken())) {
     throw new Error('Vote not available in demo mode');
   }
-  return apiClient<CommunicationsStateApi>(`/api/communications/${messageId}/poll-vote`, {
+  return apiClient<PollVoteResultApi>(`/api/communications/${messageId}/poll-vote`, {
     method: 'POST',
     body: { option_id: optionId },
   });
@@ -51,20 +71,20 @@ export async function voteOnPoll(messageId: number, optionId: number): Promise<C
 export async function createCommGroup(
   name: string,
   memberIds: number[],
-): Promise<CommunicationsStateApi> {
+): Promise<CommGroupApi> {
   if (isDemoToken(getToken())) {
     throw new Error('Create group not available in demo mode');
   }
-  return apiClient<CommunicationsStateApi>('/api/communications/groups', {
+  return apiClient<CommGroupApi>('/api/communications/groups', {
     method: 'POST',
     body: { name, member_ids: memberIds },
   });
 }
 
 /** DELETE /api/communications/groups/{id} */
-export async function deleteCommGroup(groupId: number): Promise<CommunicationsStateApi> {
+export async function deleteCommGroup(groupId: number): Promise<DeleteCommGroupResponse> {
   if (isDemoToken(getToken())) {
     throw new Error('Delete group not available in demo mode');
   }
-  return apiClient<CommunicationsStateApi>(`/api/communications/groups/${groupId}`, { method: 'DELETE' });
+  return apiClient<DeleteCommGroupResponse>(`/api/communications/groups/${groupId}`, { method: 'DELETE' });
 }

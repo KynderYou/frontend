@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties, type Rea
 import {
   createCommGroup,
   deleteCommGroup,
-  getCommunicationsState as fetchCommunicationsState,
+  getCommGroups,
+  getCommMembers,
+  getCommunicationsNotices,
   publishCommunication as publishCommunicationApi,
   replyToCommunication as replyToCommunicationApi,
   voteOnPoll as voteOnPollApi,
@@ -18,7 +20,12 @@ import {
 import { EmptyState } from '../common/EmptyState';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { mapCommunicationsState } from './communicationsApiMapper';
+import {
+  mapCommGroups,
+  mapCommMembers,
+  mapCommunication,
+  mapCommunicationsList,
+} from './communicationsApiMapper';
 import {
   audienceLabel,
   pollTotalVotes,
@@ -78,24 +85,25 @@ export function CommunicationsPage({
   const [replyError, setReplyError] = useState('');
   const [seenModalItem, setSeenModalItem] = useState<Communication | null>(null);
 
-  const applyState = useCallback((state: ReturnType<typeof mapCommunicationsState>) => {
-    setGroups(state.groups);
-    setCommunications(state.communications);
-    setMembers(state.members);
-  }, []);
-
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const state = await fetchCommunicationsState(signal);
-      applyState(mapCommunicationsState(state));
+      const [notices, groups, members] = await Promise.all([
+        getCommunicationsNotices(signal),
+        getCommGroups(signal),
+        getCommMembers(signal),
+      ]);
+      if (signal?.aborted) return;
+      setCommunications(mapCommunicationsList(notices));
+      setGroups(mapCommGroups(groups));
+      setMembers(mapCommMembers(members));
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load communications.');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [applyState]);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -186,7 +194,7 @@ export function CommunicationsPage({
 
     setSubmitting(true);
     try {
-      const state = await publishCommunicationApi({
+      const created = await publishCommunicationApi({
         title,
         body,
         severity,
@@ -196,9 +204,8 @@ export function CommunicationsPage({
         poll_question: includePoll ? pollQuestion : null,
         poll_options: includePoll ? pollOptions : [],
       });
-      const mapped = mapCommunicationsState(state);
-      applyState(mapped);
-      const created = mapped.communications[0];
+      const mapped = mapCommunication(created);
+      setCommunications((prev) => [mapped, ...prev]);
 
       setTitle('');
       setBody('');
@@ -212,7 +219,7 @@ export function CommunicationsPage({
       setComposeError('');
       setComposeNotice('Published — it will show on the dashboard notice board.');
       setTab('sent');
-      if (created) selectThread(created.id);
+      if (mapped) selectThread(mapped.id);
     } catch {
       setComposeError('Publish failed. Please try again.');
     } finally {
@@ -231,16 +238,15 @@ export function CommunicationsPage({
     }
     setSubmitting(true);
     try {
-      const state = await createCommGroup(groupName, groupMembers.map(Number));
-      const mapped = mapCommunicationsState(state);
-      applyState(mapped);
-      const created = mapped.groups[0];
+      const created = await createCommGroup(groupName, groupMembers.map(Number));
+      const mapped = mapCommGroups([created])[0];
+      setGroups((prev) => [...prev, mapped].sort((a, b) => a.name.localeCompare(b.name)));
       setGroupName('');
       setGroupMembers([]);
       setGroupError('');
-      if (created) {
-        setSelectedGroupIds((prev) => [...prev, created.id]);
-        setComposeNotice(`Group “${created.name}” created. You can broadcast to it from Compose.`);
+      if (mapped) {
+        setSelectedGroupIds((prev) => [...prev, mapped.id]);
+        setComposeNotice(`Group “${mapped.name}” created. You can broadcast to it from Compose.`);
       }
     } catch {
       setGroupError('Could not create group. Please try again.');
@@ -259,8 +265,9 @@ export function CommunicationsPage({
     }
     setSubmitting(true);
     try {
-      const state = await replyToCommunicationApi(Number(selected.id), text);
-      applyState(mapCommunicationsState(state));
+      const updated = await replyToCommunicationApi(Number(selected.id), text);
+      const mapped = mapCommunication(updated);
+      setCommunications((prev) => prev.map((item) => (item.id === mapped.id ? mapped : item)));
       setReplyDraft('');
     } catch {
       setReplyError('Reply failed. Please try again.');
@@ -273,8 +280,24 @@ export function CommunicationsPage({
     if (!selected) return;
     setSubmitting(true);
     try {
-      const state = await voteOnPollApi(Number(selected.id), Number(optionId));
-      applyState(mapCommunicationsState(state));
+      const result = await voteOnPollApi(Number(selected.id), Number(optionId));
+      setCommunications((prev) =>
+        prev.map((item) =>
+          item.id === String(result.message_id) && item.poll
+            ? {
+                ...item,
+                poll: {
+                  question: result.poll.question,
+                  options: result.poll.options.map((option) => ({
+                    id: String(option.id),
+                    label: option.label,
+                    votes: option.votes,
+                  })),
+                },
+              }
+            : item,
+        ),
+      );
     } catch {
       setReplyError('Vote failed. Please try again.');
     } finally {
@@ -285,8 +308,8 @@ export function CommunicationsPage({
   const handleDeleteGroup = async (groupId: string) => {
     setSubmitting(true);
     try {
-      const state = await deleteCommGroup(Number(groupId));
-      applyState(mapCommunicationsState(state));
+      await deleteCommGroup(Number(groupId));
+      setGroups((prev) => prev.filter((group) => group.id !== groupId));
       setSelectedGroupIds((prev) => prev.filter((id) => id !== groupId));
     } catch {
       setGroupError('Could not delete group. Please try again.');

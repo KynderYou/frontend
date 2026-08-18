@@ -130,8 +130,6 @@ export type TopPerformer = {
 
 export type DashboardData = {
   kpis: DashboardKpis;
-  notices: DashboardNotice[];
-  top_performers: TopPerformer[];
 };
 
 export type MlaScanDetails = {
@@ -259,10 +257,13 @@ export type CommunicationApi = {
   replies: CommReplyApi[];
 };
 
-export type CommunicationsStateApi = {
-  groups: CommGroupApi[];
-  communications: CommunicationApi[];
-  members: CommMemberApi[];
+export type PollVoteResultApi = {
+  message_id: number;
+  poll: CommPollApi;
+};
+
+export type DeleteCommGroupResponse = {
+  message: string;
 };
 
 export type PublishCommunicationPayload = {

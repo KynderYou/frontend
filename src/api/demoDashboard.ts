@@ -1,4 +1,4 @@
-import type { DashboardData } from './types';
+import type { DashboardData, TopPerformer } from './types';
 
 export const emptyDashboard: DashboardData = {
   kpis: {
@@ -7,10 +7,12 @@ export const emptyDashboard: DashboardData = {
     billing_this_year: null,
     billing_total: null,
   },
-  notices: [],
-  top_performers: [],
 };
 
 export function demoDashboard(): DashboardData {
   return emptyDashboard;
+}
+
+export function demoTopPerformers(): TopPerformer[] {
+  return [];
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getDashboard } from '../../api';
-import type { DashboardData } from '../../api';
+import { getCommunicationsNotices, getDashboard, getTopPerformers } from '../../api';
+import type { DashboardData, DashboardNotice, TopPerformer } from '../../api';
+import { mapCommunicationsToDashboardNotices } from '../Communications/communicationsApiMapper';
 import { DashboardKpis } from './DashboardKpis';
 import { NoticeBoard } from './NoticeBoard';
 import { TopPerformers } from './TopPerformers';
@@ -15,16 +16,20 @@ type HomeDashboardProps = {
 
 export function HomeDashboard({ onOpenMobileMenu, onOpenProfile, onNavigate, onReply }: HomeDashboardProps) {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [notices, setNotices] = useState<DashboardNotice[]>([]);
+  const [performers, setPerformers] = useState<TopPerformer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getDashboard()
-      .then((result) => {
+    Promise.all([getDashboard(), getCommunicationsNotices(), getTopPerformers()])
+      .then(([dashboard, noticesData, topPerformers]) => {
         if (!cancelled) {
-          setData(result);
+          setData(dashboard);
+          setNotices(mapCommunicationsToDashboardNotices(noticesData));
+          setPerformers(topPerformers);
           setError('');
         }
       })
@@ -50,12 +55,8 @@ export function HomeDashboard({ onOpenMobileMenu, onOpenProfile, onNavigate, onR
         onNavigate={onNavigate}
       />
       <div className="home-lower">
-        <NoticeBoard
-          notices={data?.notices ?? []}
-          loading={loading}
-          onReply={onReply}
-        />
-        <TopPerformers performers={data?.top_performers ?? []} loading={loading} />
+        <NoticeBoard notices={notices} loading={loading} onReply={onReply} />
+        <TopPerformers performers={performers} loading={loading} />
       </div>
     </>
   );
