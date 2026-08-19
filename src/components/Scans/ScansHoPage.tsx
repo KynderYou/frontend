@@ -6,6 +6,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
 import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload } from './ProcessScanModal';
+import { scanStatusStyles } from './scanStatusStyles';
 
 const theme = colors.light;
 
@@ -44,20 +45,6 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
     subtitle: 'Upload reports, trigger DDS/debit, or delete scans with confirmation.',
   },
 };
-
-function hoStatusStyles(status: string) {
-  const value = status.toLowerCase();
-  if (value.includes('completed') || value.includes('verified') || value.includes('uploaded') || value.includes('debited') || value.includes('downloaded')) {
-    return { color: theme.success, background: theme['success-bg'] };
-  }
-  if (value.includes('review') || value.includes('process') || value.includes('pending') || value.includes('awaiting') || value.includes('ready')) {
-    return { color: theme.warning, background: theme['warning-bg'] };
-  }
-  if (value.includes('reject') || value.includes('delete')) {
-    return { color: theme.error, background: theme['error-bg'] };
-  }
-  return { color: theme.primary, background: theme['primary-soft'] };
-}
 
 function actionPayloadFromProcess(record: ProcessScanPayload) {
   return {
@@ -366,7 +353,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
               </thead>
               <tbody>
                 {rows.map((row, index) => {
-                  const chip = hoStatusStyles(row.status);
+                  const chip = scanStatusStyles(row.status);
                   return (
                     <tr
                       key={row.id}

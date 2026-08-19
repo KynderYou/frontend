@@ -8,7 +8,8 @@ import { CabModal } from './CabModal';
 import { DeleteScanModal } from './DeleteScanModal';
 import { downloadReportPdf } from './downloadReportPdf';
 import { applyReportUpdate, reportListToRecords } from './reportApiMapper';
-import { type ReportRecord, type ReportStatus } from './reportTypes';
+import { type ReportRecord } from './reportTypes';
+import { isReportReady, REPORT_STATUS_FILTERS, scanStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
 import { UpgradeReportModal } from './UpgradeReportModal';
 
 const theme = colors.light;
@@ -21,14 +22,8 @@ const avatarPalette = [
   { color: '#C2255C', background: '#FFF0F6' },
 ] as const;
 
-const statusFilters = ['All', 'Ready', 'Processing', 'Upgraded'] as const;
-type StatusFilter = (typeof statusFilters)[number];
-
-function statusStyles(status: ReportStatus) {
-  if (status === 'Upgraded') return { color: theme.success, background: theme['success-bg'] };
-  if (status === 'Ready') return { color: theme.primary, background: theme['primary-soft'] };
-  return { color: theme.warning, background: theme['warning-bg'] };
-}
+const statusFilters = REPORT_STATUS_FILTERS;
+type StatusFilter = ReportStatusFilter;
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -90,7 +85,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const stats = useMemo(
     () => ({
       total: records.length,
-      ready: records.filter((r) => r.status !== 'Processing').length,
+      ready: records.filter((r) => isReportReady(r.status)).length,
       premium: records.filter((r) => r.plan === 'Premium').length,
       cab: records.reduce((sum, r) => sum + r.cabAudios.length, 0),
     }),
@@ -158,8 +153,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   };
 
   const renderCard = (row: ReportRecord, index: number) => {
-    const chip = statusStyles(row.status);
-    const ready = row.status !== 'Processing';
+    const chip = scanStatusStyles(row.status);
+    const ready = isReportReady(row.status);
     const isPremium = row.plan === 'Premium';
     const avatar = avatarPalette[index % avatarPalette.length];
 
@@ -305,8 +300,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
         </thead>
         <tbody>
           {filtered.map((row, index) => {
-            const chip = statusStyles(row.status);
-            const ready = row.status !== 'Processing';
+            const chip = scanStatusStyles(row.status);
+            const ready = isReportReady(row.status);
             const isPremium = row.plan === 'Premium';
             return (
               <tr key={row.id}>

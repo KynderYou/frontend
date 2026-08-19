@@ -1,5 +1,5 @@
 import type { ReportRecordApi } from '../../api/types';
-import type { CabAudio, ReportPlan, ReportRecord, ReportStatus } from './reportTypes';
+import type { CabAudio, ReportPlan, ReportRecord } from './reportTypes';
 
 function mapDetails(details: ReportRecordApi['details']) {
   return {
@@ -30,7 +30,7 @@ export function reportToRecord(report: ReportRecordApi): ReportRecord {
     reportName: report.report_name,
     size: report.size,
     generatedAt: report.generated_at,
-    status: report.status as ReportStatus,
+    status: report.status,
     plan: report.plan as ReportPlan,
     details: mapDetails(report.details),
     cabAudios: mapCabAudios(report.cab_audios),

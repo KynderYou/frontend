@@ -1,7 +1,5 @@
 import type { ScanDetails } from '../Scans/scanTypes';
 
-export type ReportStatus = 'Processing' | 'Ready' | 'Upgraded';
-
 export type ReportPlan = 'Standard' | 'Premium';
 
 export type CabAudio = {
@@ -18,7 +16,8 @@ export type ReportRecord = {
   reportName: string;
   size: string;
   generatedAt: string;
-  status: ReportStatus;
+  /** Same status labels as Scans HO workflow (e.g. Processing, Uploaded, DDS Done). */
+  status: string;
   plan: ReportPlan;
   details: ScanDetails;
   cabAudios: CabAudio[];

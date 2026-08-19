@@ -28,9 +28,9 @@ export async function requestReportCab(scanId: number): Promise<ReportRecordApi>
 }
 
 /** DELETE /api/reports/{id} */
-export async function deleteReport(scanId: number): Promise<void> {
+export async function deleteReport(scanId: number): Promise<{ message: string }> {
   if (isDemoToken(getToken())) {
-    return;
+    return { message: `Report ${scanId} deleted.` };
   }
-  await apiClient<void>(`/api/reports/${scanId}`, { method: 'DELETE' });
+  return apiClient<{ message: string }>(`/api/reports/${scanId}`, { method: 'DELETE' });
 }
