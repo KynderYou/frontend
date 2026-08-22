@@ -38,8 +38,8 @@ type MemberForm = {
 
 const emptyForm: MemberForm = { name: '', email: '', phone: '', password: '', role: '' };
 
-function mapAccounts(members: AdminMemberApi[]): MemberAccount[] {
-  return members.map((member) => ({
+function mapAccount(member: AdminMemberApi): MemberAccount {
+  return {
     id: String(member.id),
     name: member.name,
     email: member.email,
@@ -47,7 +47,11 @@ function mapAccounts(members: AdminMemberApi[]): MemberAccount[] {
     role: member.role as MemberRole,
     createdAt: member.created_at,
     status: member.status as MemberStatus,
-  }));
+  };
+}
+
+function mapAccounts(members: AdminMemberApi[]): MemberAccount[] {
+  return members.map(mapAccount);
 }
 
 function statusStyles(status: MemberStatus) {
@@ -129,7 +133,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         password,
         role: form.role,
       });
-      setAccounts(mapAccounts(result.members));
+      setAccounts((current) => [mapAccount(result.member), ...current]);
       setError(null);
       setForm(emptyForm);
       showNotice(result.message);
@@ -143,8 +147,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
   const handleReset = async (account: MemberAccount) => {
     try {
       const result = await resetAdminMemberPassword(Number(account.id));
-      setAccounts(mapAccounts(result.members));
-      showNotice(result.message);
+      showNotice(`${result.message} ${result.temp_password}`);
     } catch {
       showNotice(`Unable to reset password for ${account.email}.`);
     }
@@ -154,7 +157,8 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
     const nextStatus = account.status === 'Disabled' ? 'Active' : 'Disabled';
     try {
       const result = await updateAdminMemberStatus(Number(account.id), nextStatus);
-      setAccounts(mapAccounts(result.members));
+      const updated = mapAccount(result.member);
+      setAccounts((current) => current.map((row) => (row.id === updated.id ? updated : row)));
       showNotice(result.message);
     } catch {
       showNotice(`Unable to update ${account.name}.`);
@@ -164,7 +168,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
   const handleDelete = async (account: MemberAccount) => {
     try {
       const result = await deleteAdminMember(Number(account.id));
-      setAccounts(mapAccounts(result.members));
+      setAccounts((current) => current.filter((row) => row.id !== String(result.id)));
       showNotice(result.message);
     } catch {
       showNotice(`Unable to delete ${account.name}.`);

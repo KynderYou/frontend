@@ -526,7 +526,23 @@ export type CreateAdminMemberPayload = {
   role: string;
 };
 
-export type AdminActionApi = {
+export type CreateAdminMemberResultApi = {
   message: string;
-  members: AdminMemberApi[];
+  member: AdminMemberApi;
+};
+
+export type UpdateAdminMemberStatusResultApi = {
+  message: string;
+  member: AdminMemberApi;
+};
+
+export type ResetAdminMemberPasswordResultApi = {
+  message: string;
+  id: number;
+  temp_password: string;
+};
+
+export type DeleteAdminMemberResultApi = {
+  message: string;
+  id: number;
 };

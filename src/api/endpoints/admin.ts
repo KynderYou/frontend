@@ -1,8 +1,11 @@
 import { apiClient } from '../client';
 import type {
-  AdminActionApi,
   AdminMembersStateApi,
   CreateAdminMemberPayload,
+  CreateAdminMemberResultApi,
+  DeleteAdminMemberResultApi,
+  ResetAdminMemberPasswordResultApi,
+  UpdateAdminMemberStatusResultApi,
 } from '../types';
 
 /** GET /api/admin/members */
@@ -14,8 +17,8 @@ export async function getAdminMembers(signal?: AbortSignal): Promise<AdminMember
 export async function createAdminMember(
   payload: CreateAdminMemberPayload,
   signal?: AbortSignal,
-): Promise<AdminActionApi> {
-  return apiClient<AdminActionApi>('/api/admin/members', {
+): Promise<CreateAdminMemberResultApi> {
+  return apiClient<CreateAdminMemberResultApi>('/api/admin/members', {
     method: 'POST',
     body: payload,
     signal,
@@ -27,8 +30,8 @@ export async function updateAdminMemberStatus(
   memberId: number,
   status: 'Active' | 'Invited' | 'Disabled',
   signal?: AbortSignal,
-): Promise<AdminActionApi> {
-  return apiClient<AdminActionApi>(`/api/admin/members/${memberId}/status`, {
+): Promise<UpdateAdminMemberStatusResultApi> {
+  return apiClient<UpdateAdminMemberStatusResultApi>(`/api/admin/members/${memberId}/status`, {
     method: 'PATCH',
     body: { status },
     signal,
@@ -39,16 +42,19 @@ export async function updateAdminMemberStatus(
 export async function resetAdminMemberPassword(
   memberId: number,
   signal?: AbortSignal,
-): Promise<AdminActionApi> {
-  return apiClient<AdminActionApi>(`/api/admin/members/${memberId}/reset-password`, {
+): Promise<ResetAdminMemberPasswordResultApi> {
+  return apiClient<ResetAdminMemberPasswordResultApi>(`/api/admin/members/${memberId}/reset-password`, {
     method: 'POST',
     signal,
   });
 }
 
 /** DELETE /api/admin/members/{id} */
-export async function deleteAdminMember(memberId: number, signal?: AbortSignal): Promise<AdminActionApi> {
-  return apiClient<AdminActionApi>(`/api/admin/members/${memberId}`, {
+export async function deleteAdminMember(
+  memberId: number,
+  signal?: AbortSignal,
+): Promise<DeleteAdminMemberResultApi> {
+  return apiClient<DeleteAdminMemberResultApi>(`/api/admin/members/${memberId}`, {
     method: 'DELETE',
     signal,
   });
