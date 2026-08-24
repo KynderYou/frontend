@@ -45,7 +45,7 @@ export function HomeDashboard({ onOpenMobileMenu, onOpenProfile, onNavigate, onR
   }, []);
 
   return (
-    <>
+    <div className="home-dashboard">
       <DashboardKpis
         kpis={data?.kpis ?? null}
         loading={loading}
@@ -58,6 +58,6 @@ export function HomeDashboard({ onOpenMobileMenu, onOpenProfile, onNavigate, onR
         <NoticeBoard notices={notices} loading={loading} onReply={onReply} />
         <TopPerformers performers={performers} loading={loading} />
       </div>
-    </>
+    </div>
   );
 }

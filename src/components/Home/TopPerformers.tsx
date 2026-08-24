@@ -1,5 +1,5 @@
 import type { TopPerformer } from '../../api';
-import { colors, layoutTokens, radius, shadow, spacing } from '../../styles/theme';
+import { colors, radius, shadow, spacing } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 
 const theme = colors.light;
@@ -13,7 +13,7 @@ type TopPerformersProps = {
 
 export function TopPerformers({ performers, loading }: TopPerformersProps) {
   return (
-    <section className="dash-card" style={{ display: 'flex', flexDirection: 'column', height: layoutTokens.homeLowerCardHeight }}>
+    <section className="dash-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div
         style={{
           display: 'flex',

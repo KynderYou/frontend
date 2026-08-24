@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DashboardNotice } from '../../api';
-import { colors, layoutTokens, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
+import { colors, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 
 const theme = colors.light;
@@ -47,7 +47,8 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: layoutTokens.homeLowerCardHeight,
+        height: '100%',
+        minHeight: 0,
       }}
     >
       <div
