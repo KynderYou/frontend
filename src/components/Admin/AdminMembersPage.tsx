@@ -4,8 +4,6 @@ import {
   deleteAdminMember,
   getAdminMembers,
   getAdminMentors,
-  resetAdminMemberPassword,
-  updateAdminMemberStatus,
 } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
@@ -28,14 +26,13 @@ import {
 
 const theme = colors.light;
 
-type MemberStatus = 'Active' | 'Invited' | 'Disabled';
-
 type AdminMembersPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
+  onNavigate?: (view: import('../Layout/navItems').AppView, target?: string) => void;
 };
 
-export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembersPageProps) {
+export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }: AdminMembersPageProps) {
   const [members, setMembers] = useState<AdminMemberApi[]>([]);
   const [mentors, setMentors] = useState<MentorOption[]>([]);
   const [accountForm, setAccountForm] = useState<AdminAccountFormState>(emptyAccountForm);
@@ -123,26 +120,6 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
     }
   };
 
-  const handleReset = async (member: AdminMemberApi) => {
-    try {
-      const result = await resetAdminMemberPassword(member.id);
-      showNotice(`${result.message} ${result.temp_password}`);
-    } catch {
-      showNotice(`Unable to reset password for ${member.email}.`);
-    }
-  };
-
-  const handleToggle = async (member: AdminMemberApi) => {
-    const nextStatus = member.status === 'Disabled' ? 'Active' : 'Disabled';
-    try {
-      const result = await updateAdminMemberStatus(member.id, nextStatus as MemberStatus);
-      setMembers((current) => current.map((row) => (row.id === result.member.id ? result.member : row)));
-      showNotice(result.message);
-    } catch {
-      showNotice(`Unable to update ${member.name}.`);
-    }
-  };
-
   const handleDelete = async (member: AdminMemberApi) => {
     try {
       const result = await deleteAdminMember(member.id);
@@ -215,7 +192,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <NotificationButton />
+          <NotificationButton onNavigate={onNavigate} />
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
@@ -249,13 +226,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         onSubmit={handleCreate}
       />
 
-      <AdminMembersTable
-        members={members}
-        onEdit={setEditMember}
-        onReset={handleReset}
-        onToggleStatus={handleToggle}
-        onDelete={handleDelete}
-      />
+      <AdminMembersTable members={members} onEdit={setEditMember} onDelete={handleDelete} />
     </section>
   );
 }

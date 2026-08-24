@@ -19,12 +19,22 @@ export type HelloResponse = {
 };
 
 /** Slim identity from login /auth/me */
+export type MemberNav = {
+  ho_trainees: boolean;
+  ho_mlas: boolean;
+  mentor_trainees: boolean;
+  mentor_mlas: boolean;
+  admin_members: boolean;
+  admin_topups: boolean;
+};
+
 export type Member = {
   mid: number;
   mail_id: string;
   role: string;
   status: string;
   name: string;
+  nav: MemberNav;
 };
 
 /** Full profile from /profile/me */
@@ -276,6 +286,7 @@ export type PublishCommunicationPayload = {
   group_ids: number[];
   poll_question?: string | null;
   poll_options: string[];
+  cab_scan_id?: string | null;
 };
 
 export type ReportDetailsApi = {

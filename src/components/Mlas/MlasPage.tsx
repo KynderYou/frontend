@@ -187,7 +187,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
             My Mlas
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Search a mentor, then manage their mlas.
+            Trainees promoted to MLA after one year — still linked to their mentors.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -197,14 +197,14 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
             </svg>
           </button>
           <button type="button" className="btn-pill-primary" style={{ height: 36, fontSize: 13, padding: '8px 14px' }}>
-            + Add mla
+            + Promote trainee
           </button>
           <NotificationButton />
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
 
-      <div className="mlas-layout" style={{ gap: spacing[5] }}>
+      <div className="trainees-layout" style={{ gap: spacing[5] }}>
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Mentors</h2>

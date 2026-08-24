@@ -76,6 +76,8 @@ export function CommunicationsPage({
   const [includePoll, setIncludePoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [includeCabRequest, setIncludeCabRequest] = useState(false);
+  const [cabScanId, setCabScanId] = useState('');
 
   const [groupName, setGroupName] = useState('');
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
@@ -191,6 +193,10 @@ export function CommunicationsPage({
         return;
       }
     }
+    if (includeCabRequest && !cabScanId.trim()) {
+      setComposeError('Enter the scan ID for the CAB request notice.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -203,6 +209,7 @@ export function CommunicationsPage({
         group_ids: selectedGroupIds.map(Number),
         poll_question: includePoll ? pollQuestion : null,
         poll_options: includePoll ? pollOptions : [],
+        cab_scan_id: includeCabRequest ? cabScanId.trim() : null,
       });
       const mapped = mapCommunication(created);
       setCommunications((prev) => [mapped, ...prev]);
@@ -216,6 +223,8 @@ export function CommunicationsPage({
       setIncludePoll(false);
       setPollQuestion('');
       setPollOptions(['', '']);
+      setIncludeCabRequest(false);
+      setCabScanId('');
       setComposeError('');
       setComposeNotice('Published — it will show on the dashboard notice board.');
       setTab('sent');
@@ -461,6 +470,30 @@ export function CommunicationsPage({
                 gap: spacing[3],
               }}
             >
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={includeCabRequest}
+                  onChange={(e) => setIncludeCabRequest(e.target.checked)}
+                  style={{ accentColor: theme.primary, width: 16, height: 16 }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>
+                  CAB request notice (notify admin to upload audio)
+                </span>
+              </label>
+
+              {includeCabRequest && (
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Scan ID</span>
+                  <input
+                    value={cabScanId}
+                    onChange={(e) => setCabScanId(e.target.value.toUpperCase())}
+                    placeholder="e.g. S42701"
+                    style={fieldStyle}
+                  />
+                </label>
+              )}
+
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input
                   type="checkbox"

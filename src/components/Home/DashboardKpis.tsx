@@ -103,7 +103,7 @@ type DashboardKpisProps = {
   error?: string;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
-  onNavigate?: (view: AppView) => void;
+  onNavigate?: (view: AppView, target?: string) => void;
 };
 
 export function DashboardKpis({ kpis, loading, error, onOpenMobileMenu, onOpenProfile, onNavigate }: DashboardKpisProps) {
@@ -151,7 +151,7 @@ export function DashboardKpis({ kpis, loading, error, onOpenMobileMenu, onOpenPr
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <NotificationButton />
+          <NotificationButton onNavigate={onNavigate} />
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>

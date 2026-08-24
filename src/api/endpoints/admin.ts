@@ -95,3 +95,27 @@ export async function deleteAdminMember(
     signal,
   });
 }
+
+/** GET /api/admin/topups/pending */
+export async function getPendingTopUps(signal?: AbortSignal) {
+  return apiClient<{ requests: import('../notificationTypes').AdminTopUpRequest[] }>(
+    '/api/admin/topups/pending',
+    { signal },
+  );
+}
+
+/** POST /api/admin/topups/{id}/approve */
+export async function approveTopUp(entryId: number, signal?: AbortSignal) {
+  return apiClient<{ message: string; id: number }>(`/api/admin/topups/${entryId}/approve`, {
+    method: 'POST',
+    signal,
+  });
+}
+
+/** POST /api/admin/topups/{id}/decline */
+export async function declineTopUp(entryId: number, signal?: AbortSignal) {
+  return apiClient<{ message: string; id: number }>(`/api/admin/topups/${entryId}/decline`, {
+    method: 'POST',
+    signal,
+  });
+}

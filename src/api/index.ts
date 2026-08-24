@@ -28,6 +28,7 @@ export type {
   LoginRequest,
   LoginResponse,
   Member,
+  MemberNav,
   MemberProfile,
   MessageResponse,
   MlaScan,

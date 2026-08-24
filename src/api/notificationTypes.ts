@@ -1,0 +1,35 @@
+export type MemberNav = {
+  ho_trainees: boolean;
+  ho_mlas: boolean;
+  mentor_trainees: boolean;
+  mentor_mlas: boolean;
+  admin_members: boolean;
+  admin_topups: boolean;
+};
+
+export type NotificationItem = {
+  id: number;
+  kind: string;
+  title: string;
+  body: string;
+  action_view: string | null;
+  action_target: string | null;
+  read: boolean;
+  created_at: string;
+};
+
+export type NotificationsState = {
+  unread_count: number;
+  items: NotificationItem[];
+};
+
+export type AdminTopUpRequest = {
+  id: number;
+  member_id: number;
+  member_name: string;
+  member_email: string;
+  member_role: string;
+  amount: string;
+  submitted_at: string;
+  proof_file_id: number | null;
+};

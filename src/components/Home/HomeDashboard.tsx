@@ -10,7 +10,7 @@ import type { AppView } from '../Layout/navItems';
 type HomeDashboardProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
-  onNavigate?: (view: AppView) => void;
+  onNavigate?: (view: AppView, target?: string) => void;
   onReply?: (communicationId: string) => void;
 };
 

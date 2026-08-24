@@ -13,6 +13,14 @@ export const demoMember: Member = {
   role: 'Admin',
   status: 'Active',
   name: 'Admin User',
+  nav: {
+    ho_trainees: true,
+    ho_mlas: true,
+    mentor_trainees: false,
+    mentor_mlas: false,
+    admin_members: true,
+    admin_topups: true,
+  },
 };
 
 export const demoProfile: MemberProfile = {

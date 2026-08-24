@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { colors, sidebarTokens, spacing } from '../../styles/theme';
-import { navItems, type AppView } from './navItems';
+import { getVisibleNavItems, type AppView } from './navItems';
+import type { MemberNav } from '../../api/types';
 import logo from '../../assets/high-resolution-color-logo.png';
 
 const theme = colors.light;
@@ -11,9 +12,11 @@ type MobileNavDrawerProps = {
   activeView: AppView;
   onNavigate: (view: AppView) => void;
   onLogout?: () => void;
+  nav: MemberNav;
 };
 
-export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogout }: MobileNavDrawerProps) {
+export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogout, nav }: MobileNavDrawerProps) {
+  const visibleNavItems = getVisibleNavItems(nav);
   const go = (view: AppView) => {
     onNavigate(view);
     onClose();
@@ -48,10 +51,10 @@ export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogou
             overflowY: 'auto',
           }}
         >
-          {navItems.map((item, index) => {
+          {visibleNavItems.map((item, index) => {
             const active = item.id === activeView;
             const { Icon } = item;
-            const isNewSection = index === 0 || navItems[index - 1].section !== item.section;
+            const isNewSection = index === 0 || visibleNavItems[index - 1].section !== item.section;
             return (
               <Fragment key={item.id}>
                 {isNewSection && (

@@ -5,7 +5,7 @@ import type { Member } from './api';
 import { getThemeCssVars } from './styles/theme';
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileNavDrawer } from './components/Layout/MobileNavDrawer';
-import { isAppView, type AppView } from './components/Layout/navItems';
+import { isAppView, canAccessView, type AppView } from './components/Layout/navItems';
 import { HomeDashboard } from './components/Home/HomeDashboard';
 import { ProfilePage } from './components/Profile/ProfilePage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
@@ -14,6 +14,7 @@ import { ScansHoPage } from './components/Scans/ScansHoPage';
 import { ReportsPage } from './components/Reports/ReportsPage';
 import { AuthPage } from './components/Auth/AuthPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
+import { AdminTopUpsPage } from './components/Admin/AdminTopUpsPage';
 import { TraineesPage } from './components/Trainees/TraineesPage';
 import { MentorTraineesPage } from './components/Trainees/MentorTraineesPage';
 import { MlasPage } from './components/Mlas/MlasPage';
@@ -27,42 +28,66 @@ import { MisCabPage } from './components/Mis/MisCabPage';
 const MOBILE_QUERY = '(max-width: 860px)';
 
 /** Views whose panels manage their own scrolling and should fill the viewport height */
-const fillViews = new Set<AppView>(['trainees', 'mlas', 'mis-scans', 'mis-cab']);
+const fillViews = new Set<AppView>(['trainees', 'mlas', 'mis-scans', 'mis-cab', 'admin-topups']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
 type HashState = {
   view: AppView;
   threadId: string | null;
+  topUpId: number | null;
+  misScanCode: string | null;
+  openCabUpload: boolean;
 };
 
 /** The URL hash is the source of truth for the current page, so refresh keeps you here.
  *  Thread deep-links look like `#/mis-communications?thread=c1`. */
 function parseHash(): HashState {
-  if (typeof window === 'undefined') return { view: DEFAULT_VIEW, threadId: null };
+  if (typeof window === 'undefined') {
+    return { view: DEFAULT_VIEW, threadId: null, topUpId: null, misScanCode: null, openCabUpload: false };
+  }
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [pathPart, queryPart = ''] = raw.split('?');
   const view = isAppView(pathPart) ? pathPart : DEFAULT_VIEW;
-  const threadId = new URLSearchParams(queryPart).get('thread');
-  return { view, threadId };
+  const params = new URLSearchParams(queryPart);
+  const threadId = params.get('thread');
+  const topUpRaw = params.get('id');
+  const topUpId = topUpRaw && /^\d+$/.test(topUpRaw) ? Number(topUpRaw) : null;
+  const misScanCode = params.get('scan');
+  const openCabUpload = params.get('cab') === '1';
+  return { view, threadId, topUpId, misScanCode, openCabUpload };
 }
 
-function writeHash(view: AppView, threadId: string | null = null) {
-  if (view === 'mis-communications' && threadId) {
-    window.location.hash = `#/${view}?thread=${encodeURIComponent(threadId)}`;
-    return;
+function writeHash(
+  view: AppView,
+  options: { threadId?: string | null; topUpId?: number | null; misScanCode?: string | null; openCabUpload?: boolean } = {},
+) {
+  const params = new URLSearchParams();
+  if (view === 'mis-communications' && options.threadId) {
+    params.set('thread', options.threadId);
   }
-  window.location.hash = `#/${view}`;
+  if (view === 'admin-topups' && options.topUpId) {
+    params.set('id', String(options.topUpId));
+  }
+  if (view === 'mis-scans') {
+    if (options.misScanCode) params.set('scan', options.misScanCode);
+    if (options.openCabUpload) params.set('cab', '1');
+  }
+  const query = params.toString();
+  window.location.hash = query ? `#/${view}?${query}` : `#/${view}`;
 }
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(() => Boolean(getToken()));
-  const [, setMember] = useState<Member | null>(null);
+  const [member, setMember] = useState<Member | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [view, setView] = useState<AppView>(() => parseHash().view);
   const [threadId, setThreadId] = useState<string | null>(() => parseHash().threadId);
+  const [topUpId, setTopUpId] = useState<number | null>(() => parseHash().topUpId);
+  const [misScanCode, setMisScanCode] = useState<string | null>(() => parseHash().misScanCode);
+  const [openCabUpload, setOpenCabUpload] = useState(() => parseHash().openCabUpload);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY).matches : false
   );
@@ -76,24 +101,57 @@ function App() {
 
   useEffect(() => {
     const current = parseHash();
-    if (current.view !== view || current.threadId !== threadId) {
-      writeHash(view, threadId);
+    if (
+      current.view !== view ||
+      current.threadId !== threadId ||
+      current.topUpId !== topUpId ||
+      current.misScanCode !== misScanCode ||
+      current.openCabUpload !== openCabUpload
+    ) {
+      writeHash(view, { threadId, topUpId, misScanCode, openCabUpload });
     }
-  }, [view, threadId]);
+  }, [view, threadId, topUpId, misScanCode, openCabUpload]);
 
   useEffect(() => {
     const onHashChange = () => {
       const next = parseHash();
       setView(next.view);
       setThreadId(next.threadId);
+      setTopUpId(next.topUpId);
+      setMisScanCode(next.misScanCode);
+      setOpenCabUpload(next.openCabUpload);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const navigate = (nextView: AppView) => {
+  const navigate = (nextView: AppView, target?: string) => {
     setView(nextView);
-    if (nextView !== 'mis-communications') setThreadId(null);
+    if (nextView === 'mis-communications' && target) {
+      setThreadId(target);
+      setTopUpId(null);
+      setMisScanCode(null);
+      setOpenCabUpload(false);
+      return;
+    }
+    if (nextView === 'admin-topups' && target && /^\d+$/.test(target)) {
+      setTopUpId(Number(target));
+      setThreadId(null);
+      setMisScanCode(null);
+      setOpenCabUpload(false);
+      return;
+    }
+    if (nextView === 'mis-scans' && target) {
+      setMisScanCode(target);
+      setOpenCabUpload(true);
+      setThreadId(null);
+      setTopUpId(null);
+      return;
+    }
+    setThreadId(null);
+    setTopUpId(null);
+    setMisScanCode(null);
+    setOpenCabUpload(false);
   };
 
   const openCommunicationThread = (id: string) => {
@@ -130,6 +188,17 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!member) return;
+    if (!canAccessView(view, member.nav)) {
+      setView(DEFAULT_VIEW);
+      setThreadId(null);
+      setTopUpId(null);
+      setMisScanCode(null);
+      setOpenCabUpload(false);
+    }
+  }, [member, view]);
+
+  useEffect(() => {
     const media = window.matchMedia(MOBILE_QUERY);
     const onChange = () => {
       const mobile = media.matches;
@@ -158,6 +227,9 @@ function App() {
     void apiLogout().catch(() => undefined);
     setMember(null);
     setThreadId(null);
+    setTopUpId(null);
+    setMisScanCode(null);
+    setOpenCabUpload(false);
     setView(DEFAULT_VIEW);
     setMobileMenuOpen(false);
     setIsAuthenticated(false);
@@ -181,13 +253,14 @@ function App() {
   return (
     <div className={`app-frame ${isMobile ? 'is-mobile' : ''}`}>
       <div className="app-shell">
-        {!isMobile && (
+        {!isMobile && member && (
           <Sidebar
             collapsed={collapsed}
             onToggle={() => setCollapsed((v) => !v)}
             activeView={view}
             onNavigate={navigate}
             onLogout={handleLogout}
+            nav={member.nav}
           />
         )}
         <div className={`app-main${fillViews.has(view) ? ' app-main--fill' : ''}`}>
@@ -228,6 +301,14 @@ function App() {
               <AdminMembersPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
+                onNavigate={navigate}
+              />
+            ) : view === 'admin-topups' ? (
+              <AdminTopUpsPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+                initialRequestId={topUpId}
+                onNavigate={navigate}
               />
             ) : view === 'trainees' ? (
               <TraineesPage
@@ -260,6 +341,9 @@ function App() {
               <MisScansPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
+                initialScanCode={misScanCode}
+                initialOpenCabUpload={openCabUpload}
+                onNavigate={navigate}
               />
             ) : view === 'mis-network' ? (
               <NetworkPerformancePage
@@ -276,13 +360,14 @@ function App() {
         </div>
       </div>
 
-      {isMobile && (
+      {isMobile && member && (
         <MobileNavDrawer
           open={mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
           activeView={view}
           onNavigate={navigate}
           onLogout={handleLogout}
+          nav={member.nav}
         />
       )}
     </div>

@@ -4,14 +4,14 @@ import type {
   AdminVisibilityFieldsPayload,
 } from '../../api/types';
 
-export type SubscriptionTier = 'Gold' | 'Diamond' | 'Platinum' | 'Ultima';
+export type MemberRole = 'HO' | 'Admin' | 'Mentor' | 'Trainee';
 
 export type AdminAccountFormState = {
   name: string;
   email: string;
   phone: string;
   password: string;
-  role: '' | 'MLA Member' | 'H.O Staff' | 'Counsellor' | 'Admin';
+  role: '' | MemberRole;
 };
 
 export type AdminMembershipFormState = {
@@ -32,11 +32,18 @@ export type AdminVisibilityFormState = {
   certified: boolean;
 };
 
+export type AdminEditFormState = AdminMembershipFormState &
+  AdminVisibilityFormState & {
+    status: 'Active' | 'Disabled';
+  };
+
 export type MentorOption = {
   id: string;
   name: string;
   role: string;
 };
+
+export type SubscriptionTier = 'Gold' | 'Diamond' | 'Platinum' | 'Ultima';
 
 export const tierBilling: Record<SubscriptionTier, string> = {
   Gold: '30%',
@@ -47,7 +54,7 @@ export const tierBilling: Record<SubscriptionTier, string> = {
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
-export const roleOptions = ['MLA Member', 'H.O Staff', 'Counsellor', 'Admin'] as const;
+export const roleOptions: MemberRole[] = ['HO', 'Admin', 'Mentor', 'Trainee'];
 
 export const emptyAccountForm: AdminAccountFormState = {
   name: '',
@@ -99,6 +106,14 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
     adminBy: member.admin_by ?? '',
     remarks: member.remarks ?? '',
     certified: member.certified ?? false,
+  };
+}
+
+export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {
+  return {
+    ...memberToMembershipForm(member),
+    ...memberToVisibilityForm(member),
+    status: member.status === 'Disabled' ? 'Disabled' : 'Active',
   };
 }
 

@@ -143,9 +143,9 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
         </div>
       </div>
 
-      <div className="dash-card mlas-table-panel" style={{ padding: 0, minWidth: 0, width: '100%' }}>
+      <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0, width: '100%' }}>
         <div
-          className="mlas-table-toolbar"
+          className="trainees-table-toolbar"
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -219,8 +219,8 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
           </div>
         </div>
 
-        <div className="mlas-table-body">
-          <table className="mis-data-table mlas-data-table">
+        <div className="trainees-table-body">
+          <table className="mis-data-table trainees-data-table">
             <thead>
               <tr>
                 <th>MLA</th>

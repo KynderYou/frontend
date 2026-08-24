@@ -14,24 +14,16 @@ function statusStyles(status: MemberStatus) {
 type AdminMembersTableProps = {
   members: AdminMemberApi[];
   onEdit: (member: AdminMemberApi) => void;
-  onReset: (member: AdminMemberApi) => void;
-  onToggleStatus: (member: AdminMemberApi) => void;
   onDelete: (member: AdminMemberApi) => void;
 };
 
-export function AdminMembersTable({
-  members,
-  onEdit,
-  onReset,
-  onToggleStatus,
-  onDelete,
-}: AdminMembersTableProps) {
+export function AdminMembersTable({ members, onEdit, onDelete }: AdminMembersTableProps) {
   return (
     <div className="dash-card scans-table-card" style={{ width: '100%' }}>
       <div className="scans-card-head">
         <div>
           <h2 className="scans-card-title">All accounts</h2>
-          <p className="scans-card-sub">Edit admin fields · reset password · enable or disable sign-in</p>
+          <p className="scans-card-sub">Edit admin fields · enable or disable sign-in from the edit modal</p>
         </div>
         <span className="scans-card-meta">{members.length}</span>
       </div>
@@ -49,15 +41,12 @@ export function AdminMembersTable({
               <th>Created</th>
               <th className="col-center">Status</th>
               <th className="col-center">Admin</th>
-              <th className="col-center">Reset</th>
-              <th className="col-center">Disable</th>
               <th className="col-center">Delete</th>
             </tr>
           </thead>
           <tbody>
             {members.map((member, index) => {
               const chip = statusStyles(member.status as MemberStatus);
-              const disabled = member.status === 'Disabled';
               return (
                 <tr key={member.id}>
                   <td data-label="Sno">{index + 1}</td>
@@ -78,20 +67,6 @@ export function AdminMembersTable({
                   <td data-label="Admin">
                     <button type="button" className="scans-action-btn" onClick={() => onEdit(member)}>
                       Edit
-                    </button>
-                  </td>
-                  <td data-label="Reset">
-                    <button type="button" className="scans-action-btn" onClick={() => onReset(member)}>
-                      Reset
-                    </button>
-                  </td>
-                  <td data-label="Disable">
-                    <button
-                      type="button"
-                      className={`scans-action-btn ${disabled ? 'scans-action-export' : 'reports-action-upgrade'}`}
-                      onClick={() => onToggleStatus(member)}
-                    >
-                      {disabled ? 'Enable' : 'Disable'}
                     </button>
                   </td>
                   <td data-label="Delete">
