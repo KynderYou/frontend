@@ -4615,7 +4615,41 @@
 }
 
 .admin-members-table {
-  min-width: 940px;
+  min-width: 1080px;
+}
+
+.admin-form-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--divider);
+}
+
+.admin-form-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.admin-form-section-sub {
+  margin: 4px 0 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.admin-form-span-2 {
+  grid-column: span 2;
+}
+
+.admin-form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: end;
+}
+
+.admin-profile-modal {
+  max-width: 920px;
 }
 
 .admin-members-table td[data-label='Reset'],
@@ -4645,9 +4679,9 @@
   }
 }
 
-@media (max-width: 560px) {
-  .admin-create-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 860px) {
+  .admin-form-span-2 {
+    grid-column: span 1;
   }
 }
 

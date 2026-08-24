@@ -23,7 +23,10 @@ type FormState = {
   uid: string;
   mailId: string;
   nurturingServices: string;
+  availability: string;
 };
+
+const availabilityOptions = ['Full Time', 'Part Time', 'Free Time'] as const;
 
 const stateOptions = [
   'Tamil Nadu',
@@ -60,6 +63,7 @@ function profileToForm(profile: MemberProfile): FormState {
     uid: profile.uid,
     mailId: profile.mail_id,
     nurturingServices: profile.services,
+    availability: profile.availability,
   };
 }
 
@@ -147,6 +151,7 @@ export function EditProfileModal({ open, profile, onClose, onSaved }: EditProfil
         address: form.address,
         uid: form.uid,
         services: form.nurturingServices,
+        availability: form.availability,
       });
       if (certFile) {
         await uploadCertification(certFile);
@@ -234,6 +239,20 @@ export function EditProfileModal({ open, profile, onClose, onSaved }: EditProfil
                 value={form.nurturingServices}
                 onChange={update('nurturingServices')}
               />
+            </label>
+
+            <label className="form-field">
+              <span className="form-label">Availability</span>
+              <div className="form-select-wrap">
+                <select className="form-input form-select" value={form.availability} onChange={update('availability')}>
+                  <option value="">Select availability</option>
+                  {availabilityOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
 
             <div className="form-field" style={{ marginTop: 18 }}>

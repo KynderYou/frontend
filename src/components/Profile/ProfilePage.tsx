@@ -449,6 +449,12 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
           )
         }
       />
+      <DetailField label="Certification Date" value={formatDate(profile.cr_date)} />
+    </>
+  );
+
+  const visibilityFields = (
+    <>
       <DetailField
         label="Certified"
         value={
@@ -459,12 +465,6 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
           />
         }
       />
-      <DetailField label="Certification Date" value={formatDate(profile.cr_date)} />
-    </>
-  );
-
-  const visibilityFields = (
-    <>
       <DetailField
         label="MRP Visibility"
         value={
@@ -529,10 +529,11 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
     isBlank(profile.uid) &&
     isBlank(profile.services) &&
     isBlank(profile.availability) &&
-    isBlank(profile.cr_date) &&
-    !profile.certified;
+    isBlank(profile.cr_date);
 
-  const visibilityEmpty = [profile.mrp, profile.branding, profile.mis_training, profile.mentored_by, profile.admin_by, profile.remarks].every(isBlank);
+  const visibilityEmpty =
+    !profile.certified &&
+    [profile.mrp, profile.branding, profile.mis_training, profile.mentored_by, profile.admin_by, profile.remarks].every(isBlank);
 
   const liteContent: Record<string, React.ReactNode> = {
     'Personal Details': personalFields,

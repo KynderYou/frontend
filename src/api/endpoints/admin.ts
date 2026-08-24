@@ -1,16 +1,26 @@
 import { apiClient } from '../client';
 import type {
   AdminMembersStateApi,
+  AdminMembershipFieldsPayload,
+  AdminMentorsApi,
+  AdminVisibilityFieldsPayload,
   CreateAdminMemberPayload,
   CreateAdminMemberResultApi,
   DeleteAdminMemberResultApi,
   ResetAdminMemberPasswordResultApi,
+  UpdateAdminMembershipResultApi,
   UpdateAdminMemberStatusResultApi,
+  UpdateAdminVisibilityResultApi,
 } from '../types';
 
 /** GET /api/admin/members */
 export async function getAdminMembers(signal?: AbortSignal): Promise<AdminMembersStateApi> {
   return apiClient<AdminMembersStateApi>('/api/admin/members', { signal });
+}
+
+/** GET /api/admin/mentors */
+export async function getAdminMentors(signal?: AbortSignal): Promise<AdminMentorsApi> {
+  return apiClient<AdminMentorsApi>('/api/admin/mentors', { signal });
 }
 
 /** POST /api/admin/members */
@@ -20,6 +30,32 @@ export async function createAdminMember(
 ): Promise<CreateAdminMemberResultApi> {
   return apiClient<CreateAdminMemberResultApi>('/api/admin/members', {
     method: 'POST',
+    body: payload,
+    signal,
+  });
+}
+
+/** PATCH /api/admin/members/{id}/membership */
+export async function updateAdminMemberMembership(
+  memberId: number,
+  payload: AdminMembershipFieldsPayload,
+  signal?: AbortSignal,
+): Promise<UpdateAdminMembershipResultApi> {
+  return apiClient<UpdateAdminMembershipResultApi>(`/api/admin/members/${memberId}/membership`, {
+    method: 'PATCH',
+    body: payload,
+    signal,
+  });
+}
+
+/** PATCH /api/admin/members/{id}/visibility */
+export async function updateAdminMemberVisibility(
+  memberId: number,
+  payload: AdminVisibilityFieldsPayload,
+  signal?: AbortSignal,
+): Promise<UpdateAdminVisibilityResultApi> {
+  return apiClient<UpdateAdminVisibilityResultApi>(`/api/admin/members/${memberId}/visibility`, {
+    method: 'PATCH',
     body: payload,
     signal,
   });

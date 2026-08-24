@@ -72,6 +72,7 @@ export type ProfileUpdatePayload = {
   address?: string;
   uid?: string;
   services?: string;
+  availability?: string;
 };
 
 export type Certification = {
@@ -512,19 +513,62 @@ export type AdminMemberApi = {
   role: string;
   created_at: string;
   status: string;
+  doj?: string | null;
+  mas_type?: string;
+  expiry_date?: string | null;
+  billing?: string;
+  op_bal?: number | null;
+  mentored_by_id?: number | null;
+  mentored_by?: string;
+  mrp?: string;
+  branding?: string;
+  mis_training?: string;
+  admin_by?: string;
+  remarks?: string;
+  certified?: boolean;
 };
 
 export type AdminMembersStateApi = {
   members: AdminMemberApi[];
 };
 
-export type CreateAdminMemberPayload = {
+
+export type AdminMentorApi = {
+  id: number;
   name: string;
-  email: string;
-  phone: string;
-  password: string;
   role: string;
 };
+
+export type AdminMentorsApi = {
+  mentors: AdminMentorApi[];
+};
+
+export type AdminMembershipFieldsPayload = {
+  mentored_by_id?: number;
+  mas_type?: string;
+  expiry_date?: string;
+  billing?: string;
+  op_bal?: number;
+  doj?: string;
+};
+
+export type AdminVisibilityFieldsPayload = {
+  mrp?: 'Show' | 'Hide';
+  branding?: string;
+  mis_training?: string;
+  admin_by?: string;
+  remarks?: string;
+  certified?: boolean;
+};
+
+export type CreateAdminMemberPayload = AdminMembershipFieldsPayload &
+  AdminVisibilityFieldsPayload & {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    role: string;
+  };
 
 export type CreateAdminMemberResultApi = {
   message: string;
@@ -545,4 +589,14 @@ export type ResetAdminMemberPasswordResultApi = {
 export type DeleteAdminMemberResultApi = {
   message: string;
   id: number;
+};
+
+export type UpdateAdminMembershipResultApi = {
+  message: string;
+  member: AdminMemberApi;
+};
+
+export type UpdateAdminVisibilityResultApi = {
+  message: string;
+  member: AdminMemberApi;
 };

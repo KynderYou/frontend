@@ -3,6 +3,7 @@ import {
   createAdminMember,
   deleteAdminMember,
   getAdminMembers,
+  getAdminMentors,
   resetAdminMemberPassword,
   updateAdminMemberStatus,
 } from '../../api';
@@ -10,55 +11,24 @@ import type { AdminMemberApi } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { AdminCreateMemberCard } from './AdminCreateMemberCard';
+import { AdminMemberProfileModal } from './AdminMemberProfileModal';
+import { AdminMembersTable } from './AdminMembersTable';
+import {
+  emptyAccountForm,
+  emptyMembershipForm,
+  emptyVisibilityForm,
+  membershipFormToPayload,
+  visibilityFormToPayload,
+  type AdminAccountFormState,
+  type AdminMembershipFormState,
+  type AdminVisibilityFormState,
+  type MentorOption,
+} from './adminProfileForm';
 
 const theme = colors.light;
 
-const roleOptions = ['MLA Member', 'H.O Staff', 'Counsellor', 'Admin'] as const;
-type MemberRole = (typeof roleOptions)[number];
-
 type MemberStatus = 'Active' | 'Invited' | 'Disabled';
-
-type MemberAccount = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: MemberRole;
-  createdAt: string;
-  status: MemberStatus;
-};
-
-type MemberForm = {
-  name: string;
-  email: string;
-  phone: string;
-  password: string;
-  role: MemberRole | '';
-};
-
-const emptyForm: MemberForm = { name: '', email: '', phone: '', password: '', role: '' };
-
-function mapAccount(member: AdminMemberApi): MemberAccount {
-  return {
-    id: String(member.id),
-    name: member.name,
-    email: member.email,
-    phone: member.phone,
-    role: member.role as MemberRole,
-    createdAt: member.created_at,
-    status: member.status as MemberStatus,
-  };
-}
-
-function mapAccounts(members: AdminMemberApi[]): MemberAccount[] {
-  return members.map(mapAccount);
-}
-
-function statusStyles(status: MemberStatus) {
-  if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };
-  if (status === 'Invited') return { color: theme.warning, background: theme['warning-bg'] };
-  return { color: theme.error, background: theme['error-bg'] };
-}
 
 type AdminMembersPageProps = {
   onOpenMobileMenu?: () => void;
@@ -66,8 +36,12 @@ type AdminMembersPageProps = {
 };
 
 export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembersPageProps) {
-  const [accounts, setAccounts] = useState<MemberAccount[]>([]);
-  const [form, setForm] = useState<MemberForm>(emptyForm);
+  const [members, setMembers] = useState<AdminMemberApi[]>([]);
+  const [mentors, setMentors] = useState<MentorOption[]>([]);
+  const [accountForm, setAccountForm] = useState<AdminAccountFormState>(emptyAccountForm);
+  const [membershipForm, setMembershipForm] = useState<AdminMembershipFormState>(emptyMembershipForm);
+  const [visibilityForm, setVisibilityForm] = useState<AdminVisibilityFormState>(emptyVisibilityForm);
+  const [editMember, setEditMember] = useState<AdminMemberApi | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,11 +53,18 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
     window.setTimeout(() => setNotice(null), 5000);
   };
 
-  const loadAccounts = useCallback(async (signal?: AbortSignal) => {
+  const loadPage = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const state = await getAdminMembers(signal);
-      setAccounts(mapAccounts(state.members));
+      const [membersState, mentorsState] = await Promise.all([getAdminMembers(signal), getAdminMentors(signal)]);
+      setMembers(membersState.members);
+      setMentors(
+        mentorsState.mentors.map((mentor) => ({
+          id: String(mentor.id),
+          name: mentor.name,
+          role: mentor.role,
+        })),
+      );
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load member accounts.');
@@ -94,25 +75,19 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
 
   useEffect(() => {
     const controller = new AbortController();
-    loadAccounts(controller.signal);
+    loadPage(controller.signal);
     return () => controller.abort();
-  }, [loadAccounts]);
-
-  const update = (key: keyof MemberForm) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-  };
+  }, [loadPage]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const name = form.name.trim();
-    const email = form.email.trim().toLowerCase();
-    const phone = form.phone.trim();
-    const password = form.password;
+    const name = accountForm.name.trim();
+    const email = accountForm.email.trim().toLowerCase();
+    const phone = accountForm.phone.trim();
+    const password = accountForm.password;
 
-    if (!name || !email || !phone || !password || !form.role) {
-      setError('Fill all fields.');
+    if (!name || !email || !phone || !password || !accountForm.role) {
+      setError('Fill all account fields.');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -131,11 +106,15 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         email,
         phone,
         password,
-        role: form.role,
+        role: accountForm.role,
+        ...membershipFormToPayload(membershipForm),
+        ...visibilityFormToPayload(visibilityForm),
       });
-      setAccounts((current) => [mapAccount(result.member), ...current]);
+      setMembers((current) => [result.member, ...current]);
       setError(null);
-      setForm(emptyForm);
+      setAccountForm(emptyAccountForm);
+      setMembershipForm(emptyMembershipForm);
+      setVisibilityForm(emptyVisibilityForm);
       showNotice(result.message);
     } catch {
       setError('Unable to create account.');
@@ -144,35 +123,39 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
     }
   };
 
-  const handleReset = async (account: MemberAccount) => {
+  const handleReset = async (member: AdminMemberApi) => {
     try {
-      const result = await resetAdminMemberPassword(Number(account.id));
+      const result = await resetAdminMemberPassword(member.id);
       showNotice(`${result.message} ${result.temp_password}`);
     } catch {
-      showNotice(`Unable to reset password for ${account.email}.`);
+      showNotice(`Unable to reset password for ${member.email}.`);
     }
   };
 
-  const handleToggle = async (account: MemberAccount) => {
-    const nextStatus = account.status === 'Disabled' ? 'Active' : 'Disabled';
+  const handleToggle = async (member: AdminMemberApi) => {
+    const nextStatus = member.status === 'Disabled' ? 'Active' : 'Disabled';
     try {
-      const result = await updateAdminMemberStatus(Number(account.id), nextStatus);
-      const updated = mapAccount(result.member);
-      setAccounts((current) => current.map((row) => (row.id === updated.id ? updated : row)));
+      const result = await updateAdminMemberStatus(member.id, nextStatus as MemberStatus);
+      setMembers((current) => current.map((row) => (row.id === result.member.id ? result.member : row)));
       showNotice(result.message);
     } catch {
-      showNotice(`Unable to update ${account.name}.`);
+      showNotice(`Unable to update ${member.name}.`);
     }
   };
 
-  const handleDelete = async (account: MemberAccount) => {
+  const handleDelete = async (member: AdminMemberApi) => {
     try {
-      const result = await deleteAdminMember(Number(account.id));
-      setAccounts((current) => current.filter((row) => row.id !== String(result.id)));
+      const result = await deleteAdminMember(member.id);
+      setMembers((current) => current.filter((row) => row.id !== result.id));
       showNotice(result.message);
     } catch {
-      showNotice(`Unable to delete ${account.name}.`);
+      showNotice(`Unable to delete ${member.name}.`);
     }
+  };
+
+  const handleProfileSaved = (member: AdminMemberApi) => {
+    setMembers((current) => current.map((row) => (row.id === member.id ? member : row)));
+    showNotice(`Admin profile updated for ${member.name}.`);
   };
 
   if (loading) {
@@ -188,7 +171,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
       <section className="page-section">
         <div className="dash-card" style={{ padding: spacing[5] }}>
           <p style={{ margin: 0, color: theme.error }}>{loadError}</p>
-          <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadAccounts()}>
+          <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadPage()}>
             Retry
           </button>
         </div>
@@ -198,6 +181,14 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
 
   return (
     <section className="page-section">
+      <AdminMemberProfileModal
+        open={editMember != null}
+        member={editMember}
+        mentors={mentors}
+        onClose={() => setEditMember(null)}
+        onSaved={handleProfileSaved}
+      />
+
       <div className="page-header">
         <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
           <h1
@@ -214,7 +205,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
             Member Accounts
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Admin only · Create & manage member accounts
+            Admin registers membership, mentorship, and visibility · members fill the rest on profile
           </p>
         </div>
 
@@ -245,176 +236,26 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile }: AdminMembe
         </div>
       )}
 
-      <div className="dash-card" style={{ marginBottom: spacing[4] }}>
-        <div className="scans-card-head">
-          <div>
-            <h2 className="scans-card-title">Create account</h2>
-            <p className="scans-card-sub">Set email and password so the member can sign in</p>
-          </div>
-          <span className="scans-card-meta">Admin only</span>
-        </div>
+      <AdminCreateMemberCard
+        accountForm={accountForm}
+        membershipForm={membershipForm}
+        visibilityForm={visibilityForm}
+        mentors={mentors}
+        error={error}
+        submitting={submitting}
+        onAccountChange={setAccountForm}
+        onMembershipChange={setMembershipForm}
+        onVisibilityChange={setVisibilityForm}
+        onSubmit={handleCreate}
+      />
 
-        <form onSubmit={handleCreate}>
-          <div className="admin-create-grid">
-            <label className="form-field">
-              <span className="form-label">Full name</span>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="Member name"
-                value={form.name}
-                onChange={update('name')}
-                autoComplete="name"
-              />
-            </label>
-            <label className="form-field">
-              <span className="form-label">Email</span>
-              <input
-                className="form-input"
-                type="email"
-                placeholder="name@midna.com"
-                value={form.email}
-                onChange={update('email')}
-                autoComplete="off"
-              />
-            </label>
-            <label className="form-field">
-              <span className="form-label">Phone</span>
-              <input
-                className="form-input"
-                type="tel"
-                placeholder="Phone number"
-                value={form.phone}
-                onChange={update('phone')}
-                autoComplete="tel"
-              />
-            </label>
-            <label className="form-field">
-              <span className="form-label">Password</span>
-              <input
-                className="form-input"
-                type="password"
-                placeholder="Min. 8 characters"
-                value={form.password}
-                onChange={update('password')}
-                autoComplete="new-password"
-              />
-            </label>
-            <label className="form-field">
-              <span className="form-label">Role</span>
-              <div className="form-select-wrap">
-                <select className="form-input form-select" value={form.role} onChange={update('role')}>
-                  <option value="" disabled>
-                    Select role
-                  </option>
-                  {roleOptions.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-                <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </div>
-            </label>
-          </div>
-
-          <div className="admin-create-footer">
-            {error ? <p className="scans-upload-error" style={{ margin: 0 }}>{error}</p> : <span />}
-            <button type="submit" className="btn-pill-primary" disabled={submitting}>
-              {submitting ? 'Creating…' : 'Create account'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div className="dash-card scans-table-card" style={{ width: '100%' }}>
-        <div className="scans-card-head">
-          <div>
-            <h2 className="scans-card-title">All accounts</h2>
-            <p className="scans-card-sub">Active once created · use Reset to send a new password</p>
-          </div>
-          <span className="scans-card-meta">{accounts.length}</span>
-        </div>
-
-        <div className="scans-table-wrap">
-          <table className="scans-table admin-members-table">
-            <thead>
-              <tr>
-                <th>Sno</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Created</th>
-                <th className="col-center">Status</th>
-                <th className="col-center">Reset</th>
-                <th className="col-center">Disable</th>
-                <th className="col-center">Delete</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((account, index) => {
-                const chip = statusStyles(account.status);
-                const disabled = account.status === 'Disabled';
-                return (
-                  <tr key={account.id}>
-                    <td data-label="Sno">{index + 1}</td>
-                    <td data-label="Name">
-                      <span className="scans-table-file-static">{account.name}</span>
-                      <span className="scans-table-meta">{account.phone}</span>
-                    </td>
-                    <td data-label="Email">{account.email}</td>
-                    <td data-label="Role">{account.role}</td>
-                    <td data-label="Created">{account.createdAt}</td>
-                    <td data-label="Status">
-                      <span className="scans-status-chip" style={chip}>
-                        {account.status}
-                      </span>
-                    </td>
-                    <td data-label="Reset">
-                      <button
-                        type="button"
-                        className="scans-action-btn"
-                        title="Send password reset link"
-                        onClick={() => handleReset(account)}
-                      >
-                        Reset
-                      </button>
-                    </td>
-                    <td data-label="Disable">
-                      <button
-                        type="button"
-                        className={`scans-action-btn ${disabled ? 'scans-action-export' : 'reports-action-upgrade'}`}
-                        title={disabled ? 'Allow sign-in again' : 'Block sign-in'}
-                        onClick={() => handleToggle(account)}
-                      >
-                        {disabled ? 'Enable' : 'Disable'}
-                      </button>
-                    </td>
-                    <td data-label="Delete">
-                      <button
-                        type="button"
-                        className="scans-action-btn scans-action-danger"
-                        onClick={() => handleDelete(account)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {accounts.length === 0 && (
-            <div className="reports-empty">
-              <p className="reports-empty-title">No accounts yet</p>
-              <p className="reports-empty-sub">Create the first member account above.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <AdminMembersTable
+        members={members}
+        onEdit={setEditMember}
+        onReset={handleReset}
+        onToggleStatus={handleToggle}
+        onDelete={handleDelete}
+      />
     </section>
   );
 }
