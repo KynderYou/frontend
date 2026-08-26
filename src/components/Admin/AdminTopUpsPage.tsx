@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { approveTopUp, declineTopUp, getPendingTopUps } from '../../api';
-import { openAuthenticatedAsset } from '../../api/assetUrl';
+import { fetchAuthenticatedAsset } from '../../api/assetUrl';
 import type { AdminTopUpRequest } from '../../api/notificationTypes';
-import { colors, radius, spacing } from '../../styles/theme';
+import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 
@@ -16,19 +17,30 @@ type AdminTopUpsPageProps = {
   onNavigate?: (view: import('../Layout/navItems').AppView, target?: string) => void;
 };
 
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function AdminTopUpsPage({
   onOpenMobileMenu,
   onOpenProfile,
   initialRequestId = null,
   onNavigate,
 }: AdminTopUpsPageProps) {
+  const { showSuccess, showError } = useToast();
   const [requests, setRequests] = useState<AdminTopUpRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(initialRequestId);
   const [query, setQuery] = useState('');
-  const [notice, setNotice] = useState('');
   const [acting, setActing] = useState(false);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [proofLoading, setProofLoading] = useState(false);
+  const [proofError, setProofError] = useState('');
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -76,10 +88,48 @@ export function AdminTopUpsPage({
 
   const selected = filtered.find((row) => row.id === selectedId) ?? requests.find((row) => row.id === selectedId) ?? null;
 
-  const showNotice = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(''), 5000);
-  };
+  useEffect(() => {
+    if (!selected?.proof_file_id) {
+      setProofUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setProofError('');
+      return;
+    }
+
+    const controller = new AbortController();
+    setProofLoading(true);
+    setProofError('');
+    fetchAuthenticatedAsset(`/api/files/${selected.proof_file_id}`, controller.signal)
+      .then((url) => {
+        setProofUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      })
+      .catch(() => {
+        setProofUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        setProofError('Unable to load payment proof.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProofLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [selected?.id, selected?.proof_file_id]);
+
+  useEffect(
+    () => () => {
+      if (proofUrl) URL.revokeObjectURL(proofUrl);
+    },
+    [proofUrl],
+  );
 
   const handleApprove = async () => {
     if (!selected) return;
@@ -87,9 +137,9 @@ export function AdminTopUpsPage({
     try {
       const result = await approveTopUp(selected.id);
       setRequests((current) => current.filter((row) => row.id !== selected.id));
-      showNotice(result.message);
+      showSuccess(result.message);
     } catch {
-      showNotice('Unable to approve this top-up.');
+      showError('Unable to approve this top-up.');
     } finally {
       setActing(false);
     }
@@ -101,22 +151,17 @@ export function AdminTopUpsPage({
     try {
       const result = await declineTopUp(selected.id);
       setRequests((current) => current.filter((row) => row.id !== selected.id));
-      showNotice(result.message);
+      showSuccess(result.message);
     } catch {
-      showNotice('Unable to decline this top-up.');
+      showError('Unable to decline this top-up.');
     } finally {
       setActing(false);
     }
   };
 
-  const handleViewProof = () => {
-    if (!selected?.proof_file_id) return;
-    void openAuthenticatedAsset(`/api/files/${selected.proof_file_id}`);
-  };
-
   if (loading) {
     return (
-      <section className="page-section">
+      <section className="page-section trainees-page">
         <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading top-up requests…</p>
       </section>
     );
@@ -124,7 +169,7 @@ export function AdminTopUpsPage({
 
   if (loadError) {
     return (
-      <section className="page-section">
+      <section className="page-section trainees-page">
         <EmptyState title={loadError} description="Check your connection and try again." />
       </section>
     );
@@ -134,11 +179,21 @@ export function AdminTopUpsPage({
     <section className="page-section trainees-page">
       <div className="page-header">
         <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
-          <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
+          <h1
+            className="page-title"
+            style={{
+              margin: 0,
+              fontSize: typography.roles.pageTitle.fontSize,
+              lineHeight: typography.roles.pageTitle.lineHeight,
+              fontWeight: typography.roles.pageTitle.fontWeight,
+              letterSpacing: typography.roles.pageTitle.letterSpacing,
+              color: theme['text-primary'],
+            }}
+          >
             Top-up Requests
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Verify ledger top-ups submitted by trainees and mentors.
+            Verify payment proof and credit member ledgers.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -152,27 +207,13 @@ export function AdminTopUpsPage({
         </div>
       </div>
 
-      {notice && (
-        <div
-          style={{
-            marginBottom: spacing[4],
-            padding: '12px 16px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {notice}
-        </div>
-      )}
-
       <div className="trainees-layout" style={{ gap: spacing[5] }}>
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Pending</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: theme['text-muted'] }}>{filtered.length} request{filtered.length === 1 ? '' : 's'}</p>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Pending requests</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: theme['text-muted'] }}>
+              {filtered.length} of {requests.length}
+            </p>
             <label
               style={{
                 display: 'flex',
@@ -184,62 +225,250 @@ export function AdminTopUpsPage({
                 marginTop: spacing[3],
               }}
             >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme['text-muted']} strokeWidth="1.8">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search member or amount"
-                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, width: '100%', fontFamily: 'inherit' }}
+                aria-label="Search top-up requests"
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: 13,
+                  color: theme['text-primary'],
+                  width: '100%',
+                  fontFamily: 'inherit',
+                }}
               />
             </label>
           </div>
-          <div className="trainees-list">
+
+          <div role="listbox" aria-label="Pending top-up requests" className="trainees-panel-scroll">
             {filtered.length === 0 ? (
-              <p style={{ padding: spacing[4], margin: 0, fontSize: 13, color: theme['text-muted'] }}>No pending top-ups.</p>
+              <p style={{ padding: spacing[5], margin: 0, fontSize: 13, color: theme['text-muted'], textAlign: 'center' }}>
+                No pending top-ups.
+              </p>
             ) : (
-              filtered.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className={`trainees-list-item${selected?.id === row.id ? ' is-active' : ''}`}
-                  onClick={() => setSelectedId(row.id)}
-                >
-                  <span className="trainees-list-name">{row.member_name}</span>
-                  <span className="trainees-list-meta">{row.amount} · {row.submitted_at}</span>
-                </button>
-              ))
+              filtered.map((row) => {
+                const active = selected?.id === row.id;
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => setSelectedId(row.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      width: '100%',
+                      padding: `${spacing[3]} ${spacing[5]}`,
+                      border: 'none',
+                      borderBottom: `1px solid ${theme.divider}`,
+                      background: active ? theme['primary-soft'] : theme['bg-surface'],
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'inherit',
+                      color: 'inherit',
+                      borderLeft: active ? `3px solid ${theme.primary}` : '3px solid transparent',
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        background: active ? theme.primary : theme['bg-muted'],
+                        color: active ? '#fff' : theme.primary,
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {initials(row.member_name)}
+                    </span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {row.member_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: theme['text-muted'], marginTop: 2 }}>
+                        {row.amount} · {row.submitted_at}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        color: theme.warning,
+                        background: theme['warning-bg'],
+                        borderRadius: radius.pill,
+                        padding: '3px 8px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Pending
+                    </span>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
 
-        <div className="dash-card trainees-detail" style={{ padding: spacing[5], minHeight: 320 }}>
+        <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0 }}>
           {!selected ? (
-            <EmptyState title="Select a request" description="Choose a pending top-up from the list to review proof and take action." />
+            <div style={{ padding: spacing[6] }}>
+              <EmptyState title="Select a request" description="Choose a pending top-up from the list to review proof and take action." />
+            </div>
           ) : (
             <>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>{selected.member_name}</h2>
-              <p style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-                {selected.member_email} · {selected.member_role}
-              </p>
-              <div style={{ marginTop: spacing[5], display: 'grid', gap: spacing[3] }}>
-                <div>
-                  <span style={{ fontSize: 12, color: theme['text-muted'] }}>Amount</span>
-                  <p style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 700, color: theme['text-primary'] }}>{selected.amount}</p>
+              <div
+                className="trainees-table-toolbar"
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: spacing[4],
+                  padding: `${spacing[5]} ${spacing[6]}`,
+                  borderBottom: `1px solid ${theme.divider}`,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>{selected.member_name}</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+                    {selected.member_email} · {selected.member_role}
+                  </p>
                 </div>
-                <div>
-                  <span style={{ fontSize: 12, color: theme['text-muted'] }}>Submitted</span>
-                  <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-primary'] }}>{selected.submitted_at}</p>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
+                  <button type="button" className="btn-pill-secondary" disabled={acting} onClick={handleDecline} style={{ height: 38 }}>
+                    Decline
+                  </button>
+                  <button type="button" className="btn-pill-primary" disabled={acting} onClick={handleApprove} style={{ height: 38, minWidth: 148 }}>
+                    {acting ? 'Working…' : 'Approve & credit'}
+                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: spacing[5] }}>
-                <button type="button" className="btn-pill-secondary" disabled={!selected.proof_file_id} onClick={handleViewProof}>
-                  View proof
-                </button>
-                <button type="button" className="btn-pill-primary" disabled={acting} onClick={handleApprove}>
-                  {acting ? 'Working…' : 'Approve & credit'}
-                </button>
-                <button type="button" className="scans-action-btn scans-action-danger" disabled={acting} onClick={handleDecline}>
-                  Decline
-                </button>
+
+              <div style={{ padding: `${spacing[5]} ${spacing[6]}` }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                    gap: spacing[4],
+                    marginBottom: spacing[5],
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: spacing[4],
+                      borderRadius: radius.md,
+                      background: theme['bg-muted'],
+                      border: `1px solid ${theme.divider}`,
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600, color: theme['text-muted'], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Amount
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700, color: theme['text-primary'] }}>{selected.amount}</div>
+                  </div>
+                  <div
+                    style={{
+                      padding: spacing[4],
+                      borderRadius: radius.md,
+                      background: theme['bg-muted'],
+                      border: `1px solid ${theme.divider}`,
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600, color: theme['text-muted'], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Submitted
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>{selected.submitted_at}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: spacing[3], marginBottom: spacing[3] }}>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Payment proof</h3>
+                    {!selected.proof_file_id && (
+                      <span style={{ fontSize: 12, color: theme['text-muted'] }}>No proof uploaded</span>
+                    )}
+                  </div>
+
+                  {proofLoading ? (
+                    <div
+                      style={{
+                        minHeight: 220,
+                        borderRadius: radius.md,
+                        border: `1px dashed ${theme.divider}`,
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: theme['text-muted'],
+                        fontSize: 13,
+                        background: theme['bg-muted'],
+                      }}
+                    >
+                      Loading proof…
+                    </div>
+                  ) : proofError ? (
+                    <div
+                      style={{
+                        minHeight: 120,
+                        borderRadius: radius.md,
+                        border: `1px solid ${theme.divider}`,
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: theme.error,
+                        fontSize: 13,
+                        background: theme['error-bg'],
+                        padding: spacing[4],
+                      }}
+                    >
+                      {proofError}
+                    </div>
+                  ) : proofUrl ? (
+                    <div
+                      style={{
+                        borderRadius: radius.md,
+                        border: `1px solid ${theme.divider}`,
+                        overflow: 'hidden',
+                        background: theme['bg-muted'],
+                      }}
+                    >
+                      <img
+                        src={proofUrl}
+                        alt={`Payment proof for ${selected.member_name}`}
+                        style={{ display: 'block', width: '100%', maxHeight: 420, objectFit: 'contain', background: '#fff' }}
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        minHeight: 120,
+                        borderRadius: radius.md,
+                        border: `1px dashed ${theme.divider}`,
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: theme['text-muted'],
+                        fontSize: 13,
+                        background: theme['bg-muted'],
+                      }}
+                    >
+                      Select a request with uploaded proof to preview it here.
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}

@@ -3,6 +3,7 @@ import { getMyLedger, submitLedgerTopUp } from '../../api';
 import type { LedgerEntryRow } from '../../api';
 import { colors, metricColors, radius, shadow, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { ExpensesChart } from './ExpensesChart';
@@ -100,6 +101,7 @@ function TransactionRow({ tx }: { tx: LedgerEntryRow }) {
 }
 
 export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps) {
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<LedgerTab>('receipts');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -152,12 +154,16 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     setTopUpSubmitting(true);
     setTopUpError('');
     try {
-      const updated = await submitLedgerTopUp(amount, proof);
-      setData(updated);
+      await submitLedgerTopUp(amount, proof);
       setTopUpOpen(false);
-      setActiveTab('receipts');
+      const formatted = amount.trim().replace(/^₹\s*/, '');
+      showSuccess(
+        `Top-up of ₹${formatted} submitted successfully. Admin will verify your payment proof and credit your ledger shortly.`,
+      );
     } catch {
-      setTopUpError('Could not submit top up. Check amount and proof, then try again.');
+      const message = 'Could not submit top up. Check amount and proof, then try again.';
+      setTopUpError(message);
+      showError(message);
     } finally {
       setTopUpSubmitting(false);
     }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getScanCabAudios, uploadScanCabAudio, type ScanCabAudio } from '../../api/endpoints/cabUpload';
 import { colors, spacing } from '../../styles/theme';
+import { useToast } from '../common/ToastProvider';
 
 const theme = colors.light;
 
@@ -13,6 +14,7 @@ type MisCabUploadModalProps = {
 };
 
 export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploaded }: MisCabUploadModalProps) {
+  const { showSuccess, showError } = useToast();
   const [audios, setAudios] = useState<ScanCabAudio[]>([]);
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -56,9 +58,12 @@ export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploa
       setAudios(result.audios);
       setTitle('');
       setFile(null);
+      showSuccess(result.message);
       onUploaded?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.');
+      const message = err instanceof Error ? err.message : 'Upload failed.';
+      setError(message);
+      showError(message);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { debitCabRecord, getCabState, getMe } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { cabCountFor, mapCabState, pendingCabCountFor } from './cabApiMapper';
@@ -109,6 +110,7 @@ function CabDebitConfirmModal({
 }
 
 export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps) {
+  const { showSuccess, showError } = useToast();
   const [isAdmin, setIsAdmin] = useState(true);
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [records, setRecords] = useState<CabDebitRecord[]>([]);
@@ -118,7 +120,6 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
   const [mentorQuery, setMentorQuery] = useState('');
   const [query, setQuery] = useState('');
   const [debitTarget, setDebitTarget] = useState<CabDebitRecord | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -144,12 +145,6 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
     loadState(controller.signal);
     return () => controller.abort();
   }, [loadState]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const id = window.setTimeout(() => setNotice(null), 3500);
-    return () => window.clearTimeout(id);
-  }, [notice]);
 
   const filteredMentors = useMemo(() => {
     const q = mentorQuery.trim().toLowerCase();
@@ -188,9 +183,9 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
       const mapped = mapCabState(state);
       setMentors(mapped.mentors);
       setRecords(mapped.records);
-      setNotice(`${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`);
+      showSuccess(`${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`);
     } catch {
-      setNotice('Unable to record debit. Please try again.');
+      showError('Unable to record debit. Please try again.');
     }
   };
 
@@ -253,23 +248,6 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
-
-      {notice && (
-        <div
-          className="ho-scans-notice"
-          style={{
-            marginBottom: spacing[4],
-            padding: '12px 16px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {notice}
-        </div>
-      )}
 
       <div className={`trainees-layout${isAdmin ? '' : ' trainees-layout--single'}`} style={{ gap: spacing[5] }}>
         {isAdmin ? (

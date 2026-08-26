@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getHoScans, hoScanAction } from '../../api';
-import { colors, radius, spacing, typography } from '../../styles/theme';
+import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
@@ -135,12 +136,12 @@ function HoDeleteScanModal({
 }
 
 export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProps) {
+  const { showSuccess, showError } = useToast();
   const [activeSection, setActiveSection] = useState<HoSectionId>('preprocess');
   const [records, setRecords] = useState<HoScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [acting, setActing] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
   const [panelMode, setPanelMode] = useState<ProcessScanMode>('process');
@@ -172,12 +173,6 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const canOpenFingerprint =
     activeSection === 'preprocess' || activeSection === 'process' || activeSection === 'verify';
 
-  useEffect(() => {
-    if (!notice) return;
-    const id = window.setTimeout(() => setNotice(null), 3500);
-    return () => window.clearTimeout(id);
-  }, [notice]);
-
   const grouped = useMemo(
     () => ({
       preprocess: records.filter((record) => record.section === 'preprocess'),
@@ -202,14 +197,14 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
       const defaultMessage = `Scan ${row.scanId} updated.`;
       if (result === null) {
         setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
-        setNotice(message ?? `Scan ${row.scanId} deleted from report upload.`);
+        showSuccess(message ?? `Scan ${row.scanId} deleted from report upload.`);
       } else {
         const mapped = hoScanListToRecords([result]);
         setRecords((prev) => prev.map((item) => (item.numericId === row.numericId ? mapped[0] : item)));
-        setNotice(message ?? defaultMessage);
+        showSuccess(message ?? defaultMessage);
       }
     } catch {
-      setNotice('Action failed. Please try again.');
+      showError('Action failed. Please try again.');
     } finally {
       setActing(false);
     }
@@ -284,23 +279,6 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
           ))}
         </div>
       </div>
-
-      {notice && (
-        <div
-          className="ho-scans-notice"
-          style={{
-            marginBottom: spacing[4],
-            padding: '12px 16px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {notice}
-        </div>
-      )}
 
       {loadError && (
         <p role="alert" style={{ margin: `0 0 ${spacing[4]}`, color: theme.error, fontSize: 14 }}>

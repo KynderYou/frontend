@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deleteReport, getMyReports, requestReportCab, upgradeReport } from '../../api';
-import { colors, radius, spacing, typography } from '../../styles/theme';
+import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabModal } from './CabModal';
@@ -38,6 +39,7 @@ type ReportsPageProps = {
 };
 
 export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProps) {
+  const { showSuccess, showError } = useToast();
   const [records, setRecords] = useState<ReportRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -48,7 +50,6 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const [upgradingRecord, setUpgradingRecord] = useState<ReportRecord | null>(null);
   const [cabRecord, setCabRecord] = useState<ReportRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -92,17 +93,12 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     [records]
   );
 
-  const showNotice = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 5000);
-  };
-
   const handleDownload = async (record: ReportRecord) => {
     try {
       await downloadReportPdf(record);
-      showNotice(`Report for scan ${record.scanId} downloaded.`);
+      showSuccess(`Report for scan ${record.scanId} downloaded.`);
     } catch {
-      showNotice('Download failed. Please try again.');
+      showError('Download failed. Please try again.');
     }
   };
 
@@ -112,9 +108,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     try {
       const updated = await upgradeReport(record.numericId);
       setRecords((prev) => applyReportUpdate(prev, updated));
-      showNotice(`Scan ${record.scanId} upgraded to Premium. The upgraded report will be available shortly.`);
+      showSuccess(`Scan ${record.scanId} upgraded to Premium. The upgraded report will be available shortly.`);
     } catch {
-      showNotice('Upgrade failed. Please try again.');
+      showError('Upgrade failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -130,9 +126,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
         if (!current || current.id !== record.id) return current;
         return applyReportUpdate([current], updated)[0] ?? current;
       });
-      showNotice(`CAB requested for scan ${record.scanId}. The counselling team has been notified.`);
+      showSuccess(`CAB requested for scan ${record.scanId}. The counselling team has been notified.`);
     } catch {
-      showNotice('CAB request failed. Please try again.');
+      showError('CAB request failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -144,9 +140,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     try {
       await deleteReport(record.numericId);
       setRecords((prev) => prev.filter((row) => row.id !== record.id));
-      showNotice(`Scan ${record.scanId} and its report were deleted.`);
+      showSuccess(`Scan ${record.scanId} and its report were deleted.`);
     } catch {
-      showNotice('Delete failed. Please try again.');
+      showError('Delete failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -420,23 +416,6 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
-
-      {notice && (
-        <div
-          className="reports-notice"
-          style={{
-            marginBottom: spacing[4],
-            padding: '12px 16px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {notice}
-        </div>
-      )}
 
       <div className="reports-stats">
         <div className="reports-stat">

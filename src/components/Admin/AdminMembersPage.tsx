@@ -6,9 +6,10 @@ import {
   getAdminMentors,
 } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
-import { colors, radius, spacing, typography } from '../../styles/theme';
+import { colors, spacing, typography } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { useToast } from '../common/ToastProvider';
 import { AdminCreateMemberCard } from './AdminCreateMemberCard';
 import { AdminMemberProfileModal } from './AdminMemberProfileModal';
 import { AdminMembersTable } from './AdminMembersTable';
@@ -33,6 +34,7 @@ type AdminMembersPageProps = {
 };
 
 export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }: AdminMembersPageProps) {
+  const { showSuccess, showError } = useToast();
   const [members, setMembers] = useState<AdminMemberApi[]>([]);
   const [mentors, setMentors] = useState<MentorOption[]>([]);
   const [accountForm, setAccountForm] = useState<AdminAccountFormState>(emptyAccountForm);
@@ -40,15 +42,9 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
   const [visibilityForm, setVisibilityForm] = useState<AdminVisibilityFormState>(emptyVisibilityForm);
   const [editMember, setEditMember] = useState<AdminMemberApi | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const showNotice = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 5000);
-  };
 
   const loadPage = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -112,9 +108,11 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
       setAccountForm(emptyAccountForm);
       setMembershipForm(emptyMembershipForm);
       setVisibilityForm(emptyVisibilityForm);
-      showNotice(result.message);
+      showSuccess(result.message);
     } catch {
-      setError('Unable to create account.');
+      const message = 'Unable to create account.';
+      setError(message);
+      showError(message);
     } finally {
       setSubmitting(false);
     }
@@ -124,15 +122,15 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
     try {
       const result = await deleteAdminMember(member.id);
       setMembers((current) => current.filter((row) => row.id !== result.id));
-      showNotice(result.message);
+      showSuccess(result.message);
     } catch {
-      showNotice(`Unable to delete ${member.name}.`);
+      showError(`Unable to delete ${member.name}.`);
     }
   };
 
   const handleProfileSaved = (member: AdminMemberApi) => {
     setMembers((current) => current.map((row) => (row.id === member.id ? member : row)));
-    showNotice(`Admin profile updated for ${member.name}.`);
+    showSuccess(`Admin profile updated for ${member.name}.`);
   };
 
   if (loading) {
@@ -196,22 +194,6 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
-
-      {notice && (
-        <div
-          style={{
-            marginBottom: spacing[4],
-            padding: '12px 16px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {notice}
-        </div>
-      )}
 
       <AdminCreateMemberCard
         accountForm={accountForm}

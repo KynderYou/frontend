@@ -64,9 +64,9 @@ export const navItems = [
   },
 ] as const;
 
-export type AppView = (typeof navItems)[number]['id'] | 'profile';
+export type AppView = (typeof navItems)[number]['id'] | 'profile' | 'notifications';
 
-const validViews = new Set<string>([...navItems.map((item) => item.id), 'profile']);
+const validViews = new Set<string>([...navItems.map((item) => item.id), 'profile', 'notifications']);
 
 export function isAppView(value: string): value is AppView {
   return validViews.has(value);
@@ -82,7 +82,7 @@ export function getVisibleNavItems(nav: MemberNav): NavItem[] {
 }
 
 export function canAccessView(view: AppView, nav: MemberNav): boolean {
-  if (view === 'profile' || view === 'dashboard') return true;
+  if (view === 'profile' || view === 'dashboard' || view === 'notifications') return true;
   const item = navItems.find((entry) => entry.id === view);
   if (!item || !('navKey' in item) || !item.navKey) return true;
   return nav[item.navKey];

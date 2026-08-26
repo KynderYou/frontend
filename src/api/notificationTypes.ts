@@ -16,6 +16,7 @@ export type NotificationItem = {
   action_target: string | null;
   read: boolean;
   created_at: string;
+  created_at_ms: number;
 };
 
 export type NotificationsState = {

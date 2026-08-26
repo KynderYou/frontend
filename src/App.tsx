@@ -23,6 +23,8 @@ import { CommunicationsPage } from './components/Communications/CommunicationsPa
 import { MisScansPage } from './components/Mis/MisScansPage';
 import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
 import { MisCabPage } from './components/Mis/MisCabPage';
+import { ToastProvider } from './components/common/ToastProvider';
+import { NotificationsPage } from './components/Notifications/NotificationsPage';
 
 /** Covers iPhone 14 Pro Max (430px) and similar phones / small tablets */
 const MOBILE_QUERY = '(max-width: 860px)';
@@ -239,19 +241,17 @@ function App() {
     return null;
   }
 
-  if (!isAuthenticated) {
-    return (
-      <AuthPage
-        onAuthenticated={(current) => {
-          setMember(current);
-          setIsAuthenticated(true);
-        }}
-      />
-    );
-  }
-
   return (
-    <div className={`app-frame ${isMobile ? 'is-mobile' : ''}`}>
+    <ToastProvider>
+      {!isAuthenticated ? (
+        <AuthPage
+          onAuthenticated={(current) => {
+            setMember(current);
+            setIsAuthenticated(true);
+          }}
+        />
+      ) : (
+        <div className={`app-frame ${isMobile ? 'is-mobile' : ''}`}>
       <div className="app-shell">
         {!isMobile && member && (
           <Sidebar
@@ -269,6 +269,13 @@ function App() {
               <ProfilePage
                 onBack={() => navigate('dashboard')}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
+              />
+            ) : view === 'notifications' ? (
+              <NotificationsPage
+                onBack={() => navigate('dashboard')}
+                onNavigate={navigate}
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'dashboard' ? (
               <HomeDashboard
@@ -371,6 +378,8 @@ function App() {
         />
       )}
     </div>
+      )}
+    </ToastProvider>
   );
 }
 

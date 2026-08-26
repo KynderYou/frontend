@@ -398,13 +398,13 @@ function MlaListRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
       style={{ cursor: 'pointer' }}
     >
       <td data-label="MLA">
-        <div className="mlas-person">
-          <span className="mlas-avatar" aria-hidden="true">
+        <div className="trainees-person">
+          <span className="trainees-avatar" aria-hidden="true">
             {initials(mla.name)}
           </span>
           <div>
-            <div className="mlas-person-name">{mla.name}</div>
-            <div className="mlas-person-email">{mla.email}</div>
+            <div className="trainees-person-name">{mla.name}</div>
+            <div className="trainees-person-email">{mla.email}</div>
           </div>
         </div>
       </td>

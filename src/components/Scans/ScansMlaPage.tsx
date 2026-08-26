@@ -7,8 +7,9 @@ import {
   resolveMlaScanListImages,
   updateMlaScan,
 } from '../../api';
-import { colors, radius, spacing, typography } from '../../styles/theme';
+import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
@@ -73,6 +74,7 @@ type ScansMlaPageProps = {
 };
 
 export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
+  const { showSuccess, showError } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
   const [_extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
@@ -87,7 +89,6 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const [declarationOpen, setDeclarationOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ScanRecord | null>(null);
   const [viewingImages, setViewingImages] = useState<ScanRecord | null>(null);
-  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const extractRequestId = useRef(0);
@@ -277,10 +278,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     try {
       const exported = await exportMlaScan(scanId);
       replaceRecords(records.filter((row) => row.id !== record.id));
-      setExportNotice(`Scan ${exported.scan_code} exported to scans DB. Head Office has been notified.`);
-      window.setTimeout(() => setExportNotice(null), 5000);
+      showSuccess(`Scan ${exported.scan_code} exported to scans DB. Head Office has been notified.`);
     } catch {
-      setError('Could not export scan.');
+      const message = 'Could not export scan.';
+      setError(message);
+      showError(message);
     }
   };
 
@@ -337,23 +339,6 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           {loadError}
         </p>
       ) : null}
-
-      {exportNotice && (
-        <div
-          className="scans-export-notice"
-          style={{
-            marginBottom: spacing[4],
-            padding: '12px 16px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {exportNotice}
-        </div>
-      )}
 
       <div className="dash-card scans-upload-card" style={{ marginBottom: spacing[4] }}>
         <input

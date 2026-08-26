@@ -18,6 +18,7 @@ import {
   type SeverityLevel,
 } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import {
@@ -54,6 +55,7 @@ export function CommunicationsPage({
   initialThreadId = null,
   onThreadSelect,
 }: CommunicationsPageProps) {
+  const { showSuccess, showError } = useToast();
   const [groups, setGroups] = useState<CommGroup[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [members, setMembers] = useState<CommMember[]>([]);
@@ -71,7 +73,6 @@ export function CommunicationsPage({
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [peopleQuery, setPeopleQuery] = useState('');
   const [composeError, setComposeError] = useState('');
-  const [composeNotice, setComposeNotice] = useState('');
 
   const [includePoll, setIncludePoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -173,7 +174,6 @@ export function CommunicationsPage({
   };
 
   const handlePublish = async () => {
-    setComposeNotice('');
     if (!title.trim() || !body.trim()) {
       setComposeError('Add a title and message before publishing.');
       return;
@@ -226,11 +226,13 @@ export function CommunicationsPage({
       setIncludeCabRequest(false);
       setCabScanId('');
       setComposeError('');
-      setComposeNotice('Published — it will show on the dashboard notice board.');
+      showSuccess('Published — it will show on the dashboard notice board.');
       setTab('sent');
       if (mapped) selectThread(mapped.id);
     } catch {
-      setComposeError('Publish failed. Please try again.');
+      const message = 'Publish failed. Please try again.';
+      setComposeError(message);
+      showError(message);
     } finally {
       setSubmitting(false);
     }
@@ -255,10 +257,12 @@ export function CommunicationsPage({
       setGroupError('');
       if (mapped) {
         setSelectedGroupIds((prev) => [...prev, mapped.id]);
-        setComposeNotice(`Group “${mapped.name}” created. You can broadcast to it from Compose.`);
+        showSuccess(`Group “${mapped.name}” created. You can broadcast to it from Compose.`);
       }
     } catch {
-      setGroupError('Could not create group. Please try again.');
+      const message = 'Could not create group. Please try again.';
+      setGroupError(message);
+      showError(message);
     } finally {
       setSubmitting(false);
     }
@@ -383,23 +387,6 @@ export function CommunicationsPage({
       {loadError && (
         <p role="alert" style={{ margin: `0 0 ${spacing[4]}`, color: theme.error, fontSize: 14 }}>
           {loadError}
-        </p>
-      )}
-
-      {composeNotice && (
-        <p
-          role="status"
-          style={{
-            margin: `0 0 ${spacing[4]}`,
-            padding: '10px 14px',
-            borderRadius: radius.md,
-            background: theme['success-bg'],
-            color: theme.success,
-            fontSize: 13,
-            fontWeight: 600,
-          }}
-        >
-          {composeNotice}
         </p>
       )}
 
