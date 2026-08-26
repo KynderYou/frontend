@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getScanCabAudios, uploadScanCabAudio, type ScanCabAudio } from '../../api/endpoints/cabUpload';
 import { colors, spacing } from '../../styles/theme';
 import { useToast } from '../common/ToastProvider';
@@ -15,14 +15,23 @@ type MisCabUploadModalProps = {
 
 export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploaded }: MisCabUploadModalProps) {
   const { showSuccess, showError } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [audios, setAudios] = useState<ScanCabAudio[]>([]);
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const clearFileInput = () => {
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   useEffect(() => {
     if (!open || !scanCode) return;
+    setTitle('');
+    setError('');
+    clearFileInput();
     const controller = new AbortController();
     getScanCabAudios(scanCode, controller.signal)
       .then(setAudios)
@@ -57,7 +66,7 @@ export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploa
       const result = await uploadScanCabAudio(scanCode, file, title);
       setAudios(result.audios);
       setTitle('');
-      setFile(null);
+      clearFileInput();
       showSuccess(result.message);
       onUploaded?.();
     } catch (err) {
@@ -109,6 +118,7 @@ export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploa
             <label className="form-field" style={{ marginTop: spacing[3] }}>
               <span className="form-label">Audio file</span>
               <input
+                ref={fileInputRef}
                 className="form-input"
                 type="file"
                 accept="audio/*,.mp3,.wav,.ogg,.webm"

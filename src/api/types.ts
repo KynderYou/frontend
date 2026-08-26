@@ -35,6 +35,7 @@ export type Member = {
   status: string;
   name: string;
   nav: MemberNav;
+  mentee_type?: string | null;
 };
 
 /** Full profile from /profile/me */

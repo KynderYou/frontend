@@ -5,10 +5,12 @@ import {
   getCommGroups,
   getCommMembers,
   getCommunicationsNotices,
+  getMe,
   publishCommunication as publishCommunicationApi,
   replyToCommunication as replyToCommunicationApi,
   voteOnPoll as voteOnPollApi,
 } from '../../api';
+import type { Member } from '../../api';
 import {
   colors,
   radius,
@@ -48,6 +50,7 @@ type CommunicationsPageProps = {
 };
 
 type TabId = 'compose' | 'groups' | 'sent';
+type ComposeMode = 'notice' | 'cab';
 
 export function CommunicationsPage({
   onOpenMobileMenu,
@@ -77,7 +80,7 @@ export function CommunicationsPage({
   const [includePoll, setIncludePoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
-  const [includeCabRequest, setIncludeCabRequest] = useState(false);
+  const [composeMode, setComposeMode] = useState<ComposeMode>('notice');
   const [cabScanId, setCabScanId] = useState('');
 
   const [groupName, setGroupName] = useState('');
@@ -87,19 +90,24 @@ export function CommunicationsPage({
   const [replyDraft, setReplyDraft] = useState('');
   const [replyError, setReplyError] = useState('');
   const [seenModalItem, setSeenModalItem] = useState<Communication | null>(null);
+  const [accountMember, setAccountMember] = useState<Member | null>(null);
+
+  const canRequestCab = accountMember?.role === 'Trainee' && accountMember?.mentee_type === 'trainee';
 
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [notices, groups, members] = await Promise.all([
+      const [notices, groups, members, me] = await Promise.all([
         getCommunicationsNotices(signal),
         getCommGroups(signal),
         getCommMembers(signal),
+        getMe(signal),
       ]);
       if (signal?.aborted) return;
       setCommunications(mapCommunicationsList(notices));
       setGroups(mapCommGroups(groups));
       setMembers(mapCommMembers(members));
+      setAccountMember(me);
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load communications.');
@@ -125,6 +133,12 @@ export function CommunicationsPage({
     if (selectedId && communications.some((item) => item.id === selectedId)) return;
     setSelectedId(communications[0]?.id ?? null);
   }, [tab, communications, selectedId]);
+
+  useEffect(() => {
+    if (!canRequestCab && composeMode === 'cab') {
+      setComposeMode('notice');
+    }
+  }, [canRequestCab, composeMode]);
 
   const selected = useMemo(
     () => communications.find((item) => item.id === selectedId) ?? null,
@@ -174,6 +188,47 @@ export function CommunicationsPage({
   };
 
   const handlePublish = async () => {
+    if (composeMode === 'cab') {
+      const scanId = cabScanId.trim().toUpperCase();
+      if (!scanId) {
+        setComposeError('Enter the scan ID for the CAB request.');
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        const cabTitle = `CAB request · ${scanId}`;
+        const cabBody =
+          body.trim() || `Counselling audio requested for scan ${scanId}.`;
+        const created = await publishCommunicationApi({
+          title: cabTitle,
+          body: cabBody,
+          severity: 'medium',
+          audience_mode: 'everyone',
+          recipient_ids: [],
+          group_ids: [],
+          poll_question: null,
+          poll_options: [],
+          cab_scan_id: scanId,
+        });
+        const mapped = mapCommunication(created);
+        setCommunications((prev) => [mapped, ...prev]);
+        setBody('');
+        setCabScanId('');
+        setComposeError('');
+        showSuccess('CAB request sent — your mentor has been notified.');
+        setTab('sent');
+        if (mapped) selectThread(mapped.id);
+      } catch {
+        const message = 'CAB request failed. Please try again.';
+        setComposeError(message);
+        showError(message);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     if (!title.trim() || !body.trim()) {
       setComposeError('Add a title and message before publishing.');
       return;
@@ -193,10 +248,6 @@ export function CommunicationsPage({
         return;
       }
     }
-    if (includeCabRequest && !cabScanId.trim()) {
-      setComposeError('Enter the scan ID for the CAB request notice.');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -209,7 +260,7 @@ export function CommunicationsPage({
         group_ids: selectedGroupIds.map(Number),
         poll_question: includePoll ? pollQuestion : null,
         poll_options: includePoll ? pollOptions : [],
-        cab_scan_id: includeCabRequest ? cabScanId.trim() : null,
+        cab_scan_id: null,
       });
       const mapped = mapCommunication(created);
       setCommunications((prev) => [mapped, ...prev]);
@@ -223,7 +274,6 @@ export function CommunicationsPage({
       setIncludePoll(false);
       setPollQuestion('');
       setPollOptions(['', '']);
-      setIncludeCabRequest(false);
       setCabScanId('');
       setComposeError('');
       showSuccess('Published — it will show on the dashboard notice board.');
@@ -393,162 +443,198 @@ export function CommunicationsPage({
       {tab === 'compose' && (
         <div className="comm-compose-grid">
           <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>New notice</h2>
+            {canRequestCab ? (
+              <div className="comm-compose-modes" role="tablist" aria-label="Compose type">
+                {(
+                  [
+                    { id: 'notice' as const, label: 'New notice' },
+                    { id: 'cab' as const, label: 'Request CAB' },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={composeMode === option.id}
+                    className={`comm-tab${composeMode === option.id ? ' is-active' : ''}`}
+                    onClick={() => {
+                      setComposeMode(option.id);
+                      setComposeError('');
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Title</span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Holiday announcement"
-                style={fieldStyle}
-              />
-            </label>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
+              {composeMode === 'notice' ? 'New notice' : 'Request CAB'}
+            </h2>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Message</span>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Write the notice members will see on their dashboard…"
-                rows={5}
-                style={textareaStyle}
-              />
-            </label>
+            {composeMode === 'notice' ? (
+              <>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Title</span>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Holiday announcement"
+                    style={fieldStyle}
+                  />
+                </label>
 
-            <div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Priority</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                {(['low', 'medium', 'high'] as SeverityLevel[]).map((level) => {
-                  const tone = severityTokens[level];
-                  const selected = severity === level;
-                  return (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => setSeverity(level)}
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Message</span>
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Write the notice members will see on their dashboard…"
+                    rows={5}
+                    style={textareaStyle}
+                  />
+                </label>
+
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Priority</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    {(['low', 'medium', 'high'] as SeverityLevel[]).map((level) => {
+                      const tone = severityTokens[level];
+                      const selected = severity === level;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setSeverity(level)}
+                          style={{
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            textTransform: 'capitalize',
+                            padding: '7px 14px',
+                            borderRadius: radius.pill,
+                            background: selected ? tone.bg : theme['bg-muted'],
+                            color: selected ? tone.text : theme['text-secondary'],
+                            boxShadow: selected ? `inset 0 0 0 1px ${tone.icon}` : 'none',
+                          }}
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    borderTop: `1px solid ${theme.divider}`,
+                    paddingTop: spacing[4],
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: spacing[3],
+                  }}
+                >
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={includePoll}
+                      onChange={(e) => setIncludePoll(e.target.checked)}
+                      style={{ accentColor: theme.primary, width: 16, height: 16 }}
+                    />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>
+                      Add a poll to this notice
+                    </span>
+                  </label>
+
+                  {includePoll && (
+                    <div
                       style={{
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        textTransform: 'capitalize',
-                        padding: '7px 14px',
-                        borderRadius: radius.pill,
-                        background: selected ? tone.bg : theme['bg-muted'],
-                        color: selected ? tone.text : theme['text-secondary'],
-                        boxShadow: selected ? `inset 0 0 0 1px ${tone.icon}` : 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                        padding: 14,
+                        borderRadius: radius.md,
+                        background: theme['bg-muted'],
                       }}
                     >
-                      {level}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Poll question</span>
+                        <input
+                          value={pollQuestion}
+                          onChange={(e) => setPollQuestion(e.target.value)}
+                          placeholder="e.g. Preferred training slot?"
+                          style={fieldStyle}
+                        />
+                      </label>
+                      {pollOptions.map((option, index) => (
+                        <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input
+                            value={option}
+                            onChange={(e) => updatePollOption(index, e.target.value)}
+                            placeholder={`Option ${index + 1}`}
+                            style={{ ...fieldStyle, flex: 1 }}
+                          />
+                          {pollOptions.length > 2 && (
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              aria-label={`Remove option ${index + 1}`}
+                              onClick={() => removePollOption(index)}
+                              style={{ width: 32, height: 32, flexShrink: 0 }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M6 6l12 12M18 6 6 18" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {pollOptions.length < 6 && (
+                        <button
+                          type="button"
+                          className="btn-pill-secondary"
+                          style={{ height: 32, fontSize: 12, padding: '6px 12px', alignSelf: 'flex-start' }}
+                          onClick={addPollOption}
+                        >
+                          + Add option
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: 0, fontSize: 13, color: theme['text-secondary'], lineHeight: 1.5 }}>
+                  Request counselling audio for one of your scans. Your mentor will receive a notification to follow up.
+                </p>
 
-            <div
-              style={{
-                borderTop: `1px solid ${theme.divider}`,
-                paddingTop: spacing[4],
-                display: 'flex',
-                flexDirection: 'column',
-                gap: spacing[3],
-              }}
-            >
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={includeCabRequest}
-                  onChange={(e) => setIncludeCabRequest(e.target.checked)}
-                  style={{ accentColor: theme.primary, width: 16, height: 16 }}
-                />
-                <span style={{ fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>
-                  CAB request notice (notify admin to upload audio)
-                </span>
-              </label>
-
-              {includeCabRequest && (
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Scan ID</span>
                   <input
                     value={cabScanId}
                     onChange={(e) => setCabScanId(e.target.value.toUpperCase())}
-                    placeholder="e.g. S42701"
+                    placeholder="e.g. S20260824001"
                     style={fieldStyle}
                   />
                 </label>
-              )}
 
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={includePoll}
-                  onChange={(e) => setIncludePoll(e.target.checked)}
-                  style={{ accentColor: theme.primary, width: 16, height: 16 }}
-                />
-                <span style={{ fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>
-                  Add a poll to this notice
-                </span>
-              </label>
-
-              {includePoll && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    padding: 14,
-                    borderRadius: radius.md,
-                    background: theme['bg-muted'],
-                  }}
-                >
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Poll question</span>
-                    <input
-                      value={pollQuestion}
-                      onChange={(e) => setPollQuestion(e.target.value)}
-                      placeholder="e.g. Preferred training slot?"
-                      style={fieldStyle}
-                    />
-                  </label>
-                  {pollOptions.map((option, index) => (
-                    <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <input
-                        value={option}
-                        onChange={(e) => updatePollOption(index, e.target.value)}
-                        placeholder={`Option ${index + 1}`}
-                        style={{ ...fieldStyle, flex: 1 }}
-                      />
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          className="btn-icon"
-                          aria-label={`Remove option ${index + 1}`}
-                          onClick={() => removePollOption(index)}
-                          style={{ width: 32, height: 32, flexShrink: 0 }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M6 6l12 12M18 6 6 18" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {pollOptions.length < 6 && (
-                    <button
-                      type="button"
-                      className="btn-pill-secondary"
-                      style={{ height: 32, fontSize: 12, padding: '6px 12px', alignSelf: 'flex-start' }}
-                      onClick={addPollOption}
-                    >
-                      + Add option
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>
+                    Notes <span style={{ fontWeight: 500, color: theme['text-muted'] }}>(optional)</span>
+                  </span>
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Any context for the counselling team…"
+                    rows={4}
+                    style={textareaStyle}
+                  />
+                </label>
+              </>
+            )}
 
             {composeError && (
               <p role="alert" style={{ margin: 0, fontSize: 13, color: theme.error }}>
@@ -564,6 +650,7 @@ export function CommunicationsPage({
                 onClick={() => {
                   setTitle('');
                   setBody('');
+                  setCabScanId('');
                   setComposeError('');
                   setIncludePoll(false);
                   setPollQuestion('');
@@ -579,23 +666,31 @@ export function CommunicationsPage({
                 onClick={handlePublish}
                 disabled={submitting}
               >
-                {submitting ? 'Publishing…' : 'Publish notice'}
+                {submitting
+                  ? composeMode === 'cab'
+                    ? 'Submitting…'
+                    : 'Publishing…'
+                  : composeMode === 'cab'
+                    ? 'Submit CAB request'
+                    : 'Publish notice'}
               </button>
             </div>
           </div>
 
-          <AudiencePanel
-            audienceMode={audienceMode}
-            setAudienceMode={setAudienceMode}
-            filteredPeople={filteredPeople}
-            peopleQuery={peopleQuery}
-            setPeopleQuery={setPeopleQuery}
-            selectedPeople={selectedPeople}
-            togglePerson={togglePerson}
-            groups={groups}
-            selectedGroupIds={selectedGroupIds}
-            toggleSelectedGroup={toggleSelectedGroup}
-          />
+          {composeMode === 'notice' ? (
+            <AudiencePanel
+              audienceMode={audienceMode}
+              setAudienceMode={setAudienceMode}
+              filteredPeople={filteredPeople}
+              peopleQuery={peopleQuery}
+              setPeopleQuery={setPeopleQuery}
+              selectedPeople={selectedPeople}
+              togglePerson={togglePerson}
+              groups={groups}
+              selectedGroupIds={selectedGroupIds}
+              toggleSelectedGroup={toggleSelectedGroup}
+            />
+          ) : null}
         </div>
       )}
 

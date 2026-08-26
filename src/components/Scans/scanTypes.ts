@@ -41,9 +41,12 @@ export const defaultScanDetails = (): ScanDetails => ({
   mrp: '',
 });
 
-let scanIdCounter = 42488;
+let seedScanSerialByDate: Record<string, number> = {};
 
 export function nextScanId() {
-  scanIdCounter += 1;
-  return `S${scanIdCounter}`;
+  const now = new Date();
+  const datePart = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).replace(/-/g, '');
+  const serial = (seedScanSerialByDate[datePart] ?? 0) + 1;
+  seedScanSerialByDate[datePart] = serial;
+  return `T${datePart}${String(serial).padStart(3, '0')}`;
 }

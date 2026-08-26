@@ -877,6 +877,17 @@
   box-shadow: var(--shadow-float);
 }
 
+.comm-compose-modes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--color-bg-muted, #f1f3f5);
+  align-self: flex-start;
+  max-width: 100%;
+}
+
 .comm-audience-options {
   display: flex;
   flex-direction: column;

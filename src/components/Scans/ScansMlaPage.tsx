@@ -234,7 +234,6 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     setError(null);
     try {
       const created = await createMlaScan(file, {
-        scan_code: clientForm.scanId.trim() || undefined,
         client_name: clientForm.name.trim(),
         age: clientForm.age.trim(),
         phone: clientForm.phone.trim(),
@@ -424,7 +423,14 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
             <div className="scans-client-fields">
               <label className="form-field">
                 <span className="form-label">Scan Id</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.scanId, '')} placeholder="—" readOnly disabled />
+                <input
+                  className="form-input"
+                  type="text"
+                  value={displayValue(clientForm.scanId, '')}
+                  placeholder="Assigned on upload · TYYYYMMDD001"
+                  readOnly
+                  disabled
+                />
               </label>
               <label className="form-field">
                 <span className="form-label">Name</span>
