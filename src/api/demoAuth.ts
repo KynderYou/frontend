@@ -20,6 +20,7 @@ export const demoMember: Member = {
     mentor_mlas: false,
     admin_members: true,
     admin_topups: true,
+    mis_cab: true,
   },
 };
 

@@ -26,6 +26,7 @@ export type MemberNav = {
   mentor_mlas: boolean;
   admin_members: boolean;
   admin_topups: boolean;
+  mis_cab: boolean;
 };
 
 export type Member = {

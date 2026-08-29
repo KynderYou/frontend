@@ -112,6 +112,7 @@ function CabDebitConfirmModal({
 export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps) {
   const { showSuccess, showError } = useToast();
   const [isAdmin, setIsAdmin] = useState(true);
+  const [isTrainee, setIsTrainee] = useState(false);
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [records, setRecords] = useState<CabDebitRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,9 +126,10 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
     setLoading(true);
     try {
       const member = await getMe(signal);
-      const admin = member.role === 'Admin';
-      setIsAdmin(admin);
-      const state = await getCabState(signal, admin ? undefined : 'mine');
+      const staffView = member.role === 'Admin' || member.role === 'HO';
+      setIsAdmin(staffView);
+      setIsTrainee(member.role === 'Trainee');
+      const state = await getCabState(signal, staffView ? undefined : 'mine');
       const mapped = mapCabState(state);
       setMentors(mapped.mentors);
       setRecords(mapped.records);
@@ -161,8 +163,7 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return records.filter((row) => {
-      if (isAdmin && row.mentorId !== selectedMentorId) return false;
-      if (!isAdmin && row.mentorId !== mentors[0]?.id) return false;
+      if (isAdmin && selectedMentorId && row.mentorId !== selectedMentorId) return false;
       if (!q) return true;
       return (
         row.scanId.toLowerCase().includes(q) ||
@@ -172,7 +173,7 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
         row.audio.fileName.toLowerCase().includes(q)
       );
     });
-  }, [records, isAdmin, selectedMentorId, mentors, query]);
+  }, [records, isAdmin, selectedMentorId, query]);
 
   const selectedMentor = mentors.find((m) => m.id === selectedMentorId);
   const pendingCount = filtered.filter((row) => row.status === 'Pending').length;
@@ -233,9 +234,11 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
             MIS · CAB
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            {isAdmin
-              ? 'Debit trainees for counselling audio bytes taken from their mentor.'
-              : 'Review mentee scans with CAB audio and record debits.'}
+            {isTrainee
+              ? 'Counselling audio uploaded for your scans.'
+              : isAdmin
+                ? 'Debit trainees for counselling audio bytes taken from their mentor.'
+                : 'Review mentee scans with CAB audio and record debits.'}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -385,10 +388,15 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
           >
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
-                {isAdmin ? `${selectedMentor?.name ?? 'Mentor'}'s mentee CAB scans` : 'Your mentee CAB scans'}
+                {isTrainee
+                  ? 'Your CAB audio'
+                  : isAdmin
+                    ? `${selectedMentor?.name ?? 'Mentor'}'s mentee CAB scans`
+                    : 'Your mentee CAB scans'}
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
-                {filtered.length} audio{filtered.length === 1 ? '' : 's'} · {pendingCount} pending debit{pendingCount === 1 ? '' : 's'}
+                {filtered.length} audio{filtered.length === 1 ? '' : 's'}
+                {!isTrainee ? ` · ${pendingCount} pending debit${pendingCount === 1 ? '' : 's'}` : ''}
               </p>
             </div>
 
@@ -430,9 +438,9 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
                 <tr>
                   <th>Scan ID</th>
                   <th>Name</th>
-                  <th>Mentee</th>
+                  {isTrainee ? <th>Mentor</th> : <th>Mentee</th>}
                   <th>Audio File</th>
-                  <th className="col-center">Debit</th>
+                  <th className="col-center">{isTrainee ? 'Status' : 'Debit'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -442,7 +450,7 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
                   </tr>
                 ) : (
                   filtered.map((row) => (
-                    <CabRow key={row.id} row={row} onDebit={() => setDebitTarget(row)} />
+                    <CabRow key={row.id} row={row} isTrainee={isTrainee} onDebit={() => setDebitTarget(row)} />
                   ))
                 )}
               </tbody>
@@ -465,9 +473,11 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
 
 function CabRow({
   row,
+  isTrainee,
   onDebit,
 }: {
   row: CabDebitRecord;
+  isTrainee: boolean;
   onDebit: () => void;
 }) {
   const chip = statusStyles(row.status);
@@ -479,7 +489,7 @@ function CabRow({
         <span className="mis-scan-id">{row.scanId}</span>
       </td>
       <td data-label="Name">{row.clientName}</td>
-      <td data-label="Mentee">{row.menteeName}</td>
+      <td data-label={isTrainee ? 'Mentor' : 'Mentee'}>{isTrainee ? row.mentorName : row.menteeName}</td>
       <td data-label="Audio File">
         <div className="mis-cab-audio-cell">
           <span className="reports-cab-play mis-cab-audio-play" aria-hidden="true">
@@ -493,16 +503,15 @@ function CabRow({
           </div>
         </div>
       </td>
-      <td data-label="Debit" className="col-center">
-        {debited ? (
-          <span className="trainees-status" style={{ color: chip.color, background: chip.background }}>
-            Debited · {row.debitAmount}
-          </span>
-        ) : (
-          <button type="button" className="scans-action-btn scans-action-export" onClick={onDebit}>
+      <td data-label={isTrainee ? 'Status' : 'Debit'} className="col-center">
+        <span className="trainees-status" style={{ color: chip.color, background: chip.background }}>
+          {debited ? `Debited · ${row.debitAmount}` : isTrainee ? 'Available' : `Pending · ${row.debitAmount}`}
+        </span>
+        {!isTrainee && !debited ? (
+          <button type="button" className="scans-action-btn scans-action-export" style={{ marginTop: 6 }} onClick={onDebit}>
             Debit {row.debitAmount}
           </button>
-        )}
+        ) : null}
       </td>
     </tr>
   );

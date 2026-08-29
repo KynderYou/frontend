@@ -13,8 +13,9 @@ type TopPerformersProps = {
 
 export function TopPerformers({ performers, loading }: TopPerformersProps) {
   return (
-    <section className="dash-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <section className="dash-card top-performers-card">
       <div
+        className="top-performers-header"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -53,7 +54,7 @@ export function TopPerformers({ performers, loading }: TopPerformersProps) {
           description="Scanner rankings will appear once members start uploading scans."
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 auto', minHeight: 0 }}>
+        <div className="top-performers-scroll">
           {performers.map((person) => {
             const pastel = AVATAR_PASTELS[(person.rank - 1) % AVATAR_PASTELS.length];
             const avatar = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(person.name)}&backgroundColor=transparent`;

@@ -329,6 +329,33 @@
   background: var(--color-bg-muted, #f1f3f5);
 }
 
+.top-performers-card {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  height: auto;
+  overflow: visible;
+  /* header + card padding + exactly 5 performer rows */
+  --performer-slot-height: 64px;
+  --performer-slot-gap: 6px;
+  min-height: calc(
+    var(--space-6, 24px) * 2 + 72px + var(--performer-slot-height) * 5 + var(--performer-slot-gap) * 4
+  );
+}
+
+.top-performers-header {
+  flex-shrink: 0;
+}
+
+.top-performers-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--performer-slot-gap, 6px);
+  flex: none;
+  min-height: calc(var(--performer-slot-height, 64px) * 5 + var(--performer-slot-gap, 6px) * 4);
+  overflow: visible;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2237,7 +2264,7 @@
   margin-top: 28px;
   flex: 1;
   min-height: 0;
-  align-items: stretch;
+  align-items: start;
 }
 
 @media (min-width: 861px) {
@@ -2279,6 +2306,18 @@
   }
 
   .notice-board-card .notice-scroll {
+    overflow: visible !important;
+    flex: none !important;
+    min-height: unset;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .top-performers-card {
+    height: auto !important;
+  }
+
+  .top-performers-scroll {
     overflow: visible !important;
     flex: none !important;
     min-height: unset;

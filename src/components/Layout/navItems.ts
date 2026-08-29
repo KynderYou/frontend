@@ -44,7 +44,7 @@ export const navItems = [
     section: 'Operations',
     navKey: 'mentor_mlas' as const,
   },
-  { id: 'mis-cab', label: 'CAB', Icon: LuClipboardList, section: 'MIS' },
+  { id: 'mis-cab', label: 'CAB', Icon: LuClipboardList, section: 'MIS', navKey: 'mis_cab' as const },
   { id: 'mis-communications', label: 'Communications', Icon: LuMessageSquare, section: 'MIS' },
   { id: 'mis-network', label: 'Network Performance', Icon: LuActivity, section: 'MIS' },
   { id: 'mis-scans', label: 'Scans', Icon: LuSearch, section: 'MIS' },
@@ -77,6 +77,7 @@ type NavItem = (typeof navItems)[number];
 export function getVisibleNavItems(nav: MemberNav): NavItem[] {
   return navItems.filter((item) => {
     if (!('navKey' in item) || !item.navKey) return true;
+    if (item.navKey === 'mis_cab') return nav.mis_cab ?? true;
     return nav[item.navKey];
   });
 }
@@ -85,5 +86,6 @@ export function canAccessView(view: AppView, nav: MemberNav): boolean {
   if (view === 'profile' || view === 'dashboard' || view === 'notifications') return true;
   const item = navItems.find((entry) => entry.id === view);
   if (!item || !('navKey' in item) || !item.navKey) return true;
+  if (item.navKey === 'mis_cab') return nav.mis_cab ?? true;
   return nav[item.navKey];
 }
