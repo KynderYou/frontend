@@ -21,6 +21,8 @@ export const demoMember: Member = {
     admin_members: true,
     admin_topups: true,
     mis_cab: true,
+    scans_mla: false,
+    scans_ho: true,
   },
 };
 

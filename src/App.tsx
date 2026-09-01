@@ -279,6 +279,7 @@ function App() {
               />
             ) : view === 'dashboard' ? (
               <HomeDashboard
+                nav={member?.nav}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
                 onNavigate={navigate}

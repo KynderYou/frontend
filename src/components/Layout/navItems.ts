@@ -18,8 +18,8 @@ import type { MemberNav } from '../../api/types';
 /** Regular nav loop — profile is a separate row pinned to the sidebar footer, not part of this list */
 export const navItems = [
   { id: 'dashboard', label: 'Dashboard', Icon: LuLayoutDashboard, section: 'Menu' },
-  { id: 'scans-mla', label: 'My Scans (MLA)', Icon: LuScanLine, section: 'Scans' },
-  { id: 'scans-ho', label: 'My Scans (H.O)', Icon: LuBuilding2, section: 'Scans' },
+  { id: 'scans-mla', label: 'Upload Scan', Icon: LuScanLine, section: 'Scans', navKey: 'scans_mla' as const },
+  { id: 'scans-ho', label: 'Process Scan', Icon: LuBuilding2, section: 'Scans', navKey: 'scans_ho' as const },
   { id: 'ledger', label: 'My Ledger', Icon: LuWallet, section: 'Operations' },
   { id: 'reports', label: 'My Reports', Icon: LuFileText, section: 'Operations' },
   {
@@ -78,6 +78,8 @@ export function getVisibleNavItems(nav: MemberNav): NavItem[] {
   return navItems.filter((item) => {
     if (!('navKey' in item) || !item.navKey) return true;
     if (item.navKey === 'mis_cab') return nav.mis_cab ?? true;
+    if (item.navKey === 'scans_mla') return nav.scans_mla ?? true;
+    if (item.navKey === 'scans_ho') return nav.scans_ho ?? false;
     return nav[item.navKey];
   });
 }
@@ -87,5 +89,7 @@ export function canAccessView(view: AppView, nav: MemberNav): boolean {
   const item = navItems.find((entry) => entry.id === view);
   if (!item || !('navKey' in item) || !item.navKey) return true;
   if (item.navKey === 'mis_cab') return nav.mis_cab ?? true;
+  if (item.navKey === 'scans_mla') return nav.scans_mla ?? true;
+  if (item.navKey === 'scans_ho') return nav.scans_ho ?? false;
   return nav[item.navKey];
 }

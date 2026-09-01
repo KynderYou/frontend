@@ -27,6 +27,8 @@ export type MemberNav = {
   admin_members: boolean;
   admin_topups: boolean;
   mis_cab: boolean;
+  scans_mla: boolean;
+  scans_ho: boolean;
 };
 
 export type Member = {

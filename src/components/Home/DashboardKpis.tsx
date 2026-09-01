@@ -1,11 +1,17 @@
 import { useState } from 'react';
-import type { DashboardKpis as DashboardKpisData } from '../../api';
+import type { DashboardKpis as DashboardKpisData, MemberNav } from '../../api';
 import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import type { AppView } from '../Layout/navItems';
 
 const theme = colors.light;
+
+function scansDashboardLink(nav?: MemberNav): AppView | undefined {
+  if (nav?.scans_mla) return 'scans-mla';
+  if (nav?.scans_ho) return 'scans-ho';
+  return undefined;
+}
 
 type KpiCard = {
   id: string;
@@ -27,7 +33,7 @@ function formatBilling(value: number | null | undefined): string {
   return formatCount(value);
 }
 
-function buildKpis(data: DashboardKpisData | null): KpiCard[] {
+function buildKpis(data: DashboardKpisData | null, nav?: MemberNav): KpiCard[] {
   const scansYear = data?.scans_this_year ?? 0;
   const scansTotal = data?.scans_total ?? 0;
   const billingYear = data?.billing_this_year;
@@ -48,7 +54,7 @@ function buildKpis(data: DashboardKpisData | null): KpiCard[] {
           <path d="M8 2v4M16 2v4" />
         </svg>
       ),
-      linkTo: 'scans-mla',
+      linkTo: scansDashboardLink(nav),
     },
     {
       id: 'scans-total',
@@ -99,6 +105,7 @@ function buildKpis(data: DashboardKpisData | null): KpiCard[] {
 
 type DashboardKpisProps = {
   kpis: DashboardKpisData | null;
+  nav?: MemberNav;
   loading?: boolean;
   error?: string;
   onOpenMobileMenu?: () => void;
@@ -106,10 +113,10 @@ type DashboardKpisProps = {
   onNavigate?: (view: AppView, target?: string) => void;
 };
 
-export function DashboardKpis({ kpis, loading, error, onOpenMobileMenu, onOpenProfile, onNavigate }: DashboardKpisProps) {
+export function DashboardKpis({ kpis, nav, loading, error, onOpenMobileMenu, onOpenProfile, onNavigate }: DashboardKpisProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const cards = buildKpis(kpis);
+  const cards = buildKpis(kpis, nav);
 
   return (
     <section>

@@ -4,7 +4,7 @@ import type {
   AdminVisibilityFieldsPayload,
 } from '../../api/types';
 
-export type MemberRole = 'HO' | 'Admin' | 'Mentor' | 'Trainee';
+export type MemberRole = 'Admin' | 'Mentor' | 'Trainee';
 
 export type AdminAccountFormState = {
   name: string;
@@ -54,7 +54,7 @@ export const tierBilling: Record<SubscriptionTier, string> = {
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
-export const roleOptions: MemberRole[] = ['HO', 'Admin', 'Mentor', 'Trainee'];
+export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'Trainee'];
 
 export const emptyAccountForm: AdminAccountFormState = {
   name: '',

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCommunicationsNotices, getDashboard, getTopPerformers } from '../../api';
-import type { DashboardData, DashboardNotice, TopPerformer } from '../../api';
+import type { DashboardData, DashboardNotice, MemberNav, TopPerformer } from '../../api';
 import { mapCommunicationsToDashboardNotices } from '../Communications/communicationsApiMapper';
 import { DashboardKpis } from './DashboardKpis';
 import { NoticeBoard } from './NoticeBoard';
@@ -8,13 +8,14 @@ import { TopPerformers } from './TopPerformers';
 import type { AppView } from '../Layout/navItems';
 
 type HomeDashboardProps = {
+  nav?: MemberNav;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
   onNavigate?: (view: AppView, target?: string) => void;
   onReply?: (communicationId: string) => void;
 };
 
-export function HomeDashboard({ onOpenMobileMenu, onOpenProfile, onNavigate, onReply }: HomeDashboardProps) {
+export function HomeDashboard({ nav, onOpenMobileMenu, onOpenProfile, onNavigate, onReply }: HomeDashboardProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [notices, setNotices] = useState<DashboardNotice[]>([]);
   const [performers, setPerformers] = useState<TopPerformer[]>([]);
@@ -48,6 +49,7 @@ export function HomeDashboard({ onOpenMobileMenu, onOpenProfile, onNavigate, onR
     <div className="home-dashboard">
       <DashboardKpis
         kpis={data?.kpis ?? null}
+        nav={nav}
         loading={loading}
         error={error}
         onOpenMobileMenu={onOpenMobileMenu}

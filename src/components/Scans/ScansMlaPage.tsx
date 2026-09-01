@@ -315,10 +315,10 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               color: theme['text-primary'],
             }}
           >
-            My Scans (MLA)
+            Upload Scan
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Upload a scan zip — client details are filled from the package document. Export to Head Office when ready.
+            Upload a scan zip, enter client details, and export when ready for head office processing.
           </p>
         </div>
 

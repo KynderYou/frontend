@@ -153,7 +153,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
       setRecords(hoScanListToRecords(scans));
       setLoadError('');
     } catch {
-      if (!signal?.aborted) setLoadError('Unable to load Head Office scans.');
+      if (!signal?.aborted) setLoadError('Unable to load scans for processing.');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -245,10 +245,10 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
               color: theme['text-primary'],
             }}
           >
-            My Scans (H.O)
+            Process Scan
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Review uploaded scans across preprocess, process, verify, download, and report upload queues.
+            Review exported scans across preprocess, process, verify, download, and report upload queues.
           </p>
         </div>
 
@@ -264,7 +264,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
       </div>
 
       <div className="dash-card ho-scans-nav-card">
-        <div className="ho-scans-nav" role="tablist" aria-label="Head Office scan sections">
+        <div className="ho-scans-nav" role="tablist" aria-label="Process scan sections">
           {(Object.keys(sectionLabels) as HoSectionId[]).map((section) => (
             <button
               key={section}

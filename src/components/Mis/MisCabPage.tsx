@@ -126,7 +126,7 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
     setLoading(true);
     try {
       const member = await getMe(signal);
-      const staffView = member.role === 'Admin' || member.role === 'HO';
+      const staffView = member.role === 'Admin';
       setIsAdmin(staffView);
       setIsTrainee(member.role === 'Trainee');
       const state = await getCabState(signal, staffView ? undefined : 'mine');

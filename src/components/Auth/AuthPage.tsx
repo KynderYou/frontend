@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ApiError, DEMO_EMAIL, DEMO_PASSWORD, login } from '../../api';
+import { ApiError, login } from '../../api';
 import type { Member } from '../../api';
 import logo from '../../assets/high-resolution-color-logo.png';
 
@@ -36,7 +36,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             : err.message;
         setError(detail || 'Sign in failed.');
       } else {
-        setError(`Unable to reach the server. For frontend-only demo use ${DEMO_EMAIL} / ${DEMO_PASSWORD}.`);
+        setError('Unable to connect to the server. Please try again later.');
       }
     } finally {
       setLoading(false);
@@ -67,7 +67,6 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                   name="email"
                   type="email"
                   autoComplete="email"
-                  defaultValue={DEMO_EMAIL}
                   placeholder="name@midna.com"
                   disabled={loading}
                 />
@@ -85,7 +84,6 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  defaultValue={DEMO_PASSWORD}
                   placeholder="Enter your password"
                   disabled={loading}
                 />
@@ -132,10 +130,6 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               </svg>
             </button>
           </form>
-
-          <p className="auth-switch-copy">
-            Frontend-only demo: {DEMO_EMAIL} / {DEMO_PASSWORD}
-          </p>
         </div>
 
         <aside className="auth-visual-panel">
