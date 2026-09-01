@@ -7,6 +7,8 @@ import {
 } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
 import { colors, spacing, typography } from '../../styles/theme';
+import { TablePager } from '../common/TablePager';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { useToast } from '../common/ToastProvider';
@@ -26,6 +28,7 @@ import {
 } from './adminProfileForm';
 
 const theme = colors.light;
+const MEMBERS_PAGE_SIZE = 12;
 
 type AdminMembersPageProps = {
   onOpenMobileMenu?: () => void;
@@ -71,6 +74,8 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
     loadPage(controller.signal);
     return () => controller.abort();
   }, [loadPage]);
+
+  const membersPagination = useClientPagination(members, MEMBERS_PAGE_SIZE, members.length);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,7 +213,19 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
         onSubmit={handleCreate}
       />
 
-      <AdminMembersTable members={members} onEdit={setEditMember} onDelete={handleDelete} />
+      <AdminMembersTable
+        members={membersPagination.pageItems}
+        totalCount={membersPagination.total}
+        rowOffset={(membersPagination.page - 1) * membersPagination.pageSize}
+        onEdit={setEditMember}
+        onDelete={handleDelete}
+      />
+      <TablePager
+        page={membersPagination.page}
+        pageSize={membersPagination.pageSize}
+        total={membersPagination.total}
+        onPageChange={membersPagination.setPage}
+      />
     </section>
   );
 }

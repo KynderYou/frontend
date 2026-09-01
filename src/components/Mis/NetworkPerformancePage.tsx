@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getMisNetwork, getMisScans } from '../../api';
 import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { MonthlyBarChart } from './MonthlyBarChart';
 import { mapMisNetwork, mapMisScanRows } from './misApiMapper';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import {
   formatCompactMoney,
   formatMoney,
@@ -17,6 +19,8 @@ import {
 } from './misData';
 
 const theme = colors.light;
+const TEAM_DB_PAGE_SIZE = 15;
+const DRILLDOWN_PAGE_SIZE = 12;
 
 type NetworkPerformancePageProps = {
   onOpenMobileMenu?: () => void;
@@ -45,7 +49,16 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
   const [billingMonth, setBillingMonth] = useState(0);
   const [drilldownMonth, setDrilldownMonth] = useState<number | null>(null);
   const [monthScans, setMonthScans] = useState<NetworkScan[]>([]);
+  const [drilldownPage, setDrilldownPage] = useState(1);
+  const [drilldownTotal, setDrilldownTotal] = useState(0);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [teamDbOpen, setTeamDbOpen] = useState(false);
+
+  const teamPagination = useClientPagination(
+    yearData.performanceRows,
+    TEAM_DB_PAGE_SIZE,
+    teamDbOpen ? `team-${selectedYear}` : 'team-closed',
+  );
 
   const loadNetwork = useCallback(async (year: NetworkYear, signal?: AbortSignal) => {
     setLoading(true);
@@ -74,13 +87,32 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
   useEffect(() => {
     if (drilldownMonth === null) {
       setMonthScans([]);
+      setDrilldownTotal(0);
+      setDrilldownPage(1);
       return;
     }
     const controller = new AbortController();
-    getMisScans({ year: selectedYear, month: drilldownMonth, pageSize: 500 }, controller.signal)
-      .then((page) => setMonthScans(mapMisScanRows(page)))
-      .catch(() => setMonthScans([]));
+    setDrilldownLoading(true);
+    getMisScans(
+      { year: selectedYear, month: drilldownMonth, page: drilldownPage, pageSize: DRILLDOWN_PAGE_SIZE },
+      controller.signal,
+    )
+      .then((page) => {
+        setMonthScans(mapMisScanRows(page));
+        setDrilldownTotal(page.total);
+      })
+      .catch(() => {
+        setMonthScans([]);
+        setDrilldownTotal(0);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDrilldownLoading(false);
+      });
     return () => controller.abort();
+  }, [drilldownMonth, selectedYear, drilldownPage]);
+
+  useEffect(() => {
+    setDrilldownPage(1);
   }, [drilldownMonth, selectedYear]);
 
   if (loading) {
@@ -277,7 +309,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       {drilldownMonth !== null && (
         <MisOverlay
           title={`${MONTH_LABELS[drilldownMonth]} ${selectedYear} scans`}
-          subtitle={`${monthScans.length} scans from ${yearData.scansByMonth[drilldownMonth].contributors.length} contributors`}
+          subtitle={`${drilldownTotal} scans from ${yearData.scansByMonth[drilldownMonth].contributors.length} contributors`}
           onClose={() => setDrilldownMonth(null)}
         >
           <div className="mis-drill-grid">
@@ -308,18 +340,36 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                     </tr>
                   </thead>
                   <tbody>
-                    {monthScans.map((scan) => (
-                      <tr key={scan.scanId}>
-                        <td data-label="Scan ID">
-                          <span className="mis-scan-id">{scan.scanId}</span>
-                        </td>
-                        <td data-label="Name">{scan.clientName}</td>
-                        <td data-label="MLA">{scan.mlaName}</td>
-                        <td data-label="Upload date">{scan.uploadedAt}</td>
+                    {drilldownLoading ? (
+                      <tr className="mis-data-empty">
+                        <td colSpan={4}>Loading scans…</td>
                       </tr>
-                    ))}
+                    ) : monthScans.length === 0 ? (
+                      <tr className="mis-data-empty">
+                        <td colSpan={4}>No scans for this month.</td>
+                      </tr>
+                    ) : (
+                      monthScans.map((scan) => (
+                        <tr key={scan.scanId}>
+                          <td data-label="Scan ID">
+                            <span className="mis-scan-id">{scan.scanId}</span>
+                          </td>
+                          <td data-label="Name">{scan.clientName}</td>
+                          <td data-label="MLA">{scan.mlaName}</td>
+                          <td data-label="Upload date">{scan.uploadedAt}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+                <TablePager
+                  page={drilldownPage}
+                  pageSize={DRILLDOWN_PAGE_SIZE}
+                  total={drilldownTotal}
+                  loading={drilldownLoading}
+                  onPageChange={setDrilldownPage}
+                  className="mis-table-footer mis-table-footer--overlay"
+                />
               </div>
             </div>
           </div>
@@ -329,7 +379,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       {teamDbOpen && (
         <MisOverlay
           title="Team DB"
-          subtitle={`${selectedYear} performance · column list is provisional`}
+          subtitle={`${teamPagination.total} members · ${selectedYear} performance`}
           onClose={() => setTeamDbOpen(false)}
         >
           <div className="mis-overlay-table mis-overlay-table--tall">
@@ -345,7 +395,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                 </tr>
               </thead>
               <tbody>
-                {yearData.performanceRows.map((row) => (
+                {teamPagination.pageItems.map((row) => (
                   <tr key={row.id}>
                     <td data-label="Member">
                       <span className="mis-scan-name">{row.name}</span>
@@ -368,6 +418,13 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                 ))}
               </tbody>
             </table>
+            <TablePager
+              page={teamPagination.page}
+              pageSize={teamPagination.pageSize}
+              total={teamPagination.total}
+              onPageChange={teamPagination.setPage}
+              className="mis-table-footer mis-table-footer--overlay"
+            />
           </div>
         </MisOverlay>
       )}

@@ -9,7 +9,9 @@ import {
 } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
@@ -24,6 +26,7 @@ import {
 } from './scanTypes';
 
 const theme = colors.light;
+const MLA_SCANS_PAGE_SIZE = 12;
 
 type UploadClientForm = {
   scanId: string;
@@ -300,6 +303,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     }
   };
 
+  const listPagination = useClientPagination(records, MLA_SCANS_PAGE_SIZE, records.length);
+  const rowOffset = (listPagination.page - 1) * listPagination.pageSize;
+
   return (
     <section className="page-section">
       <div className="page-header">
@@ -502,6 +508,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               description="Upload a zip package above to add your first scan."
             />
           ) : (
+          <>
           <table className="scans-table">
             <thead>
               <tr>
@@ -517,12 +524,12 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               </tr>
             </thead>
             <tbody>
-              {records.map((row, index) => {
+              {listPagination.pageItems.map((row, index) => {
                 const chip = statusStyles(row.status);
                 const exportReady = canExport(row);
                 return (
                   <tr key={row.id}>
-                    <td data-label="Sno">{index + 1}</td>
+                    <td data-label="Sno">{rowOffset + index + 1}</td>
                     <td data-label="Scan Id">
                       <button type="button" className="scans-table-link" onClick={() => setEditingRecord(row)}>
                         {row.scanId}
@@ -572,6 +579,14 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               })}
             </tbody>
           </table>
+          <TablePager
+            page={listPagination.page}
+            pageSize={listPagination.pageSize}
+            total={listPagination.total}
+            onPageChange={listPagination.setPage}
+            className="mis-table-footer"
+          />
+          </>
           )}
         </div>
       </div>

@@ -11,9 +11,17 @@ type MisCabUploadModalProps = {
   clientName?: string;
   onClose: () => void;
   onUploaded?: () => void;
+  readOnly?: boolean;
 };
 
-export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploaded }: MisCabUploadModalProps) {
+export function MisCabUploadModal({
+  open,
+  scanCode,
+  clientName,
+  onClose,
+  onUploaded,
+  readOnly = false,
+}: MisCabUploadModalProps) {
   const { showSuccess, showError } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [audios, setAudios] = useState<ScanCabAudio[]>([]);
@@ -86,10 +94,10 @@ export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploa
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-panel reports-cab-modal" role="dialog" aria-modal="true" aria-label="Upload CAB audio">
+      <div className="modal-panel reports-cab-modal" role="dialog" aria-modal="true" aria-label={readOnly ? 'CAB audio' : 'Upload CAB audio'}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">Upload CAB</h2>
+            <h2 className="modal-title">{readOnly ? 'CAB audio' : 'Upload CAB'}</h2>
             <p className="modal-subtitle">
               Scan {scanCode}
               {clientName ? ` · ${clientName}` : ''}
@@ -102,32 +110,38 @@ export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploa
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}>
           <div className="modal-body">
-            {error ? (
+            {!readOnly && error ? (
               <p role="alert" style={{ color: theme.error, fontSize: 13, marginBottom: spacing[3] }}>
                 {error}
               </p>
             ) : null}
 
-            <label className="form-field">
-              <span className="form-label">Audio title</span>
-              <input className="form-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Learning style overview" />
-            </label>
+            {!readOnly ? (
+              <>
+                <label className="form-field">
+                  <span className="form-label">Audio title</span>
+                  <input className="form-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Learning style overview" />
+                </label>
 
-            <label className="form-field" style={{ marginTop: spacing[3] }}>
-              <span className="form-label">Audio file</span>
-              <input
-                ref={fileInputRef}
-                className="form-input"
-                type="file"
-                accept="audio/*,.mp3,.wav,.ogg,.webm"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
+                <label className="form-field" style={{ marginTop: spacing[3] }}>
+                  <span className="form-label">Audio file</span>
+                  <input
+                    ref={fileInputRef}
+                    className="form-input"
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.ogg,.webm"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </>
+            ) : null}
 
             <div style={{ marginTop: spacing[5] }}>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>Recent uploads</h3>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>
+                {readOnly ? 'Uploaded audio' : 'Recent uploads'}
+              </h3>
               {audios.length === 0 ? (
                 <p style={{ margin: `${spacing[2]} 0 0`, fontSize: 13, color: theme['text-muted'] }}>No CAB audio uploaded for this scan yet.</p>
               ) : (
@@ -151,9 +165,11 @@ export function MisCabUploadModal({ open, scanCode, clientName, onClose, onUploa
             <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={loading}>
               Close
             </button>
-            <button type="submit" className="btn-pill-primary" disabled={loading || !file}>
-              {loading ? 'Uploading…' : 'Upload CAB'}
-            </button>
+            {!readOnly ? (
+              <button type="submit" className="btn-pill-primary" disabled={loading || !file}>
+                {loading ? 'Uploading…' : 'Upload CAB'}
+              </button>
+            ) : null}
           </div>
         </form>
       </div>

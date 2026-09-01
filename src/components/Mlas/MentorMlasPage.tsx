@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMe, getMlaScans, getMlasState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { mapMlaScans, mapMlasState } from './mlasApiMapper';
 import type { Mla, MlaScan, MlaScanStatus, MlaStatus } from './mlasData';
 
 const theme = colors.light;
+const LIST_PAGE_SIZE = 12;
 
 type MentorMlasPageProps = {
   onOpenMobileMenu?: () => void;
@@ -78,6 +81,8 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
       );
     });
   }, [mlas, query, statusFilter]);
+
+  const listPagination = useClientPagination(filtered, LIST_PAGE_SIZE, `${query}-${statusFilter}`);
 
   if (loading) {
     return (
@@ -237,7 +242,7 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
                   <td colSpan={6}>No MLAs found.</td>
                 </tr>
               ) : (
-                filtered.map((mla) => (
+                listPagination.pageItems.map((mla) => (
                   <MlaListRow
                     key={mla.id}
                     mla={mla}
@@ -248,6 +253,13 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
             </tbody>
           </table>
         </div>
+        <TablePager
+          page={listPagination.page}
+          pageSize={listPagination.pageSize}
+          total={listPagination.total}
+          onPageChange={listPagination.setPage}
+          className="mis-table-footer"
+        />
       </div>
 
       <MlaScansModal

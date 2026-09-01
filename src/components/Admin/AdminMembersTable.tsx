@@ -13,11 +13,13 @@ function statusStyles(status: MemberStatus) {
 
 type AdminMembersTableProps = {
   members: AdminMemberApi[];
+  totalCount: number;
+  rowOffset?: number;
   onEdit: (member: AdminMemberApi) => void;
   onDelete: (member: AdminMemberApi) => void;
 };
 
-export function AdminMembersTable({ members, onEdit, onDelete }: AdminMembersTableProps) {
+export function AdminMembersTable({ members, totalCount, rowOffset = 0, onEdit, onDelete }: AdminMembersTableProps) {
   return (
     <div className="dash-card scans-table-card" style={{ width: '100%' }}>
       <div className="scans-card-head">
@@ -25,7 +27,7 @@ export function AdminMembersTable({ members, onEdit, onDelete }: AdminMembersTab
           <h2 className="scans-card-title">All accounts</h2>
           <p className="scans-card-sub">Edit admin fields · enable or disable sign-in from the edit modal</p>
         </div>
-        <span className="scans-card-meta">{members.length}</span>
+        <span className="scans-card-meta">{totalCount}</span>
       </div>
 
       <div className="scans-table-wrap">
@@ -49,7 +51,7 @@ export function AdminMembersTable({ members, onEdit, onDelete }: AdminMembersTab
               const chip = statusStyles(member.status as MemberStatus);
               return (
                 <tr key={member.id}>
-                  <td data-label="Sno">{index + 1}</td>
+                  <td data-label="Sno">{rowOffset + index + 1}</td>
                   <td data-label="Name">
                     <span className="scans-table-file-static">{member.name}</span>
                     <span className="scans-table-meta">{member.phone}</span>

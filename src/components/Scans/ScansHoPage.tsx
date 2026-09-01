@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getHoScans, hoScanAction } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
@@ -10,6 +12,7 @@ import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload } from 
 import { scanStatusStyles } from './scanStatusStyles';
 
 const theme = colors.light;
+const HO_SCANS_PAGE_SIZE = 12;
 
 type ScansHoPageProps = {
   onOpenMobileMenu?: () => void;
@@ -211,6 +214,8 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   };
 
   const rows = grouped[activeSection];
+  const listPagination = useClientPagination(rows, HO_SCANS_PAGE_SIZE, activeSection);
+  const rowOffset = (listPagination.page - 1) * listPagination.pageSize;
   const meta = sectionMeta[activeSection];
   const showImages = activeSection !== 'process';
   const showProcessedBy = activeSection !== 'preprocess' && activeSection !== 'process';
@@ -330,7 +335,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, index) => {
+                {listPagination.pageItems.map((row, index) => {
                   const chip = scanStatusStyles(row.status);
                   return (
                     <tr
@@ -355,7 +360,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                       role={canOpenFingerprint ? 'button' : undefined}
                       aria-label={canOpenFingerprint ? `Open fingerprint panel for ${row.scanId}` : undefined}
                     >
-                      <td data-label="Sno">{index + 1}</td>
+                      <td data-label="Sno">{rowOffset + index + 1}</td>
                       <td data-label="Scan Id">
                         {canOpenFingerprint ? (
                           <button
@@ -446,6 +451,13 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                 })}
               </tbody>
             </table>
+            <TablePager
+              page={listPagination.page}
+              pageSize={listPagination.pageSize}
+              total={listPagination.total}
+              onPageChange={listPagination.setPage}
+              className="mis-table-footer"
+            />
           </div>
         )}
       </div>

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deleteReport, getMyReports, requestReportCab, upgradeReport } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabModal } from './CabModal';
@@ -14,6 +16,7 @@ import { isReportReady, REPORT_STATUS_FILTERS, scanStatusStyles, type ReportStat
 import { UpgradeReportModal } from './UpgradeReportModal';
 
 const theme = colors.light;
+const REPORTS_PAGE_SIZE = 12;
 
 const avatarPalette = [
   { color: '#4C5AD4', background: '#EEF0FF' },
@@ -82,6 +85,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
       );
     });
   }, [records, query, statusFilter]);
+
+  const listPagination = useClientPagination(filtered, REPORTS_PAGE_SIZE, `${query}-${statusFilter}`);
+  const rowOffset = (listPagination.page - 1) * listPagination.pageSize;
 
   const stats = useMemo(
     () => ({
@@ -295,13 +301,13 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           </tr>
         </thead>
         <tbody>
-          {filtered.map((row, index) => {
+          {listPagination.pageItems.map((row, index) => {
             const chip = scanStatusStyles(row.status);
             const ready = isReportReady(row.status);
             const isPremium = row.plan === 'Premium';
             return (
               <tr key={row.id}>
-                <td data-label="Sno">{index + 1}</td>
+                <td data-label="Sno">{rowOffset + index + 1}</td>
                 <td data-label="Scan Id">
                   <span className="scans-table-file-static">{row.scanId}</span>
                 </td>
@@ -381,6 +387,13 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           })}
         </tbody>
       </table>
+      <TablePager
+        page={listPagination.page}
+        pageSize={listPagination.pageSize}
+        total={listPagination.total}
+        onPageChange={listPagination.setPage}
+        className="mis-table-footer"
+      />
     </div>
   );
 
@@ -550,7 +563,16 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             compact
           />
         ) : layout === 'cards' ? (
-          <div className="reports-card-grid">{filtered.map(renderCard)}</div>
+          <>
+            <div className="reports-card-grid">{listPagination.pageItems.map(renderCard)}</div>
+            <TablePager
+              page={listPagination.page}
+              pageSize={listPagination.pageSize}
+              total={listPagination.total}
+              onPageChange={listPagination.setPage}
+              className="mis-table-footer"
+            />
+          </>
         ) : (
           renderTable()
         )}

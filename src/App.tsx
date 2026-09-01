@@ -39,14 +39,13 @@ type HashState = {
   threadId: string | null;
   topUpId: number | null;
   misScanCode: string | null;
-  openCabUpload: boolean;
 };
 
 /** The URL hash is the source of truth for the current page, so refresh keeps you here.
  *  Thread deep-links look like `#/mis-communications?thread=c1`. */
 function parseHash(): HashState {
   if (typeof window === 'undefined') {
-    return { view: DEFAULT_VIEW, threadId: null, topUpId: null, misScanCode: null, openCabUpload: false };
+    return { view: DEFAULT_VIEW, threadId: null, topUpId: null, misScanCode: null };
   }
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [pathPart, queryPart = ''] = raw.split('?');
@@ -56,13 +55,12 @@ function parseHash(): HashState {
   const topUpRaw = params.get('id');
   const topUpId = topUpRaw && /^\d+$/.test(topUpRaw) ? Number(topUpRaw) : null;
   const misScanCode = params.get('scan');
-  const openCabUpload = params.get('cab') === '1';
-  return { view, threadId, topUpId, misScanCode, openCabUpload };
+  return { view, threadId, topUpId, misScanCode };
 }
 
 function writeHash(
   view: AppView,
-  options: { threadId?: string | null; topUpId?: number | null; misScanCode?: string | null; openCabUpload?: boolean } = {},
+  options: { threadId?: string | null; topUpId?: number | null; misScanCode?: string | null } = {},
 ) {
   const params = new URLSearchParams();
   if (view === 'mis-communications' && options.threadId) {
@@ -71,9 +69,8 @@ function writeHash(
   if (view === 'admin-topups' && options.topUpId) {
     params.set('id', String(options.topUpId));
   }
-  if (view === 'mis-scans') {
-    if (options.misScanCode) params.set('scan', options.misScanCode);
-    if (options.openCabUpload) params.set('cab', '1');
+  if (view === 'mis-scans' && options.misScanCode) {
+    params.set('scan', options.misScanCode);
   }
   const query = params.toString();
   window.location.hash = query ? `#/${view}?${query}` : `#/${view}`;
@@ -89,7 +86,6 @@ function App() {
   const [threadId, setThreadId] = useState<string | null>(() => parseHash().threadId);
   const [topUpId, setTopUpId] = useState<number | null>(() => parseHash().topUpId);
   const [misScanCode, setMisScanCode] = useState<string | null>(() => parseHash().misScanCode);
-  const [openCabUpload, setOpenCabUpload] = useState(() => parseHash().openCabUpload);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY).matches : false
   );
@@ -107,12 +103,11 @@ function App() {
       current.view !== view ||
       current.threadId !== threadId ||
       current.topUpId !== topUpId ||
-      current.misScanCode !== misScanCode ||
-      current.openCabUpload !== openCabUpload
+      current.misScanCode !== misScanCode
     ) {
-      writeHash(view, { threadId, topUpId, misScanCode, openCabUpload });
+      writeHash(view, { threadId, topUpId, misScanCode });
     }
-  }, [view, threadId, topUpId, misScanCode, openCabUpload]);
+  }, [view, threadId, topUpId, misScanCode]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -121,7 +116,6 @@ function App() {
       setThreadId(next.threadId);
       setTopUpId(next.topUpId);
       setMisScanCode(next.misScanCode);
-      setOpenCabUpload(next.openCabUpload);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -133,19 +127,16 @@ function App() {
       setThreadId(target);
       setTopUpId(null);
       setMisScanCode(null);
-      setOpenCabUpload(false);
       return;
     }
     if (nextView === 'admin-topups' && target && /^\d+$/.test(target)) {
       setTopUpId(Number(target));
       setThreadId(null);
       setMisScanCode(null);
-      setOpenCabUpload(false);
       return;
     }
     if (nextView === 'mis-scans' && target) {
       setMisScanCode(target);
-      setOpenCabUpload(true);
       setThreadId(null);
       setTopUpId(null);
       return;
@@ -153,7 +144,6 @@ function App() {
     setThreadId(null);
     setTopUpId(null);
     setMisScanCode(null);
-    setOpenCabUpload(false);
   };
 
   const openCommunicationThread = (id: string) => {
@@ -196,7 +186,6 @@ function App() {
       setThreadId(null);
       setTopUpId(null);
       setMisScanCode(null);
-      setOpenCabUpload(false);
     }
   }, [member, view]);
 
@@ -231,7 +220,6 @@ function App() {
     setThreadId(null);
     setTopUpId(null);
     setMisScanCode(null);
-    setOpenCabUpload(false);
     setView(DEFAULT_VIEW);
     setMobileMenuOpen(false);
     setIsAuthenticated(false);
@@ -350,7 +338,6 @@ function App() {
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
                 initialScanCode={misScanCode}
-                initialOpenCabUpload={openCabUpload}
                 onNavigate={navigate}
               />
             ) : view === 'mis-network' ? (

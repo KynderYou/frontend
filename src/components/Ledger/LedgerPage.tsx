@@ -3,13 +3,16 @@ import { getMyLedger, submitLedgerTopUp } from '../../api';
 import type { LedgerEntryRow } from '../../api';
 import { colors, metricColors, radius, shadow, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { ExpensesChart } from './ExpensesChart';
 import { TopUpModal } from './TopUpModal';
 
 const theme = colors.light;
+const LEDGER_TX_PAGE_SIZE = 12;
 
 type LedgerTab = 'receipts' | 'billing';
 
@@ -142,6 +145,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const billingDisplay = data?.kpis.billing_display ?? '₹0';
 
   const transactions = activeTab === 'receipts' ? receipts : billing;
+  const txPagination = useClientPagination(transactions, LEDGER_TX_PAGE_SIZE, activeTab);
   const tableTitle = activeTab === 'receipts' ? 'Receipts' : 'Billing';
   const periodLabel = activeTab === 'billing' ? `Last ${billingWindowDays} days` : 'All credits';
 
@@ -393,9 +397,16 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                     }
                   />
                 ) : (
-                  transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)
+                  txPagination.pageItems.map((tx) => <TransactionRow key={tx.id} tx={tx} />)
                 )}
               </div>
+              <TablePager
+                page={txPagination.page}
+                pageSize={txPagination.pageSize}
+                total={txPagination.total}
+                onPageChange={txPagination.setPage}
+                className="mis-table-footer"
+              />
             </div>
 
             <ExpensesChart data={chartData} year={data?.expenses_year ?? new Date().getFullYear()} />

@@ -5,12 +5,10 @@ import {
   getCommGroups,
   getCommMembers,
   getCommunicationsNotices,
-  getMe,
   publishCommunication as publishCommunicationApi,
   replyToCommunication as replyToCommunicationApi,
   voteOnPoll as voteOnPollApi,
 } from '../../api';
-import type { Member } from '../../api';
 import {
   colors,
   radius,
@@ -50,7 +48,6 @@ type CommunicationsPageProps = {
 };
 
 type TabId = 'compose' | 'groups' | 'sent';
-type ComposeMode = 'notice' | 'cab';
 
 export function CommunicationsPage({
   onOpenMobileMenu,
@@ -80,8 +77,6 @@ export function CommunicationsPage({
   const [includePoll, setIncludePoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
-  const [composeMode, setComposeMode] = useState<ComposeMode>('notice');
-  const [cabScanId, setCabScanId] = useState('');
 
   const [groupName, setGroupName] = useState('');
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
@@ -90,24 +85,19 @@ export function CommunicationsPage({
   const [replyDraft, setReplyDraft] = useState('');
   const [replyError, setReplyError] = useState('');
   const [seenModalItem, setSeenModalItem] = useState<Communication | null>(null);
-  const [accountMember, setAccountMember] = useState<Member | null>(null);
-
-  const canRequestCab = accountMember?.role === 'Trainee' && accountMember?.mentee_type === 'trainee';
 
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [notices, groups, members, me] = await Promise.all([
+      const [notices, groups, members] = await Promise.all([
         getCommunicationsNotices(signal),
         getCommGroups(signal),
         getCommMembers(signal),
-        getMe(signal),
       ]);
       if (signal?.aborted) return;
       setCommunications(mapCommunicationsList(notices));
       setGroups(mapCommGroups(groups));
       setMembers(mapCommMembers(members));
-      setAccountMember(me);
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load communications.');
@@ -133,12 +123,6 @@ export function CommunicationsPage({
     if (selectedId && communications.some((item) => item.id === selectedId)) return;
     setSelectedId(communications[0]?.id ?? null);
   }, [tab, communications, selectedId]);
-
-  useEffect(() => {
-    if (!canRequestCab && composeMode === 'cab') {
-      setComposeMode('notice');
-    }
-  }, [canRequestCab, composeMode]);
 
   const selected = useMemo(
     () => communications.find((item) => item.id === selectedId) ?? null,
@@ -188,47 +172,6 @@ export function CommunicationsPage({
   };
 
   const handlePublish = async () => {
-    if (composeMode === 'cab') {
-      const scanId = cabScanId.trim().toUpperCase();
-      if (!scanId) {
-        setComposeError('Enter the scan ID for the CAB request.');
-        return;
-      }
-
-      setSubmitting(true);
-      try {
-        const cabTitle = `CAB request · ${scanId}`;
-        const cabBody =
-          body.trim() || `Counselling audio requested for scan ${scanId}.`;
-        const created = await publishCommunicationApi({
-          title: cabTitle,
-          body: cabBody,
-          severity: 'medium',
-          audience_mode: 'everyone',
-          recipient_ids: [],
-          group_ids: [],
-          poll_question: null,
-          poll_options: [],
-          cab_scan_id: scanId,
-        });
-        const mapped = mapCommunication(created);
-        setCommunications((prev) => [mapped, ...prev]);
-        setBody('');
-        setCabScanId('');
-        setComposeError('');
-        showSuccess('CAB request sent — your mentor has been notified.');
-        setTab('sent');
-        if (mapped) selectThread(mapped.id);
-      } catch {
-        const message = 'CAB request failed. Please try again.';
-        setComposeError(message);
-        showError(message);
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
-
     if (!title.trim() || !body.trim()) {
       setComposeError('Add a title and message before publishing.');
       return;
@@ -260,7 +203,6 @@ export function CommunicationsPage({
         group_ids: selectedGroupIds.map(Number),
         poll_question: includePoll ? pollQuestion : null,
         poll_options: includePoll ? pollOptions : [],
-        cab_scan_id: null,
       });
       const mapped = mapCommunication(created);
       setCommunications((prev) => [mapped, ...prev]);
@@ -274,7 +216,6 @@ export function CommunicationsPage({
       setIncludePoll(false);
       setPollQuestion('');
       setPollOptions(['', '']);
-      setCabScanId('');
       setComposeError('');
       showSuccess('Published — it will show on the dashboard notice board.');
       setTab('sent');
@@ -443,37 +384,11 @@ export function CommunicationsPage({
       {tab === 'compose' && (
         <div className="comm-compose-grid">
           <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
-            {canRequestCab ? (
-              <div className="comm-compose-modes" role="tablist" aria-label="Compose type">
-                {(
-                  [
-                    { id: 'notice' as const, label: 'New notice' },
-                    { id: 'cab' as const, label: 'Request CAB' },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={composeMode === option.id}
-                    className={`comm-tab${composeMode === option.id ? ' is-active' : ''}`}
-                    onClick={() => {
-                      setComposeMode(option.id);
-                      setComposeError('');
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
-              {composeMode === 'notice' ? 'New notice' : 'Request CAB'}
+              New notice
             </h2>
 
-            {composeMode === 'notice' ? (
-              <>
+            <>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Title</span>
                   <input
@@ -604,37 +519,7 @@ export function CommunicationsPage({
                     </div>
                   )}
                 </div>
-              </>
-            ) : (
-              <>
-                <p style={{ margin: 0, fontSize: 13, color: theme['text-secondary'], lineHeight: 1.5 }}>
-                  Request counselling audio for one of your scans. Your mentor will receive a notification to follow up.
-                </p>
-
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Scan ID</span>
-                  <input
-                    value={cabScanId}
-                    onChange={(e) => setCabScanId(e.target.value.toUpperCase())}
-                    placeholder="e.g. S20260824001"
-                    style={fieldStyle}
-                  />
-                </label>
-
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>
-                    Notes <span style={{ fontWeight: 500, color: theme['text-muted'] }}>(optional)</span>
-                  </span>
-                  <textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder="Any context for the counselling team…"
-                    rows={4}
-                    style={textareaStyle}
-                  />
-                </label>
-              </>
-            )}
+            </>
 
             {composeError && (
               <p role="alert" style={{ margin: 0, fontSize: 13, color: theme.error }}>
@@ -650,7 +535,6 @@ export function CommunicationsPage({
                 onClick={() => {
                   setTitle('');
                   setBody('');
-                  setCabScanId('');
                   setComposeError('');
                   setIncludePoll(false);
                   setPollQuestion('');
@@ -666,19 +550,12 @@ export function CommunicationsPage({
                 onClick={handlePublish}
                 disabled={submitting}
               >
-                {submitting
-                  ? composeMode === 'cab'
-                    ? 'Submitting…'
-                    : 'Publishing…'
-                  : composeMode === 'cab'
-                    ? 'Submit CAB request'
-                    : 'Publish notice'}
+                {submitting ? 'Publishing…' : 'Publish notice'}
               </button>
             </div>
           </div>
 
-          {composeMode === 'notice' ? (
-            <AudiencePanel
+          <AudiencePanel
               audienceMode={audienceMode}
               setAudienceMode={setAudienceMode}
               filteredPeople={filteredPeople}
@@ -690,7 +567,6 @@ export function CommunicationsPage({
               selectedGroupIds={selectedGroupIds}
               toggleSelectedGroup={toggleSelectedGroup}
             />
-          ) : null}
         </div>
       )}
 

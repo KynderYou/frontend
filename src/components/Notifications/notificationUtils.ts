@@ -66,7 +66,7 @@ export function navigateFromNotification(
     return;
   }
   if (target && view === 'mis-scans') {
-    window.location.hash = `#/${view}?scan=${encodeURIComponent(target)}&cab=1`;
+    window.location.hash = `#/${view}?scan=${encodeURIComponent(target)}`;
   } else if (target && view === 'admin-topups') {
     window.location.hash = `#/${view}?id=${encodeURIComponent(target)}`;
   } else {

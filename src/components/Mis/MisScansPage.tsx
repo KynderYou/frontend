@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { getMisScans } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapMisScans } from './misApiMapper';
-import { MisCabUploadModal } from './MisCabUploadModal';
 import { MONTH_LABELS, NETWORK_YEAR, type MlaMember, type NetworkScan } from './misData';
 
 const theme = colors.light;
@@ -14,30 +14,25 @@ const PAGE_SIZE = 12;
 type MisScansPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
-  initialMonth?: number;
   initialScanCode?: string | null;
-  initialOpenCabUpload?: boolean;
   onNavigate?: (view: import('../Layout/navItems').AppView, target?: string) => void;
 };
 
 export function MisScansPage({
   onOpenMobileMenu,
   onOpenProfile,
-  initialMonth,
   initialScanCode = null,
-  initialOpenCabUpload = false,
   onNavigate,
 }: MisScansPageProps) {
   const [query, setQuery] = useState(initialScanCode ?? '');
   const [mlaFilter, setMlaFilter] = useState('All');
-  const [monthFilter, setMonthFilter] = useState<string>(initialMonth === undefined ? 'All' : String(initialMonth));
+  const [monthFilter, setMonthFilter] = useState<string>('All');
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<NetworkScan[]>([]);
   const [mlaMembers, setMlaMembers] = useState<MlaMember[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [cabScan, setCabScan] = useState<NetworkScan | null>(null);
 
   const loadScans = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -77,12 +72,6 @@ export function MisScansPage({
     setPage(1);
   }, [initialScanCode]);
 
-  useEffect(() => {
-    if (!initialOpenCabUpload || !initialScanCode || rows.length === 0) return;
-    const match = rows.find((row) => row.scanId.toUpperCase() === initialScanCode.toUpperCase());
-    if (match) setCabScan(match);
-  }, [initialOpenCabUpload, initialScanCode, rows]);
-
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = rows;
@@ -109,13 +98,6 @@ export function MisScansPage({
 
   return (
     <section className="page-section mis-page">
-      <MisCabUploadModal
-        open={cabScan != null}
-        scanCode={cabScan?.scanId ?? ''}
-        clientName={cabScan?.clientName}
-        onClose={() => setCabScan(null)}
-      />
-
       <div className="page-header">
         <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
           <h1
@@ -257,13 +239,12 @@ export function MisScansPage({
                 <th>Name</th>
                 <th>MLA</th>
                 <th>Scan upload date</th>
-                <th>CAB</th>
               </tr>
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
                 <tr className="mis-data-empty">
-                  <td colSpan={5}>No scans match these filters.</td>
+                  <td colSpan={4}>No scans match these filters.</td>
                 </tr>
               ) : (
                 pageRows.map((scan) => (
@@ -276,11 +257,6 @@ export function MisScansPage({
                     </td>
                     <td data-label="MLA">{scan.mlaName}</td>
                     <td data-label="Upload date">{scan.uploadedAt}</td>
-                    <td data-label="CAB">
-                      <button type="button" className="scans-action-btn reports-action-cab" onClick={() => setCabScan(scan)}>
-                        Upload CAB
-                      </button>
-                    </td>
                   </tr>
                 ))
               )}
@@ -288,35 +264,13 @@ export function MisScansPage({
           </table>
         </div>
 
-        <div className="mis-table-footer">
-          <span>
-            {loading
-              ? 'Loading scans'
-              : total === 0
-                ? '0 scans'
-                : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, total)} of ${total}`}
-          </span>
-          <div className="mis-pager">
-            <button
-              type="button"
-              className="btn-pill-secondary"
-              style={{ height: 32, fontSize: 12, padding: '6px 12px' }}
-              disabled={safePage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="btn-pill-secondary"
-              style={{ height: 32, fontSize: 12, padding: '6px 12px' }}
-              disabled={safePage >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <TablePager
+          page={safePage}
+          pageSize={PAGE_SIZE}
+          total={total}
+          loading={loading}
+          onPageChange={setPage}
+        />
       </div>
     </section>
   );

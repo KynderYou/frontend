@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ApiError, login } from '../../api';
 import type { Member } from '../../api';
-import logo from '../../assets/high-resolution-color-logo.png';
+import logo from '../../assets/midna-logo.png';
 
 type AuthPageProps = {
   onAuthenticated: (member: Member) => void;

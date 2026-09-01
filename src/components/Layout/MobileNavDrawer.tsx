@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import { colors, sidebarTokens, spacing } from '../../styles/theme';
 import { getVisibleNavItems, type AppView } from './navItems';
 import type { MemberNav } from '../../api/types';
-import logo from '../../assets/high-resolution-color-logo.png';
+import logo from '../../assets/midna-logo.png';
 
 const theme = colors.light;
 
@@ -31,7 +31,7 @@ export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogou
             <img
               src={logo}
               alt="Midna"
-              style={{ height: 36, width: 88, maxWidth: 88, objectFit: 'cover', objectPosition: 'center', flexShrink: 0 }}
+              style={{ height: 36, width: 'auto', maxWidth: 110, objectFit: 'contain', objectPosition: 'left center', flexShrink: 0 }}
             />
           </div>
           <button type="button" className="btn-icon" aria-label="Close menu" onClick={onClose}>

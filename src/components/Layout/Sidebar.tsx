@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import { colors, layoutTokens, sidebarTokens, spacing } from '../../styles/theme';
 import { getVisibleNavItems, type AppView } from './navItems';
 import type { MemberNav } from '../../api/types';
-import logo from '../../assets/high-resolution-color-logo.png';
+import logo from '../../assets/midna-logo.png';
 
 const theme = colors.light;
 
@@ -51,7 +51,7 @@ export function Sidebar({ collapsed, onToggle, activeView, onNavigate, onLogout,
         <div
           style={{
             height: 42,
-            width: collapsed ? 42 : 102,
+            width: collapsed ? 42 : 120,
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -63,10 +63,10 @@ export function Sidebar({ collapsed, onToggle, activeView, onNavigate, onLogout,
             alt="Midna"
             style={{
               height: 42,
-              width: 102,
-              maxWidth: 102,
-              objectFit: 'cover',
-              objectPosition: 'center',
+              width: 'auto',
+              maxWidth: collapsed ? 42 : 120,
+              objectFit: 'contain',
+              objectPosition: 'left center',
               flexShrink: 0,
               userSelect: 'none',
             }}

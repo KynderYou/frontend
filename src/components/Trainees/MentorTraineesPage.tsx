@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMe, getTraineeScans, getTraineesState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapTraineeScans, mapTraineesState } from './traineesApiMapper';
 import type { Trainee, TraineeScan, TraineeScanStatus, TraineeStatus } from './traineesData';
 
 const theme = colors.light;
+const LIST_PAGE_SIZE = 12;
 
 type MentorTraineesPageProps = {
   onOpenMobileMenu?: () => void;
@@ -78,6 +81,8 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
       );
     });
   }, [trainees, query, statusFilter]);
+
+  const listPagination = useClientPagination(filtered, LIST_PAGE_SIZE, `${query}-${statusFilter}`);
 
   if (loading) {
     return (
@@ -237,7 +242,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
                   <td colSpan={6}>No trainees found.</td>
                 </tr>
               ) : (
-                filtered.map((trainee) => (
+                listPagination.pageItems.map((trainee) => (
                   <TraineeListRow
                     key={trainee.id}
                     trainee={trainee}
@@ -248,6 +253,13 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
             </tbody>
           </table>
         </div>
+        <TablePager
+          page={listPagination.page}
+          pageSize={listPagination.pageSize}
+          total={listPagination.total}
+          onPageChange={listPagination.setPage}
+          className="mis-table-footer"
+        />
       </div>
 
       <TraineeScansModal

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { debitCabRecord, getCabState, getMe } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { cabCountFor, mapCabState, pendingCabCountFor } from './cabApiMapper';
@@ -14,6 +16,7 @@ import {
 import type { Mentor } from '../Trainees/traineesData';
 
 const theme = colors.light;
+const CAB_PAGE_SIZE = 12;
 
 type MisCabPageProps = {
   onOpenMobileMenu?: () => void;
@@ -174,6 +177,12 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
       );
     });
   }, [records, isAdmin, selectedMentorId, query]);
+
+  const cabPagination = useClientPagination(
+    filtered,
+    CAB_PAGE_SIZE,
+    `${selectedMentorId}-${query}`,
+  );
 
   const selectedMentor = mentors.find((m) => m.id === selectedMentorId);
   const pendingCount = filtered.filter((row) => row.status === 'Pending').length;
@@ -449,13 +458,20 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
                     <td colSpan={5}>No CAB audio entries for this selection.</td>
                   </tr>
                 ) : (
-                  filtered.map((row) => (
+                  cabPagination.pageItems.map((row) => (
                     <CabRow key={row.id} row={row} isTrainee={isTrainee} onDebit={() => setDebitTarget(row)} />
                   ))
                 )}
               </tbody>
             </table>
           </div>
+          <TablePager
+            page={cabPagination.page}
+            pageSize={cabPagination.pageSize}
+            total={cabPagination.total}
+            onPageChange={cabPagination.setPage}
+            className="mis-table-footer"
+          />
         </div>
       </div>
 

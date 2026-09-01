@@ -4,11 +4,14 @@ import { fetchAuthenticatedAsset } from '../../api/assetUrl';
 import type { AdminTopUpRequest } from '../../api/notificationTypes';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 
 const theme = colors.light;
+const TOPUP_LIST_PAGE_SIZE = 12;
 
 type AdminTopUpsPageProps = {
   onOpenMobileMenu?: () => void;
@@ -85,6 +88,8 @@ export function AdminTopUpsPage({
         row.amount.toLowerCase().includes(q),
     );
   }, [query, requests]);
+
+  const listPagination = useClientPagination(filtered, TOPUP_LIST_PAGE_SIZE, query);
 
   const selected = filtered.find((row) => row.id === selectedId) ?? requests.find((row) => row.id === selectedId) ?? null;
 
@@ -253,7 +258,7 @@ export function AdminTopUpsPage({
                 No pending top-ups.
               </p>
             ) : (
-              filtered.map((row) => {
+              listPagination.pageItems.map((row) => {
                 const active = selected?.id === row.id;
                 return (
                   <button
@@ -323,6 +328,13 @@ export function AdminTopUpsPage({
               })
             )}
           </div>
+          <TablePager
+            page={listPagination.page}
+            pageSize={listPagination.pageSize}
+            total={listPagination.total}
+            onPageChange={listPagination.setPage}
+            className="mis-table-footer"
+          />
         </div>
 
         <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0 }}>
