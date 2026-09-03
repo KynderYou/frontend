@@ -16,7 +16,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
 import { EditScanModal } from './EditScanModal';
-import { extractClientFromZip, revokeScanZipImages, type ScanZipImage } from './extractClientFromZip';
+import { extractClientFromZip, revokeScanZipImages, categoryToClientType, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
 import {
@@ -130,11 +130,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const clientComplete =
     clientForm.name.trim().length > 0 &&
     clientForm.age.trim().length > 0 &&
-    clientForm.phone.trim().length > 0 &&
-    clientForm.gender.trim().length > 0 &&
-    clientForm.clientType.trim().length > 0;
+    clientForm.gender.trim().length > 0;
 
-  const canSubmit = Boolean(file) && clientComplete && !extracting;
+  const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
 
   const pickFile = async (next: File | null) => {
     setError(null);
@@ -175,7 +173,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         age: data.age,
         phone: data.phone,
         gender: data.gender,
-        clientType: data.clientType,
+        clientType: data.clientType || categoryToClientType(data.category) || 'Individual',
         referredBy: 'SELF',
         mrp: '₹2,000',
       });
@@ -241,9 +239,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         age: clientForm.age.trim(),
         phone: clientForm.phone.trim(),
         gender: clientForm.gender,
-        client_type: clientForm.clientType,
+        client_type: clientForm.clientType.trim() || 'Individual',
         referred_by: clientForm.referredBy,
-        mrp: clientForm.mrp,
+        mrp: clientForm.mrp.trim() || '₹2,000',
       });
       const resolved = await resolveMlaScanListImages([created]);
       replaceRecords([mlaScanToRecord(resolved[0]), ...records]);

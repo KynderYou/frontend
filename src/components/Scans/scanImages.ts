@@ -92,3 +92,62 @@ export function organizeByHand(groups: FingerprintGroup[]): HandView[] {
 export function flattenScanImages(groups: FingerprintGroup[]): ScanImage[] {
   return groups.flatMap((group) => group.images);
 }
+
+const VIEW_SUFFIX = {
+  L: 'Left',
+  C: 'Center',
+  R: 'Right',
+} as const;
+
+export type FingerViewTab = keyof typeof VIEW_SUFFIX;
+
+/** Finger code shown on a left/right panel (e.g. L3 on left when active finger is L3 or R3). */
+export function panelFingerForSide(side: 'left' | 'right', activeFinger: string): string {
+  const digit = activeFinger.match(/\d+/)?.[0];
+  if (digit) {
+    return `${side === 'left' ? 'L' : 'R'}${digit}`;
+  }
+  return side === 'left' ? 'L1' : 'R1';
+}
+
+function viewTabFromSuffix(suffix: string): FingerViewTab | null {
+  const normalized = suffix.toLowerCase();
+  if (normalized === 'left') return 'L';
+  if (normalized === 'center') return 'C';
+  if (normalized === 'right') return 'R';
+  return null;
+}
+
+/** Fast lookup map: key is "L1:C", "R3:L", etc. */
+export function buildFingerViewIndex(images: ScanImage[]): Map<string, ScanImage> {
+  const index = new Map<string, ScanImage>();
+  for (const image of images) {
+    const base = image.name.replace(/\.[^.]+$/i, '');
+    const match = base.match(/^([LR])(\d+)(Center|Left|Right)$/i);
+    if (!match) continue;
+    const finger = `${match[1].toUpperCase()}${match[2]}`;
+    const view = viewTabFromSuffix(match[3]);
+    if (view) {
+      index.set(`${finger}:${view}`, image);
+    }
+  }
+  return index;
+}
+
+export function findFingerViewImage(
+  images: ScanImage[],
+  finger: string,
+  view: FingerViewTab,
+  index?: Map<string, ScanImage>,
+): ScanImage | undefined {
+  const lookup = index ?? buildFingerViewIndex(images);
+  const fromIndex = lookup.get(`${finger}:${view}`);
+  if (fromIndex) return fromIndex;
+
+  const suffix = VIEW_SUFFIX[view];
+  const expected = `${finger}${suffix}`.toLowerCase();
+  return images.find((image) => {
+    const base = image.name.replace(/\.[^.]+$/i, '');
+    return base.toLowerCase() === expected;
+  });
+}

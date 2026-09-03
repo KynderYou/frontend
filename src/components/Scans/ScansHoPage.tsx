@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getHoScans, hoScanAction } from '../../api';
+import { getHoScanDetail, getHoScans, getMe, hoScanAction, resolveHoScanImages } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { TablePager } from '../common/TablePager';
@@ -10,9 +10,19 @@ import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
 import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload } from './ProcessScanModal';
 import { scanStatusStyles } from './scanStatusStyles';
+import type { ScanImage } from './scanTypes';
 
 const theme = colors.light;
 const HO_SCANS_PAGE_SIZE = 12;
+
+function revokeResolvedImages(images: ScanImage[] | null) {
+  if (!images) return;
+  for (const image of images) {
+    if (image.url.startsWith('blob:')) {
+      URL.revokeObjectURL(image.url);
+    }
+  }
+}
 
 type ScansHoPageProps = {
   onOpenMobileMenu?: () => void;
@@ -46,7 +56,7 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
   },
   report: {
     title: 'Report Upload',
-    subtitle: 'Upload reports, trigger DDS/debit, or delete scans with confirmation.',
+    subtitle: 'Upload reports, debit mentee, or delete scans with confirmation.',
   },
 };
 
@@ -58,6 +68,23 @@ function actionPayloadFromProcess(record: ProcessScanPayload) {
     urc: record.urc,
     rrc: record.rrc,
     lfo: record.lfo,
+  };
+}
+
+function toProcessRecord(row: HoScanRecord) {
+  return {
+    scanId: row.scanId,
+    name: row.name,
+    gender: row.gender,
+    age: row.age,
+    phone: row.processedBy,
+    defaultPattern: row.mainPattern,
+    defaultSubPattern: row.subPattern,
+    defaultFinger: row.finger,
+    urc: row.urc,
+    rrc: row.rrc,
+    lfo: row.lfo,
+    flaggedX: row.flaggedX,
   };
 }
 
@@ -147,7 +174,24 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const [acting, setActing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
+  const [panelImages, setPanelImages] = useState<ScanImage[] | null>(null);
+  const [panelImagesLoading, setPanelImagesLoading] = useState(false);
   const [panelMode, setPanelMode] = useState<ProcessScanMode>('process');
+  const [isAdmin, setIsAdmin] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getMe(controller.signal)
+      .then((member) => setIsAdmin(member.role === 'Admin'))
+      .catch(() => setIsAdmin(false));
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin && activeSection !== 'preprocess') {
+      setActiveSection('preprocess');
+    }
+  }, [isAdmin, activeSection]);
 
   const loadScans = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -173,8 +217,55 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
     setPanelTarget(row);
   };
 
+  useEffect(() => {
+    if (!panelTarget) {
+      setPanelImages((prev) => {
+        revokeResolvedImages(prev);
+        return null;
+      });
+      setPanelImagesLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPanelImagesLoading(true);
+
+    void (async () => {
+      try {
+        const detail = await getHoScanDetail(panelTarget.numericId, controller.signal);
+        const resolved = await resolveHoScanImages(detail);
+        if (controller.signal.aborted) {
+          revokeResolvedImages(resolved.scan_images);
+          return;
+        }
+        setPanelImages((prev) => {
+          revokeResolvedImages(prev);
+          return resolved.scan_images;
+        });
+      } catch {
+        if (!controller.signal.aborted) {
+          setPanelImages((prev) => {
+            revokeResolvedImages(prev);
+            return [];
+          });
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setPanelImagesLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [panelTarget]);
+
+  const visibleSections = useMemo(
+    () => (isAdmin ? (Object.keys(sectionLabels) as HoSectionId[]) : (['preprocess'] as HoSectionId[])),
+    [isAdmin],
+  );
+
   const canOpenFingerprint =
-    activeSection === 'preprocess' || activeSection === 'process' || activeSection === 'verify';
+    activeSection === 'preprocess' || (isAdmin && (activeSection === 'process' || activeSection === 'verify'));
 
   const grouped = useMemo(
     () => ({
@@ -221,19 +312,12 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const showProcessedBy = activeSection !== 'preprocess' && activeSection !== 'process';
   const showPreprocessedBy = activeSection === 'process';
 
-  const toProcessRecord = (row: HoScanRecord) => ({
-    scanId: row.scanId,
-    name: row.name,
-    gender: row.gender,
-    age: row.age,
-    phone: row.processedBy,
-    defaultPattern: row.mainPattern,
-    defaultSubPattern: row.subPattern,
-    defaultFinger: row.finger,
-    urc: row.urc,
-    rrc: row.rrc,
-    lfo: row.lfo,
-  });
+  const showFlagColumn = isAdmin && activeSection === 'verify';
+
+  const panelProcessRecord = useMemo(
+    () => (panelTarget ? toProcessRecord(panelTarget) : null),
+    [panelTarget],
+  );
 
   return (
     <section className="page-section ho-scans-page">
@@ -270,7 +354,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
 
       <div className="dash-card ho-scans-nav-card">
         <div className="ho-scans-nav" role="tablist" aria-label="Process scan sections">
-          {(Object.keys(sectionLabels) as HoSectionId[]).map((section) => (
+          {visibleSections.map((section) => (
             <button
               key={section}
               type="button"
@@ -322,12 +406,12 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                   {showImages ? <th className="col-center">Images</th> : null}
                   {showPreprocessedBy ? <th>Preprocessed By</th> : null}
                   {showProcessedBy ? <th>Processed By</th> : null}
+                  {showFlagColumn ? <th className="col-center">Flag</th> : null}
                   <th className="col-center">Status</th>
                   {activeSection === 'download' ? <th className="col-center">Download</th> : null}
                   {activeSection === 'report' ? (
                     <>
                       <th className="col-center">Upload</th>
-                      <th className="col-center">DDS</th>
                       <th className="col-center">Debit</th>
                       <th className="col-center">Delete Scan</th>
                     </>
@@ -388,6 +472,17 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                       ) : null}
                       {showPreprocessedBy ? <td data-label="Preprocessed By">{row.preprocessedBy ?? '—'}</td> : null}
                       {showProcessedBy ? <td data-label="Processed By">{row.processedBy}</td> : null}
+                      {showFlagColumn ? (
+                        <td data-label="Flag" className="col-center">
+                          {row.flaggedX ? (
+                            <span className="process-scan-flag-chip" title="Complex scan — CAB required">
+                              Flag X
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      ) : null}
                       <td data-label="Status">
                         <span className="scans-status-chip" style={chip}>
                           {row.status}
@@ -417,16 +512,6 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                               onClick={() => runAction(row, 'upload', undefined, `Report uploaded for ${row.scanId}.`)}
                             >
                               Upload
-                            </button>
-                          </td>
-                          <td data-label="DDS" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              className="scans-action-btn"
-                              disabled={acting}
-                              onClick={() => runAction(row, 'dds', undefined, `DDS marked for ${row.scanId}.`)}
-                            >
-                              DDS
                             </button>
                           </td>
                           <td data-label="Debit" onClick={(e) => e.stopPropagation()}>
@@ -465,7 +550,9 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
       <ProcessScanModal
         open={Boolean(panelTarget)}
         mode={panelMode}
-        record={panelTarget ? toProcessRecord(panelTarget) : null}
+        record={panelProcessRecord}
+        images={panelImages ?? undefined}
+        imagesLoading={panelImagesLoading}
         onClose={() => setPanelTarget(null)}
         onAccept={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
@@ -474,7 +561,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
               row,
               'accept',
               actionPayloadFromProcess(record),
-              `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'} · URC/RRC/LFO = 0.`
+              `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'}.`
             );
           }
         }}

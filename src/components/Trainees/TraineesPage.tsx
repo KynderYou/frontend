@@ -259,38 +259,10 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                     type="button"
                     role="option"
                     aria-selected={selected}
+                    className={`mentor-picker-row${selected ? ' is-selected' : ''}`}
                     onClick={() => selectMentor(mentor.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      width: '100%',
-                      padding: `${spacing[3]} ${spacing[5]}`,
-                      border: 'none',
-                      borderBottom: `1px solid ${theme.divider}`,
-                      background: selected ? theme['primary-soft'] : theme['bg-surface'],
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontFamily: 'inherit',
-                      color: 'inherit',
-                      borderLeft: selected ? `3px solid ${theme.primary}` : '3px solid transparent',
-                    }}
                   >
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        background: selected ? theme.primary : theme['bg-muted'],
-                        color: selected ? '#fff' : theme.primary,
-                        display: 'grid',
-                        placeItems: 'center',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
-                    >
+                    <span className="mentor-picker-avatar" aria-hidden="true">
                       {initials(mentor.name)}
                     </span>
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -319,17 +291,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                         {mentor.region}
                       </div>
                     </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: theme.primary,
-                        background: theme['bg-surface'],
-                        borderRadius: radius.pill,
-                        padding: '3px 8px',
-                        flexShrink: 0,
-                      }}
-                    >
+                    <span className="mentor-picker-count">
                       {count}
                     </span>
                   </button>

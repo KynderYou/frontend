@@ -3,7 +3,7 @@ import { apiClient, apiUpload } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
 import { isApiError } from '../errors';
-import type { HoScan, HoScanActionPayload, MlaScan, MlaScanUpdatePayload } from '../types';
+import type { HoScan, HoScanActionPayload, HoScanDetail, MlaScan, MlaScanUpdatePayload } from '../types';
 
 /** GET /api/scans/me */
 export async function getMyMlaScans(signal?: AbortSignal): Promise<MlaScan[]> {
@@ -90,6 +90,25 @@ export async function getHoScans(signal?: AbortSignal): Promise<HoScan[]> {
     return [];
   }
   return apiClient<HoScan[]>('/api/scans/ho', { signal });
+}
+
+/** GET /api/scans/ho/{id} — includes fingerprint image URLs */
+export async function getHoScanDetail(scanId: number, signal?: AbortSignal): Promise<HoScanDetail> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Scan detail not available in demo mode');
+  }
+  return apiClient<HoScanDetail>(`/api/scans/ho/${scanId}`, { signal });
+}
+
+/** Resolve protected HO scan images to temporary blob URLs for display. */
+export async function resolveHoScanImages(detail: HoScanDetail): Promise<HoScanDetail> {
+  const scan_images = await Promise.all(
+    detail.scan_images.map(async (image) => ({
+      ...image,
+      url: await fetchAuthenticatedAsset(image.url),
+    })),
+  );
+  return { ...detail, scan_images };
 }
 
 /** POST /api/scans/ho/{id}/action */

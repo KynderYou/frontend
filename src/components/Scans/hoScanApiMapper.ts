@@ -23,6 +23,7 @@ export type HoScanRecord = {
   lfo?: number;
   finger?: string;
   status: string;
+  flaggedX?: boolean;
 };
 
 export function hoScanToRecord(scan: HoScan): HoScanRecord {
@@ -47,6 +48,7 @@ export function hoScanToRecord(scan: HoScan): HoScanRecord {
     lfo: scan.lfo ?? undefined,
     finger: scan.finger ?? undefined,
     status: scan.status,
+    flaggedX: scan.flagged_x,
   };
 }
 

@@ -90,7 +90,7 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
         <div className="page-header">
           <div className="page-title-block">
             <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
-              MLA List
+              My MLAs
             </h1>
           </div>
         </div>
@@ -105,7 +105,7 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
         <div className="page-header">
           <div className="page-title-block">
             <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
-              MLA List
+              My MLAs
             </h1>
           </div>
         </div>
@@ -129,7 +129,7 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
               color: theme['text-primary'],
             }}
           >
-            MLA List
+            My MLAs
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {mentorName

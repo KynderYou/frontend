@@ -208,6 +208,11 @@ export type HoScan = {
   lfo: number | null;
   finger: string | null;
   status: string;
+  flagged_x: boolean;
+};
+
+export type HoScanDetail = HoScan & {
+  scan_images: MlaScanImage[];
 };
 
 export type HoScanActionPayload = {
