@@ -211,8 +211,18 @@ export type HoScan = {
   flagged_x: boolean;
 };
 
+export type ScanFinger = {
+  finger: string;
+  main_pattern: string;
+  sub_pattern: string;
+  urc: number;
+  rrc: number;
+  lfo: number;
+};
+
 export type HoScanDetail = HoScan & {
   scan_images: MlaScanImage[];
+  fingers?: ScanFinger[];
 };
 
 export type HoScanActionPayload = {
@@ -223,6 +233,7 @@ export type HoScanActionPayload = {
   urc?: number;
   rrc?: number;
   lfo?: number;
+  fingers?: ScanFinger[];
 };
 
 export type CommMemberApi = {
@@ -435,6 +446,7 @@ export type LedgerData = {
   expenses_by_month: LedgerMonthBar[];
   billing_window_days: number;
   expenses_year: number;
+  company_wide?: boolean;
 };
 
 export type CabDebitAudioApi = {

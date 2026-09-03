@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getTraineeScans, getTraineesState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { MemberScansModal } from '../common/MemberScansModal';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapTraineeScans, mapTraineesState, traineeCountFor } from './traineesApiMapper';
@@ -467,19 +468,6 @@ function TraineeScansModal({ open, trainee, onClose }: { open: boolean; trainee:
   const [scanError, setScanError] = useState('');
 
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
-
-  useEffect(() => {
     if (!open || !trainee) {
       setScans([]);
       setScanError('');
@@ -501,58 +489,20 @@ function TraineeScansModal({ open, trainee, onClose }: { open: boolean; trainee:
     return () => controller.abort();
   }, [open, trainee]);
 
-  if (!open || !trainee) return null;
-
   return (
-    <div className="modal-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-panel trainee-scans-modal" role="dialog" aria-modal="true" aria-labelledby="trainee-scans-title" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <h2 id="trainee-scans-title" className="modal-title">{trainee.name}&apos;s scans</h2>
-            <p className="modal-subtitle">{trainee.email} · {trainee.scanCount} scan{trainee.scanCount === 1 ? '' : 's'}</p>
-          </div>
-          <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div className="modal-body trainee-scans-modal-body">
-          {loadingScans ? (
-            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>Loading scans…</p>
-          ) : scanError ? (
-            <p style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>{scanError}</p>
-          ) : (
-            <div className="scans-table-wrap">
-              <table className="scans-table">
-                <thead>
-                  <tr>
-                    <th>Sno</th><th>Scan Id</th><th>Name</th><th>Gender</th><th>Report Type</th><th>Cost</th><th>Uploaded</th><th className="col-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scans.length === 0 ? (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', color: theme['text-muted'], padding: '28px 12px' }}>No scans uploaded by this trainee yet.</td></tr>
-                  ) : scans.map((scan, i) => {
-                    const chip = scanStatusStyles(scan.status);
-                    return (
-                      <tr key={scan.id}>
-                        <td data-label="Sno">{i + 1}</td>
-                        <td data-label="Scan Id">{scan.scanId}</td>
-                        <td data-label="Name">{scan.clientName}</td>
-                        <td data-label="Gender">{scan.gender}</td>
-                        <td data-label="Report Type">{scan.reportType}</td>
-                        <td data-label="Cost">{scan.cost}</td>
-                        <td data-label="Uploaded">{scan.uploadedAt}</td>
-                        <td data-label="Status"><span className="scans-status-chip" style={chip}>{scan.status}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <MemberScansModal
+      open={open && Boolean(trainee)}
+      onClose={onClose}
+      titleId="trainee-scans-title"
+      memberName={trainee?.name ?? ''}
+      memberEmail={trainee?.email ?? ''}
+      scanCount={trainee?.scanCount ?? 0}
+      scans={scans}
+      loading={loadingScans}
+      error={scanError}
+      emptyMessage="No scans uploaded by this trainee yet."
+      statusStyle={(status) => scanStatusStyles(status as TraineeScanStatus)}
+    />
   );
 }
 

@@ -20,7 +20,7 @@ type KpiDef = {
   id: LedgerTab;
   label: string;
   getValue: (receiptsDisplay: string, billingDisplay: string) => string;
-  getHint: (billingWindowDays: number) => string;
+  getHint: (billingWindowDays: number, companyWide: boolean) => string;
   color: MetricColor;
   icon: React.ReactNode;
   isEmpty?: (receiptsTotal: number, billingTotal: number) => boolean;
@@ -31,7 +31,7 @@ const kpis: KpiDef[] = [
     id: 'receipts',
     label: 'Total Receipts',
     getValue: (receiptsDisplay) => receiptsDisplay,
-    getHint: () => 'Credits received',
+    getHint: (_days, companyWide) => (companyWide ? 'All company credits' : 'Credits received'),
     color: 'green',
     isEmpty: (receiptsTotal) => receiptsTotal === 0,
     icon: (
@@ -46,7 +46,8 @@ const kpis: KpiDef[] = [
     id: 'billing',
     label: 'Total Billing',
     getValue: (_receipts, billingDisplay) => billingDisplay,
-    getHint: (days) => `Last ${days} days`,
+    getHint: (days, companyWide) =>
+      companyWide ? `Last ${days} days · company-wide` : `Last ${days} days`,
     color: 'purple',
     isEmpty: (_receipts, billingTotal) => billingTotal === 0,
     icon: (
@@ -143,11 +144,19 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const billingTotal = data?.kpis.billing_last_30_days ?? 0;
   const receiptsDisplay = data?.kpis.receipts_display ?? '₹0';
   const billingDisplay = data?.kpis.billing_display ?? '₹0';
+  const companyWide = data?.company_wide ?? false;
 
   const transactions = activeTab === 'receipts' ? receipts : billing;
   const txPagination = useClientPagination(transactions, LEDGER_TX_PAGE_SIZE, activeTab);
   const tableTitle = activeTab === 'receipts' ? 'Receipts' : 'Billing';
-  const periodLabel = activeTab === 'billing' ? `Last ${billingWindowDays} days` : 'All credits';
+  const periodLabel =
+    activeTab === 'billing'
+      ? companyWide
+        ? `Last ${billingWindowDays} days · all members`
+        : `Last ${billingWindowDays} days`
+      : companyWide
+        ? 'All company credits'
+        : 'All credits';
 
   const chartData = useMemo(
     () => (data?.expenses_by_month ?? []).map((bar) => ({ label: bar.label, value: bar.value })),
@@ -191,7 +200,9 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
             My Ledger
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Track receipts and billing across your network.
+            {companyWide
+              ? 'Company-wide receipts and billing across all members.'
+              : 'Track receipts and billing across your network.'}
           </p>
         </div>
 
@@ -212,6 +223,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
         </p>
       ) : null}
 
+      {!companyWide ? (
       <div
         className="dash-card ledger-topup-banner"
         style={{
@@ -270,6 +282,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
           Top up now
         </button>
       </div>
+      ) : null}
 
       {loading ? (
         <p style={{ marginBottom: spacing[6], color: theme['text-secondary'], fontSize: 14 }}>Loading ledger…</p>
@@ -359,7 +372,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                         color: showColor ? 'rgba(255, 255, 255, 0.78)' : theme['text-muted'],
                       }}
                     >
-                      {kpi.getHint(billingWindowDays)}
+                      {kpi.getHint(billingWindowDays, companyWide)}
                     </div>
                   </div>
                 </article>
@@ -392,8 +405,12 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                     title={activeTab === 'receipts' ? 'No receipts yet' : 'No billing this period'}
                     description={
                       activeTab === 'receipts'
-                        ? 'Top up your ledger or wait for network credits to appear here.'
-                        : `No billing entries in the last ${billingWindowDays} days.`
+                        ? companyWide
+                          ? 'No company receipt entries recorded yet.'
+                          : 'Top up your ledger or wait for network credits to appear here.'
+                        : companyWide
+                          ? `No company billing entries in the last ${billingWindowDays} days.`
+                          : `No billing entries in the last ${billingWindowDays} days.`
                     }
                   />
                 ) : (

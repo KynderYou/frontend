@@ -8,7 +8,7 @@ import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
-import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload } from './ProcessScanModal';
+import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload, type ScanFingerPayload } from './ProcessScanModal';
 import { scanStatusStyles } from './scanStatusStyles';
 import type { ScanImage } from './scanTypes';
 
@@ -62,16 +62,31 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
 
 function actionPayloadFromProcess(record: ProcessScanPayload) {
   return {
-    main_pattern: record.mainPattern,
-    sub_pattern: record.subPattern,
-    finger: record.finger,
-    urc: record.urc,
-    rrc: record.rrc,
-    lfo: record.lfo,
+    fingers: record.fingers.map((item) => ({
+      finger: item.finger,
+      main_pattern: item.mainPattern,
+      sub_pattern: item.subPattern,
+      urc: item.urc,
+      rrc: item.rrc,
+      lfo: item.lfo,
+    })),
   };
 }
 
-function toProcessRecord(row: HoScanRecord) {
+function mapApiFingers(
+  fingers: { finger: string; main_pattern: string; sub_pattern: string; urc: number; rrc: number; lfo: number }[] | undefined,
+) {
+  return (fingers ?? []).map((item) => ({
+    finger: item.finger,
+    mainPattern: item.main_pattern,
+    subPattern: item.sub_pattern,
+    urc: item.urc,
+    rrc: item.rrc,
+    lfo: item.lfo,
+  }));
+}
+
+function toProcessRecord(row: HoScanRecord, initialFingers?: ReturnType<typeof mapApiFingers>) {
   return {
     scanId: row.scanId,
     name: row.name,
@@ -85,6 +100,7 @@ function toProcessRecord(row: HoScanRecord) {
     rrc: row.rrc,
     lfo: row.lfo,
     flaggedX: row.flaggedX,
+    initialFingers,
   };
 }
 
@@ -175,6 +191,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
   const [panelImages, setPanelImages] = useState<ScanImage[] | null>(null);
+  const [panelFingers, setPanelFingers] = useState<ScanFingerPayload[] | null>(null);
   const [panelImagesLoading, setPanelImagesLoading] = useState(false);
   const [panelMode, setPanelMode] = useState<ProcessScanMode>('process');
   const [isAdmin, setIsAdmin] = useState(true);
@@ -223,6 +240,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         revokeResolvedImages(prev);
         return null;
       });
+      setPanelFingers(null);
       setPanelImagesLoading(false);
       return;
     }
@@ -242,12 +260,14 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
           revokeResolvedImages(prev);
           return resolved.scan_images;
         });
+        setPanelFingers(mapApiFingers(detail.fingers));
       } catch {
         if (!controller.signal.aborted) {
           setPanelImages((prev) => {
             revokeResolvedImages(prev);
             return [];
           });
+          setPanelFingers([]);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -315,8 +335,8 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const showFlagColumn = isAdmin && activeSection === 'verify';
 
   const panelProcessRecord = useMemo(
-    () => (panelTarget ? toProcessRecord(panelTarget) : null),
-    [panelTarget],
+    () => (panelTarget ? toProcessRecord(panelTarget, panelFingers ?? undefined) : null),
+    [panelTarget, panelFingers],
   );
 
   return (

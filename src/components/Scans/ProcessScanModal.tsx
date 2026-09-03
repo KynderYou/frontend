@@ -12,6 +12,17 @@ const LEFT_FINGERS = ['L1', 'L2', 'L3', 'L4', 'L5'] as const;
 const RIGHT_FINGERS = ['R1', 'R2', 'R3', 'R4', 'R5'] as const;
 
 type FingerPattern = { main: string; sub: string };
+type FingerRidges = { urc: string; rrc: string; lfo: string };
+type FingerEntry = FingerPattern & FingerRidges;
+
+export type ScanFingerPayload = {
+  finger: string;
+  mainPattern: string;
+  subPattern: string;
+  urc: number;
+  rrc: number;
+  lfo: number;
+};
 
 export type ProcessScanMode = 'preprocess' | 'process' | 'verify';
 
@@ -28,10 +39,12 @@ export type ProcessScanRecord = {
   rrc?: number;
   lfo?: number;
   flaggedX?: boolean;
+  initialFingers?: ScanFingerPayload[];
 };
 
 /** Pattern / ridge-count payload returned from the fingerprint modal. */
 export type ProcessScanPayload = ProcessScanRecord & {
+  fingers: ScanFingerPayload[];
   mainPattern: string;
   subPattern: string;
   urc: number;
@@ -60,6 +73,42 @@ const VIEW_LABELS: Record<(typeof VIEW_TABS)[number], string> = {
   C: 'Centre',
   R: 'Right side',
 };
+
+const EMPTY_RIDGES: FingerRidges = { urc: '0', rrc: '0', lfo: '0' };
+
+function fingerPayloadFromEntry(fingerId: string, entry: FingerEntry): ScanFingerPayload {
+  return {
+    finger: fingerId,
+    mainPattern: entry.main,
+    subPattern: entry.sub,
+    urc: Number(entry.urc) || 0,
+    rrc: Number(entry.rrc) || 0,
+    lfo: Number(entry.lfo) || 0,
+  };
+}
+
+function initialFingerMap(record: ProcessScanRecord): Record<string, FingerEntry> {
+  const map: Record<string, FingerEntry> = {};
+  for (const item of record.initialFingers ?? []) {
+    map[item.finger] = {
+      main: normalizeMainPattern(item.mainPattern),
+      sub: item.subPattern ?? '',
+      urc: String(item.urc ?? 0),
+      rrc: String(item.rrc ?? 0),
+      lfo: String(item.lfo ?? 0),
+    };
+  }
+  if (Object.keys(map).length === 0 && (record.defaultPattern || record.defaultSubPattern)) {
+    map.L1 = {
+      main: normalizeMainPattern(record.defaultPattern),
+      sub: record.defaultSubPattern ?? '',
+      urc: String(record.urc ?? 0),
+      rrc: String(record.rrc ?? 0),
+      lfo: String(record.lfo ?? 0),
+    };
+  }
+  return map;
+}
 
 const modeTitles: Record<ProcessScanMode, string> = {
   preprocess: 'Preprocess',
@@ -227,7 +276,7 @@ export function ProcessScanModal({
   const [rightView, setRightView] = useState<FingerViewTab>('C');
   const [mainPattern, setMainPattern] = useState('');
   const [subPattern, setSubPattern] = useState('');
-  const [fingerPatterns, setFingerPatterns] = useState<Record<string, FingerPattern>>({});
+  const [fingerEntries, setFingerEntries] = useState<Record<string, FingerEntry>>({});
   const [urc, setUrc] = useState('0');
   const [rrc, setRrc] = useState('0');
   const [lfo, setLfo] = useState('0');
@@ -249,16 +298,23 @@ export function ProcessScanModal({
 
   useEffect(() => {
     if (!open || !record || !scanKey) return;
-    setFinger(record.defaultFinger || 'L1');
+    const seeded = initialFingerMap(record);
+    const startFinger = record.defaultFinger && seeded[record.defaultFinger] ? record.defaultFinger : 'L1';
+    const startEntry = seeded[startFinger] ?? {
+      main: normalizeMainPattern(record.defaultPattern),
+      sub: record.defaultSubPattern ?? '',
+      ...EMPTY_RIDGES,
+    };
+    setFinger(startFinger);
     setLeftView('C');
     setRightView('C');
-    setMainPattern(normalizeMainPattern(record.defaultPattern));
-    setSubPattern(record.defaultSubPattern || '');
-    setFingerPatterns({});
-    setUrc(String(record.urc ?? 0));
-    setRrc(String(record.rrc ?? 0));
-    setLfo(String(record.lfo ?? 0));
-  }, [open, scanKey, mode]);
+    setFingerEntries(seeded);
+    setMainPattern(startEntry.main);
+    setSubPattern(startEntry.sub);
+    setUrc(startEntry.urc);
+    setRrc(startEntry.rrc);
+    setLfo(startEntry.lfo);
+  }, [open, scanKey, mode, record]);
 
   const subPatternOptions = useMemo(() => subPatternsForMain(mainPattern), [mainPattern]);
   const imageIndex = useMemo(() => buildFingerViewIndex(images ?? []), [images]);
@@ -278,38 +334,49 @@ export function ProcessScanModal({
   const showRidgeFields = isProcess;
   const showCornerValues = isProcess || isVerifyReadOnly;
   const showFlagBanner = isVerifyReadOnly && record.flaggedX;
-  const showQcFingers = isPreprocess || isProcess;
+  const showQcFingers = isPreprocess || isProcess || isVerifyReadOnly;
 
-  const currentFingerPattern = (): FingerPattern => ({
+  const currentFingerEntry = (): FingerEntry => ({
     main: mainPattern,
     sub: subPattern,
+    urc,
+    rrc,
+    lfo,
   });
 
-  const mergedFingerPatterns = (): Record<string, FingerPattern> => ({
-    ...fingerPatterns,
-    [finger]: currentFingerPattern(),
+  const mergedFingerEntries = (): Record<string, FingerEntry> => ({
+    ...fingerEntries,
+    [finger]: currentFingerEntry(),
   });
 
-  const fingerPatternComplete = (fingerId: string, patterns = mergedFingerPatterns()) => {
-    const entry = patterns[fingerId];
+  const fingerPatternComplete = (fingerId: string, entries = mergedFingerEntries()) => {
+    const entry = entries[fingerId];
     return Boolean(entry?.main && entry?.sub);
   };
 
-  const allFingersComplete = ALL_FINGERS.every((fingerId) => fingerPatternComplete(fingerId));
+  const fingerProcessComplete = (fingerId: string, entries = mergedFingerEntries()) =>
+    fingerPatternComplete(fingerId, entries);
+
+  const allFingersComplete = isPreprocess
+    ? ALL_FINGERS.every((fingerId) => fingerPatternComplete(fingerId))
+    : ALL_FINGERS.every((fingerId) => fingerProcessComplete(fingerId));
 
   const fingerIndex = (fingerId: string) =>
     ALL_FINGERS.indexOf(fingerId as (typeof ALL_FINGERS)[number]);
 
   const selectFinger = (nextFinger: string) => {
-    const updated: Record<string, FingerPattern> = {
-      ...fingerPatterns,
-      [finger]: currentFingerPattern(),
+    const updated: Record<string, FingerEntry> = {
+      ...fingerEntries,
+      [finger]: currentFingerEntry(),
     };
-    setFingerPatterns(updated);
+    setFingerEntries(updated);
     setFinger(nextFinger);
     const saved = updated[nextFinger];
     setMainPattern(saved?.main ? normalizeMainPattern(saved.main) : '');
     setSubPattern(saved?.sub ?? '');
+    setUrc(saved?.urc ?? '0');
+    setRrc(saved?.rrc ?? '0');
+    setLfo(saved?.lfo ?? '0');
   };
 
   const handleNextFinger = () => {
@@ -320,16 +387,22 @@ export function ProcessScanModal({
   };
 
   const buildPayload = (): ProcessScanPayload => {
-    const patterns = mergedFingerPatterns();
-    const primary = patterns.L1 ?? currentFingerPattern();
+    const entries = mergedFingerEntries();
+    const fingers = ALL_FINGERS.map((fingerId) => fingerPayloadFromEntry(fingerId, entries[fingerId] ?? {
+      main: '',
+      sub: '',
+      ...EMPTY_RIDGES,
+    }));
+    const primary = fingers[0];
     return {
       ...record,
-      mainPattern: primary.main,
-      subPattern: primary.sub,
-      finger: 'L1',
-      urc: isPreprocess ? 0 : Number(urc) || 0,
-      rrc: isPreprocess ? 0 : Number(rrc) || 0,
-      lfo: isPreprocess ? 0 : Number(lfo) || 0,
+      fingers,
+      mainPattern: primary.mainPattern,
+      subPattern: primary.subPattern,
+      finger: primary.finger,
+      urc: primary.urc,
+      rrc: primary.rrc,
+      lfo: primary.lfo,
     };
   };
 
@@ -391,9 +464,13 @@ export function ProcessScanModal({
               <p className="process-scan-view-hint">
                 Select each finger below · fill main/sub pattern · use Next to move through all 10 fingers
               </p>
+            ) : isProcess ? (
+              <p className="process-scan-view-hint">
+                Patterns from preprocess are shown per finger — edit if needed · enter URC, RRC, and LFO for each finger
+              </p>
             ) : (
               <p className="process-scan-view-hint">
-                Verify main/sub pattern and enter URC, RRC, and LFO ridge counts
+                Review saved preprocess and process data — fields cannot be edited during verification
               </p>
             )}
 
@@ -527,7 +604,7 @@ export function ProcessScanModal({
 
             {showQcFingers ? (
               <>
-                {isPreprocess ? (
+                {isPreprocess || isProcess ? (
                   <button
                     type="button"
                     className="scans-action-btn process-scan-next-btn"
@@ -650,6 +727,7 @@ export function ProcessScanModal({
               <button
                 type="button"
                 className="scans-action-btn scans-action-export"
+                disabled={!allFingersComplete}
                 onClick={() => {
                   onComplete?.(buildPayload());
                   onClose();

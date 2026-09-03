@@ -1736,15 +1736,115 @@
   flex-shrink: 0;
 }
 
-.trainee-scans-modal {
-  width: min(960px, 100%);
-  max-width: none;
+.modal-panel.trainee-scans-modal,
+.modal-panel.member-scans-modal {
+  width: fit-content;
+  max-width: calc(100vw - 32px);
+  max-height: min(90vh, 720px);
 }
 
-.trainee-scans-modal-body {
+.modal-panel.member-scans-modal .modal-body,
+.modal-panel.trainee-scans-modal .modal-body {
+  padding: 12px 20px 18px;
+  max-height: min(75vh, 620px);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.member-scans-message {
+  margin: 0;
+  text-align: center;
+  color: var(--color-text-muted, #868e96);
+  padding: 28px 12px;
+}
+
+.member-scans-table-wrap {
+  width: 100%;
+  overflow-x: visible;
+}
+
+.member-scans-table {
+  width: max-content;
+  max-width: 100%;
+  table-layout: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.member-scans-table .col-sno {
+  width: 44px;
+}
+
+.member-scans-table .col-scan-id {
+  width: 128px;
+}
+
+.member-scans-table .col-name {
+  width: 108px;
+}
+
+.member-scans-table .col-gender {
+  width: 72px;
+}
+
+.member-scans-table .col-report {
+  width: 96px;
+}
+
+.member-scans-table .col-cost {
+  width: 80px;
+}
+
+.member-scans-table .col-uploaded {
+  width: 186px;
+}
+
+.member-scans-table .col-status {
+  width: 96px;
+}
+
+.member-scans-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #adb5bd);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-divider, #e9ecef);
+  white-space: nowrap;
+}
+
+.member-scans-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-divider, #e9ecef);
+  color: var(--color-text-primary, #212529);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.member-scans-table th.col-center,
+.member-scans-table td.col-center {
+  text-align: center;
+}
+
+.member-scans-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.member-scans-cell {
+  display: inline;
+}
+
+.member-scans-table td.col-center .scans-status-chip {
+  max-width: 100%;
+}
+
+.member-scans-pager {
+  margin-top: 12px;
   padding-top: 8px;
-  max-height: min(70vh, 560px);
-  overflow: auto;
+  border-top: 1px solid var(--color-divider, #e9ecef);
 }
 
 .mis-kpi-row {
