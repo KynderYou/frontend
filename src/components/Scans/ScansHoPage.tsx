@@ -626,10 +626,10 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                             <button
                               type="button"
                               className="scans-action-btn"
-                              disabled={acting || record.reportBilled || !record.reportDebitAmount}
+                              disabled={acting || row.reportBilled || !row.reportDebitAmount}
                               onClick={() => setDebitTarget(row)}
                             >
-                              {record.reportDebitAmount ? `Debit ${record.reportDebitAmount}` : 'Debit'}
+                              {row.reportDebitAmount ? `Debit ${row.reportDebitAmount}` : 'Debit'}
                             </button>
                           </td>
                           <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
