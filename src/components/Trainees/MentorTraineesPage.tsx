@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMe, getTraineeScans, getTraineesState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { MemberScansModal } from '../common/MemberScansModal';
 import { TablePager } from '../common/TablePager';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -95,7 +96,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
             </h1>
           </div>
         </div>
-        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading trainees…</p>
+        <SkeletonMentorSplitPage />
       </section>
     );
   }

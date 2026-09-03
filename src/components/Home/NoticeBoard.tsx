@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { DashboardNotice } from '../../api';
 import { colors, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { Skeleton, SkeletonLine } from '../common/Skeleton';
 
 const theme = colors.light;
 
@@ -113,9 +114,18 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
         }}
       >
         {loading ? (
-          <p style={{ margin: 'auto 0', textAlign: 'center', fontSize: 13, color: theme['text-secondary'] }}>
-            Loading notices…
-          </p>
+          <div className="skeleton-notice-stack">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="skeleton-notice-row">
+                <Skeleton circle width={36} height={36} />
+                <div style={{ flex: 1 }}>
+                  <SkeletonLine width={`${80 - index * 10}%`} />
+                  <Skeleton width="100%" height={11} style={{ marginTop: 8 }} />
+                  <Skeleton width="65%" height={11} style={{ marginTop: 6 }} />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : notices.length === 0 ? (
           <EmptyState
             title="No notices yet"

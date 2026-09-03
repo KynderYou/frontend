@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMe, getMlaScans, getMlasState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { MemberScansModal } from '../common/MemberScansModal';
 import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
@@ -95,7 +96,7 @@ export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPa
             </h1>
           </div>
         </div>
-        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading MLAs…</p>
+        <SkeletonMentorSplitPage />
       </section>
     );
   }

@@ -11,11 +11,18 @@ function resolveConfig(): EnvironmentConfig {
   const name = ACTIVE_BACKEND as AppEnvironment;
   const defaults = environments[name] ?? environments.development;
 
+  const viteApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+  const apiBaseUrl = (viteApiBase || API_BASE_URL).replace(/\/$/, '');
+
+  const viteTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS);
+  const apiTimeoutMs = Number.isFinite(viteTimeout) && viteTimeout > 0
+    ? viteTimeout
+    : defaults.apiTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+
   return {
     name,
-    // Prefer the manual switch in api/backendEnv.ts
-    apiBaseUrl: API_BASE_URL.replace(/\/$/, ''),
-    apiTimeoutMs: defaults.apiTimeoutMs ?? DEFAULT_TIMEOUT_MS,
+    apiBaseUrl,
+    apiTimeoutMs,
   };
 }
 

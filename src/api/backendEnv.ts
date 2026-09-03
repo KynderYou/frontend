@@ -19,8 +19,8 @@ export const BACKEND_URLS = {
   // development — local Flask (`python run.py` on midna_backend)
   development: 'http://localhost:5001',
 
-  // production — deployed Midna API (replace with your live URL)
-  production: 'https://api.example.com',
+  // production — deployed Midna API
+  production: 'https://api.kynderyou.com',
 } as const satisfies Record<BackendEnv, string>;
 
 /** Resolved API base URL for the currently selected backend. */

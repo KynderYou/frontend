@@ -4,7 +4,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import type { AppView } from '../Layout/navItems';
 import { NotificationList } from './NotificationList';
-import { useNotificationFeed } from './useNotificationFeed';
+import { useNotifications } from './NotificationContext';
 
 const theme = colors.light;
 
@@ -16,7 +16,7 @@ type NotificationsPageProps = {
 };
 
 export function NotificationsPage({ onBack, onNavigate, onOpenMobileMenu, onOpenProfile }: NotificationsPageProps) {
-  const { items, unreadCount, loading, loadError, handleAction } = useNotificationFeed({ onNavigate });
+  const { items, unreadCount, loading, loadError, handleAction } = useNotifications();
 
   return (
     <section className="page-section notifications-page">

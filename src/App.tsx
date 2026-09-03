@@ -25,6 +25,7 @@ import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage'
 import { MisCabPage } from './components/Mis/MisCabPage';
 import { ToastProvider } from './components/common/ToastProvider';
 import { NotificationsPage } from './components/Notifications/NotificationsPage';
+import { NotificationProvider } from './components/Notifications/NotificationContext';
 
 /** Covers iPhone 14 Pro Max (430px) and similar phones / small tablets */
 const MOBILE_QUERY = '(max-width: 860px)';
@@ -240,6 +241,7 @@ function App() {
         />
       ) : (
         <div className={`app-frame ${isMobile ? 'is-mobile' : ''}`}>
+      <NotificationProvider onNavigate={navigate}>
       <div className="app-shell">
         {!isMobile && member && (
           <Sidebar
@@ -285,6 +287,7 @@ function App() {
               />
             ) : view === 'scans-ho' ? (
               <ScansHoPage
+                isAdmin={member?.role === 'Admin'}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
@@ -365,6 +368,7 @@ function App() {
           nav={member.nav}
         />
       )}
+      </NotificationProvider>
     </div>
       )}
     </ToastProvider>

@@ -18,6 +18,7 @@ import {
   type SeverityLevel,
 } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonTableCard } from '../common/Skeleton';
 import { useToast } from '../common/ToastProvider';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -665,7 +666,7 @@ export function CommunicationsPage({
               </p>
             </div>
             {loading ? (
-              <EmptyState title="Loading notices…" compact />
+              <SkeletonTableCard rows={6} columns={4} />
             ) : communications.length === 0 ? (
               <EmptyState title="Nothing sent yet" description="Published notices will appear here." compact />
             ) : (

@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { SkeletonMemberScansTable } from './Skeleton';
 import { TablePager } from './TablePager';
 const SCAN_PAGE_SIZE = 10;
 
@@ -101,7 +102,7 @@ export function MemberScansModal({
 
         <div className="modal-body member-scans-modal-body">
           {loading ? (
-            <p className="member-scans-message">Loading scans…</p>
+            <SkeletonMemberScansTable rows={scanCount} />
           ) : error ? (
             <p className="member-scans-message">{error}</p>
           ) : scans.length === 0 ? (

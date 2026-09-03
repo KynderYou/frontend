@@ -9,6 +9,7 @@ import {
 import type { Certification, MemberProfile } from '../../api';
 import { buttonTokens, colors, metricColors, radius, severityTokens, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonProfileBody } from '../common/Skeleton';
 import { AvatarCropModal } from './AvatarCropModal';
 import { CertificationCard } from './CertificationCard';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -381,8 +382,15 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
 
   if (loading) {
     return (
-      <section className="page-section">
-        <p style={{ color: theme['text-secondary'] }}>Loading profile…</p>
+      <section className="page-section profile-page">
+        <div className="page-header">
+          <button type="button" className="btn-icon" aria-label="Back to dashboard" onClick={onBack}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="m15 6-6 6 6 6" />
+            </svg>
+          </button>
+        </div>
+        <SkeletonProfileBody />
       </section>
     );
   }

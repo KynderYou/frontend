@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { deleteReport, getMyReports, requestReportCab, upgradeReport } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonReportsStats, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -430,6 +431,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
         </div>
       </div>
 
+      {loading ? (
+        <SkeletonReportsStats />
+      ) : (
       <div className="reports-stats">
         <div className="reports-stat">
           <span className="reports-stat-icon reports-stat-icon-blue" aria-hidden="true">
@@ -479,6 +483,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           </div>
         </div>
       </div>
+      )}
 
       <div className="dash-card reports-list-card" style={{ width: '100%' }}>
         <div className="reports-toolbar">
@@ -551,7 +556,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
         )}
 
         {loading ? (
-          <EmptyState title="Loading reports…" compact />
+          <SkeletonTableCard rows={8} columns={7} />
         ) : filtered.length === 0 ? (
           <EmptyState
             title={records.length === 0 ? 'No reports yet' : 'No reports match your search'}

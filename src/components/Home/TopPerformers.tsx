@@ -1,6 +1,7 @@
 import type { TopPerformer } from '../../api';
 import { colors, radius, shadow, spacing } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { Skeleton } from '../common/Skeleton';
 
 const theme = colors.light;
 
@@ -47,7 +48,16 @@ export function TopPerformers({ performers, loading }: TopPerformersProps) {
       </div>
 
       {loading ? (
-        <p style={{ color: theme['text-secondary'], fontSize: 13 }}>Loading performers…</p>
+        <div>
+          {Array.from({ length: 5 }, (_, index) => (
+            <div key={index} className="skeleton-performer-row">
+              <Skeleton width={24} height={14} />
+              <Skeleton circle width={32} height={32} />
+              <Skeleton width={`${70 - index * 6}%`} height={14} style={{ flex: 1 }} />
+              <Skeleton width={48} height={14} />
+            </div>
+          ))}
+        </div>
       ) : performers.length === 0 ? (
         <EmptyState
           title="No performers yet"

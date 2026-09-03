@@ -9,6 +9,12 @@ function buildUrl(path: string): string {
   }
 
   const normalized = path.startsWith('/') ? path : `/${path}`;
+
+  // When opened via Cloudflare Tunnel, always hit the public API host.
+  if (typeof window !== 'undefined' && window.location.hostname === 'app.kynderyou.com') {
+    return `https://api.kynderyou.com${normalized}`;
+  }
+
   return `${env.apiBaseUrl}${normalized}`;
 }
 

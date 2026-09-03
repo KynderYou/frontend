@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getMisNetwork, getMisScans } from '../../api';
 import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { Skeleton, SkeletonKpiGrid, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -118,7 +119,13 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
   if (loading) {
     return (
       <section className="page-section mis-page">
-        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading network performance…</p>
+        <div className="page-header">
+          <div className="page-title-block">
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>Network Performance</h1>
+          </div>
+        </div>
+        <SkeletonKpiGrid count={4} />
+        <SkeletonTableCard rows={8} columns={6} />
       </section>
     );
   }
@@ -341,9 +348,13 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                   </thead>
                   <tbody>
                     {drilldownLoading ? (
-                      <tr className="mis-data-empty">
-                        <td colSpan={4}>Loading scans…</td>
-                      </tr>
+                      Array.from({ length: 5 }, (_, index) => (
+                        <tr key={index} className="mis-data-skeleton-row">
+                          <td colSpan={4}>
+                            <Skeleton width={`${88 - (index % 3) * 10}%`} height={12} />
+                          </td>
+                        </tr>
+                      ))
                     ) : monthScans.length === 0 ? (
                       <tr className="mis-data-empty">
                         <td colSpan={4}>No scans for this month.</td>

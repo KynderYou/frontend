@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getMisScans } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -231,6 +232,12 @@ export function MisScansPage({
           </div>
         </div>
 
+        {loading ? (
+          <div style={{ padding: spacing[5] }}>
+            <SkeletonTableCard rows={10} columns={4} />
+          </div>
+        ) : (
+        <>
         <div className="mis-table-body">
           <table className="mis-data-table">
             <thead>
@@ -271,6 +278,8 @@ export function MisScansPage({
           loading={loading}
           onPageChange={setPage}
         />
+        </>
+        )}
       </div>
     </section>
   );

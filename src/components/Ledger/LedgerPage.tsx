@@ -10,6 +10,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { ExpensesChart } from './ExpensesChart';
 import { TopUpModal } from './TopUpModal';
+import { SkeletonLedgerBody, SkeletonSubtitle } from '../common/Skeleton';
 
 const theme = colors.light;
 const LEDGER_TX_PAGE_SIZE = 12;
@@ -200,9 +201,13 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
             My Ledger
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            {companyWide
-              ? 'Company-wide receipts and billing across all members.'
-              : 'Track receipts and billing across your network.'}
+            {loading ? (
+              <SkeletonSubtitle />
+            ) : companyWide ? (
+              'Company-wide receipts and billing across all members.'
+            ) : (
+              'Track receipts and billing across your network.'
+            )}
           </p>
         </div>
 
@@ -223,7 +228,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
         </p>
       ) : null}
 
-      {!companyWide ? (
+      {!loading && !companyWide ? (
       <div
         className="dash-card ledger-topup-banner"
         style={{
@@ -285,7 +290,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
       ) : null}
 
       {loading ? (
-        <p style={{ marginBottom: spacing[6], color: theme['text-secondary'], fontSize: 14 }}>Loading ledger…</p>
+        <SkeletonLedgerBody />
       ) : (
         <>
           <div

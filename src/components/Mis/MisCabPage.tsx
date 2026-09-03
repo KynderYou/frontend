@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { debitCabRecord, getCabState, getMe } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonCabPage } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -209,7 +210,7 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
             </h1>
           </div>
         </div>
-        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading CAB entries…</p>
+        <SkeletonCabPage />
       </section>
     );
   }

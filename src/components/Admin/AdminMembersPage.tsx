@@ -7,6 +7,7 @@ import {
 } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
 import { colors, spacing, typography } from '../../styles/theme';
+import { Skeleton, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
@@ -141,7 +142,20 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
   if (loading) {
     return (
       <section className="page-section">
-        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading member accounts…</p>
+        <div className="page-header">
+          <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>Member Accounts</h1>
+          </div>
+        </div>
+        <div className="admin-members-layout" style={{ display: 'grid', gap: spacing[5] }}>
+          <div className="dash-card" style={{ padding: spacing[5] }}>
+            <Skeleton width={180} height={20} style={{ marginBottom: 20 }} />
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={index} width={`${90 - index * 5}%`} height={14} style={{ marginBottom: 14 }} />
+            ))}
+          </div>
+          <SkeletonTableCard rows={10} columns={6} />
+        </div>
       </section>
     );
   }

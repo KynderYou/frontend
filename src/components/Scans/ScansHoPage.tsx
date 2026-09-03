@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getHoScanDetail, getHoScans, getMe, hoScanAction, resolveHoScanImages } from '../../api';
+import { getHoScanDetail, getHoScans, hoScanAction, resolveHoScanImages } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -25,6 +26,7 @@ function revokeResolvedImages(images: ScanImage[] | null) {
 }
 
 type ScansHoPageProps = {
+  isAdmin?: boolean;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
 };
@@ -268,7 +270,7 @@ function HoDeleteScanModal({
   );
 }
 
-export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProps) {
+export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }: ScansHoPageProps) {
   const { showSuccess, showError } = useToast();
   const [activeSection, setActiveSection] = useState<HoSectionId>('preprocess');
   const [records, setRecords] = useState<HoScanRecord[]>([]);
@@ -282,15 +284,6 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const [panelFingers, setPanelFingers] = useState<ScanFingerPayload[] | null>(null);
   const [panelImagesLoading, setPanelImagesLoading] = useState(false);
   const [panelMode, setPanelMode] = useState<ProcessScanMode>('process');
-  const [isAdmin, setIsAdmin] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    getMe(controller.signal)
-      .then((member) => setIsAdmin(member.role === 'Admin'))
-      .catch(() => setIsAdmin(false));
-    return () => controller.abort();
-  }, []);
 
   useEffect(() => {
     if (!isAdmin && activeSection !== 'preprocess') {
@@ -493,7 +486,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         </div>
 
         {loading ? (
-          <EmptyState title="Loading scans…" compact />
+          <SkeletonTableCard rows={10} columns={8} />
         ) : rows.length === 0 ? (
           <EmptyState
             title={`No scans in ${sectionLabels[activeSection]}`}

@@ -9,6 +9,7 @@ import {
 } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -499,7 +500,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
 
         <div className="scans-table-wrap">
           {loading ? (
-            <p style={{ padding: spacing[4], color: theme['text-secondary'], fontSize: 14 }}>Loading scans…</p>
+            <SkeletonTableCard rows={8} columns={7} />
           ) : records.length === 0 ? (
             <EmptyState
               title="No scans uploaded yet"

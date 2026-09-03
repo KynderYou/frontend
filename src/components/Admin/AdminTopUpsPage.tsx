@@ -4,6 +4,7 @@ import { fetchAuthenticatedAsset } from '../../api/assetUrl';
 import type { AdminTopUpRequest } from '../../api/notificationTypes';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
@@ -167,7 +168,12 @@ export function AdminTopUpsPage({
   if (loading) {
     return (
       <section className="page-section trainees-page">
-        <p style={{ color: theme['text-muted'], fontSize: 14 }}>Loading top-up requests…</p>
+        <div className="page-header">
+          <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
+            <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>Top-up Requests</h1>
+          </div>
+        </div>
+        <SkeletonMentorSplitPage />
       </section>
     );
   }

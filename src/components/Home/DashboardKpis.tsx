@@ -3,6 +3,7 @@ import type { DashboardKpis as DashboardKpisData, MemberNav } from '../../api';
 import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { SkeletonKpiGrid } from '../common/Skeleton';
 import type { AppView } from '../Layout/navItems';
 
 const theme = colors.light;
@@ -170,7 +171,7 @@ export function DashboardKpis({ kpis, nav, loading, error, onOpenMobileMenu, onO
       ) : null}
 
       {loading ? (
-        <p style={{ color: theme['text-secondary'], fontSize: 14 }}>Loading dashboard…</p>
+        <SkeletonKpiGrid count={4} />
       ) : (
         <div className="kpi-grid">
           {cards.map((kpi) => {

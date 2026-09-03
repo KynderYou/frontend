@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { colors, radius, shadow } from '../../styles/theme';
 import { NotificationList } from '../Notifications/NotificationList';
-import { useNotificationFeed } from '../Notifications/useNotificationFeed';
+import { useNotifications } from '../Notifications/NotificationContext';
 import type { AppView } from './navItems';
 
 const theme = colors.light;
@@ -13,10 +13,7 @@ type NotificationButtonProps = {
 export function NotificationButton({ onNavigate }: NotificationButtonProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { items, unreadCount, loading, load, handleAction } = useNotificationFeed({
-    pollMs: 60_000,
-    onNavigate,
-  });
+  const { items, unreadCount, loading, load, handleAction } = useNotifications();
 
   useEffect(() => {
     if (!open) return;
