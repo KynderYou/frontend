@@ -104,6 +104,93 @@ function toProcessRecord(row: HoScanRecord, initialFingers?: ReturnType<typeof m
   };
 }
 
+function HoDebitScanModal({
+  open,
+  record,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  record: HoScanRecord | null;
+  onClose: () => void;
+  onConfirm: (record: HoScanRecord) => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open || !record) return null;
+
+  const billingLabel = record.billingPercent ? `${record.billingPercent}%` : 'billing %';
+  const debitAmount = record.reportDebitAmount ?? '—';
+
+  return (
+    <div
+      className="modal-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="modal-panel reports-delete-modal" role="dialog" aria-modal="true" aria-labelledby="ho-debit-scan-title" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2 id="ho-debit-scan-title" className="modal-title">
+              Debit report billing?
+            </h2>
+            <p className="modal-subtitle">
+              Scan {record.scanId} · {record.name}
+            </p>
+          </div>
+          <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="modal-body">
+          <p className="reports-delete-warning">
+            This will debit <strong>{debitAmount}</strong> from <strong>{record.scanBy}</strong> using{' '}
+            <strong>{billingLabel}</strong> of the report MRP <strong>{record.cost}</strong>.
+          </p>
+          {record.flaggedX ? (
+            <p className="process-scan-view-hint" style={{ marginTop: 12 }}>
+              This scan is flagged — additional NCD billing may also apply if CAB was not requested.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="modal-footer">
+          <button type="button" className="btn-pill-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-pill-primary"
+            disabled={!record.reportDebitAmount}
+            onClick={() => {
+              onConfirm(record);
+              onClose();
+            }}
+          >
+            Confirm debit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HoDeleteScanModal({
   open,
   record,
@@ -189,6 +276,7 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
   const [loadError, setLoadError] = useState('');
   const [acting, setActing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
+  const [debitTarget, setDebitTarget] = useState<HoScanRecord | null>(null);
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
   const [panelImages, setPanelImages] = useState<ScanImage[] | null>(null);
   const [panelFingers, setPanelFingers] = useState<ScanFingerPayload[] | null>(null);
@@ -538,10 +626,10 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
                             <button
                               type="button"
                               className="scans-action-btn"
-                              disabled={acting}
-                              onClick={() => runAction(row, 'debit', undefined, `Debit recorded for ${row.scanId}.`)}
+                              disabled={acting || record.reportBilled || !record.reportDebitAmount}
+                              onClick={() => setDebitTarget(row)}
                             >
-                              Debit
+                              {record.reportDebitAmount ? `Debit ${record.reportDebitAmount}` : 'Debit'}
                             </button>
                           </td>
                           <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
@@ -612,6 +700,22 @@ export function ScansHoPage({ onOpenMobileMenu, onOpenProfile }: ScansHoPageProp
         onReview={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
           if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} moved to review.`);
+        }}
+      />
+
+      <HoDebitScanModal
+        open={Boolean(debitTarget)}
+        record={debitTarget}
+        onClose={() => setDebitTarget(null)}
+        onConfirm={(record) => {
+          const amount = record.reportDebitAmount ?? 'billing';
+          const billing = record.billingPercent ? `${record.billingPercent}%` : 'billing %';
+          void runAction(
+            record,
+            'debit',
+            undefined,
+            `${amount} debited from ${record.scanBy} at ${billing} of MRP for scan ${record.scanId}.`,
+          );
         }}
       />
 

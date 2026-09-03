@@ -24,6 +24,9 @@ export type HoScanRecord = {
   finger?: string;
   status: string;
   flaggedX?: boolean;
+  billingPercent?: number;
+  reportDebitAmount?: string;
+  reportBilled?: boolean;
 };
 
 export function hoScanToRecord(scan: HoScan): HoScanRecord {
@@ -49,6 +52,9 @@ export function hoScanToRecord(scan: HoScan): HoScanRecord {
     finger: scan.finger ?? undefined,
     status: scan.status,
     flaggedX: scan.flagged_x,
+    billingPercent: scan.billing_percent ?? undefined,
+    reportDebitAmount: scan.report_debit_amount ?? undefined,
+    reportBilled: scan.report_billed ?? undefined,
   };
 }
 

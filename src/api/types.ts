@@ -209,6 +209,9 @@ export type HoScan = {
   finger: string | null;
   status: string;
   flagged_x: boolean;
+  billing_percent?: number | null;
+  report_debit_amount?: string | null;
+  report_billed?: boolean;
 };
 
 export type ScanFinger = {
