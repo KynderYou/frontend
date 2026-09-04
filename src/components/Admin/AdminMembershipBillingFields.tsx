@@ -1,5 +1,5 @@
 import type { AdminMembershipFormState, MentorOption } from './adminProfileForm';
-import { subscriptionTierOptions, tierBilling } from './adminProfileForm';
+import { parseBillingDigits, subscriptionTierOptions, tierBilling } from './adminProfileForm';
 
 type AdminMembershipBillingFieldsProps = {
   form: AdminMembershipFormState;
@@ -62,9 +62,19 @@ export function AdminMembershipBillingFields({ form, mentors, onChange }: AdminM
           <span className="form-label">Billing %</span>
           <input
             className="form-input"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={form.billing}
-            onChange={(e) => update('billing', e.target.value)}
-            placeholder="30%"
+            onChange={(e) => {
+              const digits = parseBillingDigits(e.target.value);
+              if (digits && Number(digits) > 100) {
+                update('billing', '100');
+                return;
+              }
+              update('billing', digits);
+            }}
+            placeholder="30"
           />
         </label>
         <label className="form-field">

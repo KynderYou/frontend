@@ -133,7 +133,8 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
       const staffView = member.role === 'Admin';
       setIsAdmin(staffView);
       setIsTrainee(member.role === 'Trainee');
-      const state = await getCabState(signal, staffView ? undefined : 'mine');
+      const scope = staffView ? undefined : member.role === 'Mentor' ? 'mine' : undefined;
+      const state = await getCabState(signal, scope);
       const mapped = mapCabState(state);
       setMentors(mapped.mentors);
       setRecords(mapped.records);
@@ -262,6 +263,20 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
         </div>
       </div>
 
+      {records.length === 0 ? (
+        <div className="dash-card" style={{ padding: spacing[2] }}>
+          <EmptyState
+            title="No CAB entries yet"
+            description={
+              isTrainee
+                ? 'When counselling audio is uploaded for your scans, it will appear here.'
+                : isAdmin
+                  ? 'When a mentee requests CAB on a report and audio is uploaded, debit records will show up here.'
+                  : 'When your mentees request CAB and counselling audio is uploaded, entries will appear here.'
+            }
+          />
+        </div>
+      ) : (
       <div className={`trainees-layout${isAdmin ? '' : ' trainees-layout--single'}`} style={{ gap: spacing[5] }}>
         {isAdmin ? (
           <div className="dash-card trainees-panel" style={{ padding: 0 }}>
@@ -475,6 +490,7 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
           />
         </div>
       </div>
+      )}
 
       <CabDebitConfirmModal
         open={Boolean(debitTarget)}

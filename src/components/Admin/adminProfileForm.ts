@@ -46,11 +46,21 @@ export type MentorOption = {
 export type SubscriptionTier = 'Gold' | 'Diamond' | 'Platinum' | 'Ultima';
 
 export const tierBilling: Record<SubscriptionTier, string> = {
-  Gold: '30%',
-  Diamond: '25%',
-  Platinum: '20%',
-  Ultima: '16%',
+  Gold: '30',
+  Diamond: '25',
+  Platinum: '20',
+  Ultima: '16',
 };
+
+/** Strip non-digits for admin billing input (stores/shows number only, no %). */
+export function parseBillingDigits(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 3);
+}
+
+export function billingDigitsForForm(value: string | null | undefined, fallback: string): string {
+  const digits = parseBillingDigits(value ?? '');
+  return digits || fallback;
+}
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
@@ -91,7 +101,7 @@ export function memberToMembershipForm(member: AdminMemberApi): AdminMembershipF
   return {
     mentoredById: member.mentored_by_id ? String(member.mentored_by_id) : '',
     masType: asTier(member.mas_type || 'Gold'),
-    billing: member.billing || tierBilling.Gold,
+    billing: billingDigitsForForm(member.billing, tierBilling.Gold),
     doj: member.doj ?? '',
     expiryDate: member.expiry_date ?? '',
     opBal: member.op_bal != null ? String(member.op_bal) : '',
@@ -120,7 +130,7 @@ export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {
 export function membershipFormToPayload(form: AdminMembershipFormState): AdminMembershipFieldsPayload {
   const payload: AdminMembershipFieldsPayload = {
     mas_type: form.masType,
-    billing: form.billing.trim() || undefined,
+    billing: parseBillingDigits(form.billing) || undefined,
   };
   if (form.mentoredById) payload.mentored_by_id = Number(form.mentoredById);
   if (form.doj) payload.doj = form.doj;
