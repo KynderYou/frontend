@@ -84,18 +84,22 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
   const [walletOk, setWalletOk] = useState(true);
   const [walletChecked, setWalletChecked] = useState(false);
+  /** Mentors / trainees / MLAs need ledger balance to download; Admin does not. */
+  const [walletRequired, setWalletRequired] = useState(false);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [member, reports, ledger] = await Promise.all([
-        getMe(signal),
-        getMyReports(signal),
-        getMyLedger(signal),
-      ]);
+      const [member, reports] = await Promise.all([getMe(signal), getMyReports(signal)]);
       const needsWallet = member.role === 'Mentor' || member.role === 'Trainee' || member.role === 'MLA';
-      const balance = ledger.available_balance ?? 0;
-      setWalletOk(!needsWallet || balance > 0);
+      setWalletRequired(needsWallet);
+      if (needsWallet) {
+        const ledger = await getMyLedger(signal);
+        const balance = ledger.available_balance ?? 0;
+        setWalletOk(balance > 0);
+      } else {
+        setWalletOk(true);
+      }
       setWalletChecked(true);
       setRecords(reportListToRecords(reports));
       setLoadError('');
@@ -541,7 +545,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           <div>
             <h2 className="scans-card-title">My scans</h2>
             <p className="scans-card-sub">
-              CAB = Counselling Audio Byte · reports appear once in Processing · download needs a funded wallet
+              {walletRequired
+                ? 'CAB = Counselling Audio Byte · reports appear once in Processing · download needs a funded wallet'
+                : 'CAB = Counselling Audio Byte · reports appear once in Processing'}
             </p>
           </div>
 
