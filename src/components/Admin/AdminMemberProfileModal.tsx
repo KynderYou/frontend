@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { updateAdminMemberMembership, updateAdminMemberStatus, updateAdminMemberVisibility } from '../../api';
+import { updateAdminMemberMembership, updateAdminMemberStatus, updateAdminMemberVisibility, resendAdminMemberVerification } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
 import { colors, spacing } from '../../styles/theme';
 import { AdminMembershipBillingFields } from './AdminMembershipBillingFields';
@@ -34,6 +34,8 @@ export function AdminMemberProfileModal({
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
   useEffect(() => {
     if (open && member) {
@@ -56,6 +58,20 @@ export function AdminMemberProfileModal({
   }, [open, onClose]);
 
   if (!open || !member) return null;
+
+  const handleResendVerification = async () => {
+    setResending(true);
+    setResendMessage('');
+    setError('');
+    try {
+      const result = await resendAdminMemberVerification(member.id);
+      setResendMessage(result.message);
+    } catch {
+      setError('Unable to resend verification email.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,10 +139,26 @@ export function AdminMemberProfileModal({
                     onChange={(e) => setForm((current) => ({ ...current, status: e.target.value as AdminEditFormState['status'] }))}
                   >
                     <option value="Active">Active</option>
+                    <option value="Invited">Invited</option>
                     <option value="Disabled">Disabled</option>
                   </select>
                 </div>
               </label>
+              {member.status === 'Invited' ? (
+                <div style={{ marginTop: spacing[3] }}>
+                  <button
+                    type="button"
+                    className="btn-pill-secondary"
+                    onClick={handleResendVerification}
+                    disabled={resending || saving}
+                  >
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                  {resendMessage ? (
+                    <p style={{ color: theme.success, fontSize: 13, marginTop: spacing[2] }}>{resendMessage}</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="modal-footer">

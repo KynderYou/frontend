@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ApiError, login } from '../../api';
+import { ApiError, login, resendVerification } from '../../api';
 import type { Member } from '../../api';
 import logo from '../../assets/midna-logo.png';
 
@@ -11,6 +11,10 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [showResend, setShowResend] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
+  const [resending, setResending] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -24,6 +28,8 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
     }
 
     setError('');
+    setShowResend(false);
+    setResendMessage('');
     setLoading(true);
     try {
       const result = await login({ email, password });
@@ -35,11 +41,37 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             ? String((err.body as { detail: unknown }).detail)
             : err.message;
         setError(detail || 'Sign in failed.');
+        if (detail.toLowerCase().includes('verify your email')) {
+          setPendingEmail(email);
+          setShowResend(true);
+        }
       } else {
         setError('Unable to connect to the server. Please try again later.');
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!pendingEmail) return;
+    setResending(true);
+    setResendMessage('');
+    try {
+      const result = await resendVerification(pendingEmail);
+      setResendMessage(result.message);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const detail =
+          typeof err.body === 'object' && err.body !== null && 'detail' in err.body
+            ? String((err.body as { detail: unknown }).detail)
+            : err.message;
+        setResendMessage(detail || 'Unable to resend verification email.');
+      } else {
+        setResendMessage('Unable to connect to the server. Please try again later.');
+      }
+    } finally {
+      setResending(false);
     }
   };
 
@@ -122,6 +154,20 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
                 {error}
               </p>
             )}
+
+            {showResend ? (
+              <div className="auth-resend-block">
+                <button
+                  type="button"
+                  className="auth-text-button"
+                  onClick={handleResend}
+                  disabled={resending || loading}
+                >
+                  {resending ? 'Sending…' : 'Resend verification email'}
+                </button>
+                {resendMessage ? <p className="auth-status-copy">{resendMessage}</p> : null}
+              </div>
+            ) : null}
 
             <button type="submit" className="auth-submit" disabled={loading}>
               {loading ? 'Signing in…' : 'Sign in'}

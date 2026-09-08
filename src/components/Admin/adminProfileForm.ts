@@ -34,7 +34,7 @@ export type AdminVisibilityFormState = {
 
 export type AdminEditFormState = AdminMembershipFormState &
   AdminVisibilityFormState & {
-    status: 'Active' | 'Disabled';
+    status: 'Active' | 'Invited' | 'Disabled';
   };
 
 export type MentorOption = {
@@ -123,7 +123,8 @@ export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {
   return {
     ...memberToMembershipForm(member),
     ...memberToVisibilityForm(member),
-    status: member.status === 'Disabled' ? 'Disabled' : 'Active',
+    status:
+      member.status === 'Disabled' ? 'Disabled' : member.status === 'Invited' ? 'Invited' : 'Active',
   };
 }
 

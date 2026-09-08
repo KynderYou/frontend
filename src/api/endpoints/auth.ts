@@ -38,6 +38,21 @@ export async function getMe(signal?: AbortSignal): Promise<Member> {
   return apiClient<Member>('/api/auth/me', { signal });
 }
 
+/** GET /api/auth/verify-email?token=... */
+export async function verifyEmail(token: string, signal?: AbortSignal): Promise<{ message: string; email: string }> {
+  const params = new URLSearchParams({ token });
+  return apiClient<{ message: string; email: string }>(`/api/auth/verify-email?${params.toString()}`, { signal });
+}
+
+/** POST /api/auth/resend-verification */
+export async function resendVerification(email: string, signal?: AbortSignal): Promise<MessageResponse> {
+  return apiClient<MessageResponse>('/api/auth/resend-verification', {
+    method: 'POST',
+    body: { email },
+    signal,
+  });
+}
+
 /** POST /api/auth/logout — clears local token */
 export async function logout(signal?: AbortSignal): Promise<MessageResponse> {
   if (isDemoToken(getToken())) {

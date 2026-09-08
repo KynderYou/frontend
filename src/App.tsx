@@ -13,6 +13,7 @@ import { ScansMlaPage } from './components/Scans/ScansMlaPage';
 import { ScansHoPage } from './components/Scans/ScansHoPage';
 import { ReportsPage } from './components/Reports/ReportsPage';
 import { AuthPage } from './components/Auth/AuthPage';
+import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { AdminTopUpsPage } from './components/Admin/AdminTopUpsPage';
 import { TraineesPage } from './components/Trainees/TraineesPage';
@@ -40,23 +41,36 @@ type HashState = {
   threadId: string | null;
   topUpId: number | null;
   misScanCode: string | null;
+  verifyToken: string | null;
+  isVerifyEmailRoute: boolean;
 };
 
 /** The URL hash is the source of truth for the current page, so refresh keeps you here.
  *  Thread deep-links look like `#/mis-communications?thread=c1`. */
 function parseHash(): HashState {
   if (typeof window === 'undefined') {
-    return { view: DEFAULT_VIEW, threadId: null, topUpId: null, misScanCode: null };
+    return { view: DEFAULT_VIEW, threadId: null, topUpId: null, misScanCode: null, verifyToken: null, isVerifyEmailRoute: false };
   }
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [pathPart, queryPart = ''] = raw.split('?');
-  const view = isAppView(pathPart) ? pathPart : DEFAULT_VIEW;
   const params = new URLSearchParams(queryPart);
+  const verifyToken = params.get('token');
+  if (pathPart === 'verify-email') {
+    return {
+      view: DEFAULT_VIEW,
+      threadId: null,
+      topUpId: null,
+      misScanCode: null,
+      verifyToken,
+      isVerifyEmailRoute: true,
+    };
+  }
+  const view = isAppView(pathPart) ? pathPart : DEFAULT_VIEW;
   const threadId = params.get('thread');
   const topUpRaw = params.get('id');
   const topUpId = topUpRaw && /^\d+$/.test(topUpRaw) ? Number(topUpRaw) : null;
   const misScanCode = params.get('scan');
-  return { view, threadId, topUpId, misScanCode };
+  return { view, threadId, topUpId, misScanCode, verifyToken: null, isVerifyEmailRoute: false };
 }
 
 function writeHash(
@@ -87,6 +101,8 @@ function App() {
   const [threadId, setThreadId] = useState<string | null>(() => parseHash().threadId);
   const [topUpId, setTopUpId] = useState<number | null>(() => parseHash().topUpId);
   const [misScanCode, setMisScanCode] = useState<string | null>(() => parseHash().misScanCode);
+  const [verifyToken, setVerifyToken] = useState<string | null>(() => parseHash().verifyToken);
+  const [isVerifyEmailRoute, setIsVerifyEmailRoute] = useState(() => parseHash().isVerifyEmailRoute);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_QUERY).matches : false
   );
@@ -106,9 +122,11 @@ function App() {
       current.topUpId !== topUpId ||
       current.misScanCode !== misScanCode
     ) {
-      writeHash(view, { threadId, topUpId, misScanCode });
+      if (!isVerifyEmailRoute) {
+        writeHash(view, { threadId, topUpId, misScanCode });
+      }
     }
-  }, [view, threadId, topUpId, misScanCode]);
+  }, [view, threadId, topUpId, misScanCode, isVerifyEmailRoute]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -117,6 +135,8 @@ function App() {
       setThreadId(next.threadId);
       setTopUpId(next.topUpId);
       setMisScanCode(next.misScanCode);
+      setVerifyToken(next.verifyToken);
+      setIsVerifyEmailRoute(next.isVerifyEmailRoute);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -233,12 +253,23 @@ function App() {
   return (
     <ToastProvider>
       {!isAuthenticated ? (
-        <AuthPage
-          onAuthenticated={(current) => {
-            setMember(current);
-            setIsAuthenticated(true);
-          }}
-        />
+        isVerifyEmailRoute ? (
+          <VerifyEmailPage
+            token={verifyToken}
+            onGoToSignIn={() => {
+              setIsVerifyEmailRoute(false);
+              setVerifyToken(null);
+              window.location.hash = '#/dashboard';
+            }}
+          />
+        ) : (
+          <AuthPage
+            onAuthenticated={(current) => {
+              setMember(current);
+              setIsAuthenticated(true);
+            }}
+          />
+        )
       ) : (
         <div className={`app-frame ${isMobile ? 'is-mobile' : ''}`}>
       <NotificationProvider onNavigate={navigate}>

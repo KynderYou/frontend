@@ -5441,6 +5441,33 @@
   font-weight: 600;
 }
 
+.auth-status-copy {
+  margin: 0;
+  color: var(--color-text-secondary, #868e96);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-status-copy--success {
+  color: var(--color-success, #2f9e44);
+  font-weight: 600;
+}
+
+.auth-resend-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.auth-card--compact {
+  max-width: 520px;
+}
+
+.auth-card--compact .auth-form-panel {
+  width: 100%;
+}
+
 .auth-submit {
   display: flex;
   align-items: center;

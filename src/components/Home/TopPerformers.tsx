@@ -28,7 +28,7 @@ export function TopPerformers({ performers, loading }: TopPerformersProps) {
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>
             Top 5 performers
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>Leading scanners this period</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>Ranked by highest scan count</p>
         </div>
         {performers.length > 0 ? (
           <span

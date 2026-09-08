@@ -74,6 +74,17 @@ export async function updateAdminMemberStatus(
   });
 }
 
+/** POST /api/admin/members/{id}/resend-verification */
+export async function resendAdminMemberVerification(
+  memberId: number,
+  signal?: AbortSignal,
+): Promise<{ message: string }> {
+  return apiClient<{ message: string }>(`/api/admin/members/${memberId}/resend-verification`, {
+    method: 'POST',
+    signal,
+  });
+}
+
 /** POST /api/admin/members/{id}/reset-password */
 export async function resetAdminMemberPassword(
   memberId: number,
