@@ -28,6 +28,8 @@ const emptyLedger: LedgerData = {
   ],
   billing_window_days: 30,
   expenses_year: new Date().getFullYear(),
+  available_balance: 0,
+  available_balance_display: '₹0',
 };
 
 /** GET /api/ledger/me */

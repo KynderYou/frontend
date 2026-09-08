@@ -342,7 +342,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                     <tr>
                       <th>Scan ID</th>
                       <th>Name</th>
-                      <th>MLA</th>
+                      <th>Uploaded by</th>
                       <th>Upload date</th>
                     </tr>
                   </thead>
@@ -366,7 +366,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
                             <span className="mis-scan-id">{scan.scanId}</span>
                           </td>
                           <td data-label="Name">{scan.clientName}</td>
-                          <td data-label="MLA">{scan.mlaName}</td>
+                          <td data-label="Uploaded by">{scan.mlaName}</td>
                           <td data-label="Upload date">{scan.uploadedAt}</td>
                         </tr>
                       ))

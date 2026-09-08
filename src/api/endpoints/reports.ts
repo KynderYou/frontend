@@ -11,6 +11,18 @@ export async function getMyReports(signal?: AbortSignal): Promise<ReportRecordAp
   return apiClient<ReportRecordApi[]>('/api/reports/me', { signal });
 }
 
+/** POST /api/reports/{id}/download — authorize wallet + ready status */
+export async function authorizeReportDownload(
+  scanId: number,
+): Promise<{ allowed: boolean; mode: string }> {
+  if (isDemoToken(getToken())) {
+    return { allowed: true, mode: 'preview' };
+  }
+  return apiClient<{ allowed: boolean; mode: string }>(`/api/reports/${scanId}/download`, {
+    method: 'POST',
+  });
+}
+
 /** POST /api/reports/{id}/upgrade */
 export async function upgradeReport(scanId: number): Promise<ReportRecordApi> {
   if (isDemoToken(getToken())) {

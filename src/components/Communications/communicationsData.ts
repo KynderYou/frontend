@@ -50,6 +50,7 @@ export type Communication = {
   severity: SeverityLevel;
   author: string;
   authorInitials: string;
+  authorRole?: string | null;
   createdAt: string;
   createdAtMs: number;
   audienceMode: AudienceMode;

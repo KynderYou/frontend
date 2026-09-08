@@ -1,7 +1,7 @@
 /**
  * Midna Global Design System
- * Visual reference: soft-UI fintech dashboard (cool grey canvas, vivid blue CTAs)
- * Brand primary: #6D7AF2 (soft periwinkle fintech)
+ * Visual reference: soft-UI dashboard (cool grey canvas, Midna pink CTAs)
+ * Brand primary: #DD127B (Midna magenta from logo)
  *
  * Three-layer backgrounds:
  *   1. bg-frame   — full outer cool grey page
@@ -21,24 +21,24 @@ export type ThemeMode = 'light';
  */
 export const UI_DENSITY = 0.9;
 
-// ─── Brand scale (vivid blue → #5C7CFA) ───────────────────────────────────────
+// ─── Brand scale (Midna pink / magenta from logo) ─────────────────────────────
 
 /** Monochrome brand ladder for fills, charts, gradients, patterns */
 export const brandScale = {
   /** Deep accent — hero gradients, dark pattern cards */
-  dark: '#5B6BF0',
+  dark: '#B80E66',
   /** Primary brand — active nav fill, solid accents */
-  base: '#6D7AF2',
+  base: '#DD127B',
   /** Hover / pressed */
-  hover: '#5C6AE8',
+  hover: '#C4106E',
   /** Mid tint — secondary chart bars, avatars */
-  mid: '#8E9AFE',
+  mid: '#E84A9A',
   /** Light tint — soft chart bars, highlights */
-  light: '#B4BCFF',
+  light: '#F4A0C8',
   /** Soft wash — active nav bg, icon chips, completed badges */
-  soft: '#EEF0FF',
+  soft: '#FFF0F6',
   /** Muted tint — striped chart segments, muted fills */
-  muted: '#E0E4FF',
+  muted: '#FFD6E7',
 } as const;
 
 /** Secondary accents used in charts, stacked wallets, and KPI chips */
@@ -171,11 +171,11 @@ export const buttonTokens = {
     md: '10px 16px',
     lg: '14px 22px',
   } as const,
-  /** Primary = soft periwinkle gradient pill; secondary = white soft-shadow pill */
+  /** Primary = Midna pink gradient pill; secondary = white soft-shadow pill */
   shape: 'pill' as const,
-  /** Primary CTA — matches reference Send button (periwinkle → cornflower) */
-  primaryGradient: 'linear-gradient(135deg, #8E9AFE 0%, #6D7AF2 100%)',
-  primaryGradientHover: 'linear-gradient(135deg, #9AA5FF 0%, #7A86F5 100%)',
+  /** Primary CTA — Midna magenta */
+  primaryGradient: 'linear-gradient(135deg, #E84A9A 0%, #DD127B 100%)',
+  primaryGradientHover: 'linear-gradient(135deg, #ED6AAD 0%, #E02086 100%)',
 } as const;
 
 export const inputTokens = {
@@ -197,24 +197,24 @@ export const shadow = {
   /** Slightly raised — hover states on cards */
   cardHover: '0 16px 40px rgba(80, 90, 140, 0.12)',
   /** Soft brand glow (active sidebar icons, primary accents) */
-  soft: '0 8px 20px rgba(109, 122, 242, 0.28)',
+  soft: '0 8px 20px rgba(221, 18, 123, 0.28)',
   /** Primary CTA glow — Send / Edit buttons */
-  primary: '0 10px 24px rgba(109, 122, 242, 0.35)',
+  primary: '0 10px 24px rgba(221, 18, 123, 0.35)',
   /** Floating icon bubbles (bell, nav icons) — visible lift on cool-grey canvas */
   float: '0 4px 14px rgba(80, 90, 140, 0.14)',
   /**
    * Profile / accent avatar: thick white ring + soft grey elevation
-   * (matches reference “U” bubble — ring first, then diffuse shadow).
+   * (ring first, then diffuse shadow).
    */
   avatarRing: '0 0 0 3px #ffffff, 0 6px 16px rgba(80, 90, 140, 0.18)',
 } as const;
 
 /**
- * Decorative ambient “bubble” washes behind the shell — soft lilac/blue
- * radial blobs matching the reference hero atmosphere.
+ * Decorative ambient “bubble” washes behind the shell — soft pink / warm
+ * radial blobs matching Midna brand atmosphere.
  */
 export const bubbleTokens = {
-  primary: 'radial-gradient(circle, rgba(142, 154, 254, 0.22) 0%, rgba(142, 154, 254, 0) 70%)',
+  primary: 'radial-gradient(circle, rgba(232, 74, 154, 0.22) 0%, rgba(232, 74, 154, 0) 70%)',
   secondary: 'radial-gradient(circle, rgba(190, 75, 219, 0.10) 0%, rgba(190, 75, 219, 0) 70%)',
   tertiary: 'radial-gradient(circle, rgba(255, 146, 43, 0.08) 0%, rgba(255, 146, 43, 0) 70%)',
 } as const;
@@ -231,7 +231,7 @@ export const layoutTokens = {
   /** App bleeds to the viewport edge — no outer inset */
   framePadding: '0px',
   /** Gap between the sidebar and the content panel, and the content panel's outer right/bottom inset */
-  shellGap: '20px',
+  shellGap: '8px',
   /** Outer top inset — keep chrome close to the viewport edge */
   shellGapTop: '12px',
   /** Shared rounding for the content panel */
@@ -245,7 +245,7 @@ export const layoutTokens = {
   /** Page title sits near the top — avoid stacked large top gaps */
   contentPaddingTop: spacing[4],
   contentPadding: spacing[6],
-  contentPaddingX: spacing[6],
+  contentPaddingX: spacing[4],
   /** Gap between dashboard cards — generous, premium whitespace */
   gridGap: spacing[6],
   /** Shared fixed height for paired lower cards so both line up */
@@ -417,12 +417,37 @@ export const colors = {
  * badges, never as a full card fill. One hue per metric, not a rainbow.
  */
 export const metricColors = {
-  blue: { icon: '#6D7AF2', text: '#4C5AD4', bg: '#EEF0FF' },
+  blue: { icon: '#339AF0', text: '#1864AB', bg: '#E7F5FF' },
   green: { icon: '#51CF66', text: '#2B8A3E', bg: '#EBFBEE' },
   amber: { icon: '#FF922B', text: '#D9480F', bg: '#FFF4E6' },
   purple: { icon: '#BE4BDB', text: '#9C36B5', bg: '#F8F0FC' },
   indigo: { icon: brandScale.base, text: brandScale.dark, bg: brandScale.soft },
-  pink: { icon: '#F06595', text: '#C2255C', bg: '#FFF0F6' },
+  pink: { icon: brandScale.base, text: brandScale.dark, bg: brandScale.soft },
+} as const;
+
+/** Notice board card tints by publisher role (Admin vs Mentor). */
+export const noticeAuthorTokens = {
+  Admin: {
+    bg: '#FFF0F6',
+    border: '#FFD6E7',
+    text: '#B80E66',
+    badgeBg: '#DD127B',
+    badgeText: '#FFFFFF',
+  },
+  Mentor: {
+    bg: '#E3FAFC',
+    border: '#99E9F2',
+    text: '#0B7285',
+    badgeBg: '#15AABF',
+    badgeText: '#FFFFFF',
+  },
+  default: {
+    bg: '#F8F9FA',
+    border: '#E9ECEF',
+    text: '#495057',
+    badgeBg: '#868E96',
+    badgeText: '#FFFFFF',
+  },
 } as const;
 
 export type MetricColor = keyof typeof metricColors;

@@ -280,6 +280,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                       >
                         {mentor.name}
                       </div>
+                      {mentor.region && mentor.region !== '—' ? (
                       <div
                         style={{
                           fontSize: 11,
@@ -292,6 +293,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                       >
                         {mentor.region}
                       </div>
+                      ) : null}
                     </div>
                     <span className="mentor-picker-count">
                       {count}

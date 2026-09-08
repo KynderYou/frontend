@@ -46,6 +46,8 @@ type CommunicationsPageProps = {
   /** Open Sent tab on this notice (from dashboard Reply) */
   initialThreadId?: string | null;
   onThreadSelect?: (id: string | null) => void;
+  /** Current member role — compose/groups only for Admin and Mentor */
+  memberRole?: string;
 };
 
 type TabId = 'compose' | 'groups' | 'sent';
@@ -55,21 +57,24 @@ export function CommunicationsPage({
   onOpenProfile,
   initialThreadId = null,
   onThreadSelect,
+  memberRole,
 }: CommunicationsPageProps) {
   const { showSuccess, showError } = useToast();
+  const canPublish = memberRole === 'Admin' || memberRole === 'Mentor';
+  const isMentor = memberRole === 'Mentor';
   const [groups, setGroups] = useState<CommGroup[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [members, setMembers] = useState<CommMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [tab, setTab] = useState<TabId>(initialThreadId ? 'sent' : 'compose');
+  const [tab, setTab] = useState<TabId>(initialThreadId ? 'sent' : canPublish ? 'compose' : 'sent');
   const [selectedId, setSelectedId] = useState<string | null>(initialThreadId);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [severity, setSeverity] = useState<SeverityLevel>('medium');
-  const [audienceMode, setAudienceMode] = useState<AudienceMode>('everyone');
+  const [audienceMode, setAudienceMode] = useState<AudienceMode>(isMentor ? 'people' : 'everyone');
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [peopleQuery, setPeopleQuery] = useState('');
@@ -173,12 +178,20 @@ export function CommunicationsPage({
   };
 
   const handlePublish = async () => {
+    if (!canPublish) {
+      setComposeError('Only Admin and Mentors can publish communications.');
+      return;
+    }
     if (!title.trim() || !body.trim()) {
       setComposeError('Add a title and message before publishing.');
       return;
     }
     if (audienceMode === 'people' && selectedPeople.length === 0) {
-      setComposeError('Select at least one person, or choose Everyone / groups.');
+      setComposeError(
+        isMentor
+          ? 'Select at least one person in your network, or choose My network.'
+          : 'Select at least one person, or choose Everyone / groups.'
+      );
       return;
     }
     if (audienceMode === 'groups' && selectedGroupIds.length === 0) {
@@ -211,7 +224,7 @@ export function CommunicationsPage({
       setTitle('');
       setBody('');
       setSeverity('medium');
-      setAudienceMode('everyone');
+      setAudienceMode(isMentor ? 'people' : 'everyone');
       setSelectedPeople([]);
       setSelectedGroupIds([]);
       setIncludePoll(false);
@@ -323,11 +336,19 @@ export function CommunicationsPage({
     }
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'compose', label: 'Compose' },
-    { id: 'groups', label: 'Groups' },
-    { id: 'sent', label: 'Sent' },
-  ];
+  const tabs: { id: TabId; label: string }[] = canPublish
+    ? [
+        { id: 'compose', label: 'Compose' },
+        { id: 'groups', label: 'Groups' },
+        { id: 'sent', label: 'Inbox' },
+      ]
+    : [{ id: 'sent', label: 'Inbox' }];
+
+  useEffect(() => {
+    if (!canPublish && (tab === 'compose' || tab === 'groups')) {
+      setTab('sent');
+    }
+  }, [canPublish, tab]);
 
   return (
     <section className="page-section comm-page">
@@ -347,7 +368,11 @@ export function CommunicationsPage({
             Communications
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Broadcast notices, optional polls, and reply threads — not a live chat.
+            {canPublish
+              ? isMentor
+                ? 'Publish to your network only — trainees and MLAs you mentor.'
+                : 'Broadcast notices, optional polls, and reply threads — not a live chat.'
+              : 'View notices shared with you. Only Admin and Mentors can publish.'}
           </p>
         </div>
         <div className="page-header-actions">
@@ -559,6 +584,7 @@ export function CommunicationsPage({
           <AudiencePanel
               audienceMode={audienceMode}
               setAudienceMode={setAudienceMode}
+              isMentor={isMentor}
               filteredPeople={filteredPeople}
               peopleQuery={peopleQuery}
               setPeopleQuery={setPeopleQuery}
@@ -735,6 +761,7 @@ export function CommunicationsPage({
 function AudiencePanel({
   audienceMode,
   setAudienceMode,
+  isMentor,
   filteredPeople,
   peopleQuery,
   setPeopleQuery,
@@ -746,6 +773,7 @@ function AudiencePanel({
 }: {
   audienceMode: AudienceMode;
   setAudienceMode: (mode: AudienceMode) => void;
+  isMentor?: boolean;
   filteredPeople: CommMember[];
   peopleQuery: string;
   setPeopleQuery: (value: string) => void;
@@ -755,17 +783,30 @@ function AudiencePanel({
   selectedGroupIds: string[];
   toggleSelectedGroup: (id: string) => void;
 }) {
+  const audienceOptions = (
+    isMentor
+      ? [
+          { id: 'everyone' as const, label: 'My network' },
+          { id: 'people' as const, label: 'Selected people' },
+          { id: 'groups' as const, label: 'Selected groups' },
+        ]
+      : [
+          { id: 'everyone' as const, label: 'Everyone' },
+          { id: 'people' as const, label: 'Selected people' },
+          { id: 'groups' as const, label: 'Selected groups' },
+        ]
+  );
+
   return (
     <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Who receives this?</h2>
+      {isMentor ? (
+        <p style={{ margin: 0, fontSize: 13, color: theme['text-secondary'] }}>
+          Mentors can only reach trainees and MLAs in their own network.
+        </p>
+      ) : null}
       <div className="comm-audience-options">
-        {(
-          [
-            { id: 'everyone', label: 'Everyone' },
-            { id: 'people', label: 'Selected people' },
-            { id: 'groups', label: 'Selected groups' },
-          ] as const
-        ).map((option) => (
+        {audienceOptions.map((option) => (
           <label
             key={option.id}
             style={{

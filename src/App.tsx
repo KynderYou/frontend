@@ -13,6 +13,7 @@ import { ScansMlaPage } from './components/Scans/ScansMlaPage';
 import { ScansHoPage } from './components/Scans/ScansHoPage';
 import { ReportsPage } from './components/Reports/ReportsPage';
 import { AuthPage } from './components/Auth/AuthPage';
+import { MemberProvider } from './components/Auth/MemberContext';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { AdminTopUpsPage } from './components/Admin/AdminTopUpsPage';
@@ -252,6 +253,7 @@ function App() {
 
   return (
     <ToastProvider>
+      <MemberProvider member={member}>
       {!isAuthenticated ? (
         isVerifyEmailRoute ? (
           <VerifyEmailPage
@@ -362,6 +364,7 @@ function App() {
               />
             ) : view === 'mis-communications' ? (
               <CommunicationsPage
+                memberRole={member?.role}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
                 initialThreadId={threadId}
@@ -402,6 +405,7 @@ function App() {
       </NotificationProvider>
     </div>
       )}
+      </MemberProvider>
     </ToastProvider>
   );
 }

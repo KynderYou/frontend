@@ -77,14 +77,14 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
 
   return (
     <main className="auth-page">
-      <section className="auth-card" aria-label="Member sign in">
+      <section className="auth-card auth-card--compact" aria-label="Member sign in">
         <div className="auth-form-panel">
           <img className="auth-logo" src={logo} alt="Midna" />
 
           <div className="auth-heading">
             <span className="auth-eyebrow">Member portal</span>
             <h1>Member sign in</h1>
-            <p>Scans · Reports · Billing · Counselling</p>
+            <p>Sign in with your Midna member email.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
@@ -177,48 +177,6 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             </button>
           </form>
         </div>
-
-        <aside className="auth-visual-panel">
-          <div className="auth-visual-glow auth-visual-glow-one" />
-          <div className="auth-visual-glow auth-visual-glow-two" />
-          <div className="auth-visual-copy">
-            <span className="auth-visual-badge">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-              Members only
-            </span>
-            <h2>Scans. Reports. Counselling. One workspace.</h2>
-            <p>Assigned work · Client data · Reports · CAB audio</p>
-          </div>
-
-          <div className="auth-preview">
-            <div className="auth-preview-head">
-              <div>
-                <span>Reports overview</span>
-                <strong>July 2026</strong>
-              </div>
-              <span className="auth-preview-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6M8 13h8M8 17h5" />
-                </svg>
-              </span>
-            </div>
-            <div className="auth-preview-stats">
-              <div><strong>24</strong><span>Total scans</span></div>
-              <div><strong>19</strong><span>Reports ready</span></div>
-              <div><strong>08</strong><span>CAB audios</span></div>
-            </div>
-            <div className="auth-preview-progress">
-              <span><i />Monthly progress</span>
-              <strong>79%</strong>
-            </div>
-            <div className="auth-preview-bar"><span /></div>
-          </div>
-
-          <p className="auth-copyright">© 2026 Midna Global. All rights reserved.</p>
-        </aside>
       </section>
     </main>
   );

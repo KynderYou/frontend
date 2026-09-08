@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { deleteReport, getMyReports, requestReportCab, upgradeReport } from '../../api';
+import {
+  ApiError,
+  authorizeReportDownload,
+  deleteReport,
+  getMe,
+  getMyLedger,
+  getMyReports,
+  requestReportCab,
+  upgradeReport,
+} from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonReportsStats, SkeletonTableCard } from '../common/Skeleton';
@@ -13,18 +22,18 @@ import { DeleteScanModal } from './DeleteScanModal';
 import { downloadReportPdf } from './downloadReportPdf';
 import { applyReportUpdate, reportListToRecords } from './reportApiMapper';
 import { type ReportRecord } from './reportTypes';
-import { isReportReady, REPORT_STATUS_FILTERS, scanStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
+import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_STATUS_FILTERS, scanStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
 import { UpgradeReportModal } from './UpgradeReportModal';
 
 const theme = colors.light;
 const REPORTS_PAGE_SIZE = 12;
 
 const avatarPalette = [
-  { color: '#4C5AD4', background: '#EEF0FF' },
+  { color: '#B80E66', background: '#FFF0F6' },
   { color: '#9C36B5', background: '#F8F0FC' },
   { color: '#D9480F', background: '#FFF4E6' },
   { color: '#2B8A3E', background: '#EBFBEE' },
-  { color: '#C2255C', background: '#FFF0F6' },
+  { color: '#0B7285', background: '#E3FAFC' },
 ] as const;
 
 const statusFilters = REPORT_STATUS_FILTERS;
@@ -35,6 +44,25 @@ function initials(name: string) {
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function reportMetaLine(row: ReportRecord, ready: boolean): string {
+  const size = row.size && row.size !== '—' ? row.size : '';
+  if (!ready) {
+    return row.generatedAt ? `Processing since ${row.generatedAt}` : 'Processing';
+  }
+  return [size, row.generatedAt, row.plan].filter(Boolean).join(' · ');
+}
+
+function apiErrorDetail(err: unknown, fallback: string) {
+  if (err instanceof ApiError) {
+    const detail =
+      typeof err.body === 'object' && err.body !== null && 'detail' in err.body
+        ? String((err.body as { detail: unknown }).detail)
+        : err.message;
+    return detail || fallback;
+  }
+  return fallback;
 }
 
 type ReportsPageProps = {
@@ -54,11 +82,21 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const [upgradingRecord, setUpgradingRecord] = useState<ReportRecord | null>(null);
   const [cabRecord, setCabRecord] = useState<ReportRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
+  const [walletOk, setWalletOk] = useState(true);
+  const [walletChecked, setWalletChecked] = useState(false);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const reports = await getMyReports(signal);
+      const [member, reports, ledger] = await Promise.all([
+        getMe(signal),
+        getMyReports(signal),
+        getMyLedger(signal),
+      ]);
+      const needsWallet = member.role === 'Mentor' || member.role === 'Trainee' || member.role === 'MLA';
+      const balance = ledger.available_balance ?? 0;
+      setWalletOk(!needsWallet || balance > 0);
+      setWalletChecked(true);
       setRecords(reportListToRecords(reports));
       setLoadError('');
     } catch {
@@ -77,7 +115,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return records.filter((row) => {
-      if (statusFilter !== 'All' && row.status !== statusFilter) return false;
+      if (!matchesReportStatusFilter(row.status, statusFilter)) return false;
       if (!q) return true;
       return (
         row.details.name.toLowerCase().includes(q) ||
@@ -100,12 +138,25 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     [records]
   );
 
+  const downloadTitle = (ready: boolean) => {
+    if (!ready) return 'Report is still processing';
+    if (walletChecked && !walletOk) return 'Top up your ledger to download reports';
+    return 'Download report PDF';
+  };
+
+  const canDownload = (ready: boolean) => ready && (!walletChecked || walletOk);
+
   const handleDownload = async (record: ReportRecord) => {
+    if (!isReportReady(record.status)) {
+      showError('Report is still processing');
+      return;
+    }
     try {
+      await authorizeReportDownload(record.numericId);
       await downloadReportPdf(record);
       showSuccess(`Report for scan ${record.scanId} downloaded.`);
-    } catch {
-      showError('Download failed. Please try again.');
+    } catch (err) {
+      showError(apiErrorDetail(err, 'Download failed. Please try again.'));
     }
   };
 
@@ -176,7 +227,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             </span>
           </div>
           <span className="scans-status-chip" style={chip}>
-            {row.status}
+            {displayReportStatus(row.status)}
           </span>
         </header>
 
@@ -192,7 +243,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
               {row.reportName}
             </span>
             <span className="reports-card-file-meta">
-              {ready ? `${row.size} · ${row.generatedAt}` : `Processing since ${row.generatedAt}`}
+              {reportMetaLine(row, ready)}
             </span>
           </div>
           <span className={`reports-plan-badge${isPremium ? ' is-premium' : ''}`}>{row.plan}</span>
@@ -202,8 +253,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           <button
             type="button"
             className="reports-card-download"
-            disabled={!ready}
-            title={ready ? 'Download report PDF' : 'Report is still processing'}
+            disabled={!canDownload(ready)}
+            title={downloadTitle(ready)}
             onClick={() => handleDownload(row)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -317,20 +368,20 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
                 <td data-label="Report">
                   <span className="scans-table-file-static">{row.reportName}</span>
                   <span className="scans-table-meta">
-                    {row.size} · {row.generatedAt} · {row.plan}
+                    {reportMetaLine(row, ready)}
                   </span>
                 </td>
                 <td data-label="Status">
                   <span className="scans-status-chip" style={chip}>
-                    {row.status}
+                    {displayReportStatus(row.status)}
                   </span>
                 </td>
                 <td data-label="Download">
                   <button
                     type="button"
                     className="scans-action-btn scans-action-export"
-                    disabled={!ready}
-                    title={ready ? 'Download report PDF' : 'Report is still processing'}
+                    disabled={!canDownload(ready)}
+                    title={downloadTitle(ready)}
                     onClick={() => handleDownload(row)}
                   >
                     Download
@@ -416,7 +467,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             My Reports
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            All your scans and their reports — download, upgrade, listen to CAB, or delete a scan. AI reports are coming soon.
+            All your scans and their reports — download, upgrade, request CAB, or delete a scan. AI reports are coming soon.
           </p>
         </div>
 
@@ -489,7 +540,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
         <div className="reports-toolbar">
           <div>
             <h2 className="scans-card-title">My scans</h2>
-            <p className="scans-card-sub">CAB = Counselling Audio Byte · reports unlock once processing completes</p>
+            <p className="scans-card-sub">
+              CAB = Counselling Audio Byte · reports appear once in Processing · download needs a funded wallet
+            </p>
           </div>
 
           <div className="reports-toolbar-controls">
@@ -562,7 +615,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             title={records.length === 0 ? 'No reports yet' : 'No reports match your search'}
             description={
               records.length === 0
-                ? 'Scans you upload will appear here once processing completes.'
+                ? 'Exported scans appear here as soon as they enter preprocessing, and stay visible through reporting.'
                 : 'Try a different name, scan id, or status filter.'
             }
             compact

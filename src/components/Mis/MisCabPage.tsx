@@ -375,7 +375,9 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
                         <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {mentor.name}
                         </div>
-                        <div style={{ fontSize: 11, color: theme['text-muted'], marginTop: 2 }}>{mentor.region}</div>
+                        {mentor.region && mentor.region !== '—' ? (
+                          <div style={{ fontSize: 11, color: theme['text-muted'], marginTop: 2 }}>{mentor.region}</div>
+                        ) : null}
                       </div>
                       <span
                         style={{

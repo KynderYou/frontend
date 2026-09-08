@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getMisScans } from '../../api';
+import { getMe, getMisScans } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonTableCard } from '../common/Skeleton';
@@ -34,22 +34,27 @@ export function MisScansPage({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
 
   const loadScans = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const result = await getMisScans(
-        {
-          year: NETWORK_YEAR,
-          page,
-          pageSize: PAGE_SIZE,
-          mlaId: mlaFilter === 'All' ? undefined : Number(mlaFilter),
-          month: monthFilter === 'All' ? undefined : Number(monthFilter),
-          q: query.trim() || undefined,
-        },
-        signal,
-      );
+      const [member, result] = await Promise.all([
+        getMe(signal),
+        getMisScans(
+          {
+            year: NETWORK_YEAR,
+            page,
+            pageSize: PAGE_SIZE,
+            mlaId: mlaFilter === 'All' ? undefined : Number(mlaFilter),
+            month: monthFilter === 'All' ? undefined : Number(monthFilter),
+            q: query.trim() || undefined,
+          },
+          signal,
+        ),
+      ]);
       const mapped = mapMisScans(result);
+      setViewerRole(member.role);
       setRows(mapped.rows);
       setMlaMembers(mapped.mlaMembers);
       setTotal(mapped.total);
@@ -85,6 +90,13 @@ export function MisScansPage({
   };
 
   const hasFilters = query.trim() !== '' || mlaFilter !== 'All' || monthFilter !== 'All';
+  const showMlaFilter = mlaMembers.length > 1;
+  const subtitle =
+    viewerRole === 'Admin'
+      ? `All network scans for ${NETWORK_YEAR} — every mentor, trainee, and MLA upload`
+      : viewerRole === 'Mentor'
+        ? `Your uploads plus your trainees’ and MLAs’ scans · ${NETWORK_YEAR}`
+        : `Your scans · ${NETWORK_YEAR}`;
 
   if (loadError) {
     return (
@@ -115,7 +127,7 @@ export function MisScansPage({
             MIS · Scans
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Scan database for the entire network · {NETWORK_YEAR}
+            {subtitle}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -172,7 +184,7 @@ export function MisScansPage({
                   setQuery(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Scan ID, name or MLA"
+                placeholder="Scan ID, name or uploader"
                 style={{
                   border: 'none',
                   outline: 'none',
@@ -185,22 +197,24 @@ export function MisScansPage({
               />
             </label>
 
-            <select
-              value={mlaFilter}
-              onChange={(e) => {
-                setMlaFilter(e.target.value);
-                setPage(1);
-              }}
-              aria-label="Filter by MLA"
-              className="mis-select"
-            >
-              <option value="All">All MLAs</option>
-              {mlaMembers.map((mla) => (
-                <option key={mla.id} value={mla.id}>
-                  {mla.name}
-                </option>
-              ))}
-            </select>
+            {showMlaFilter && (
+              <select
+                value={mlaFilter}
+                onChange={(e) => {
+                  setMlaFilter(e.target.value);
+                  setPage(1);
+                }}
+                aria-label="Filter by uploader"
+                className="mis-select"
+              >
+                <option value="All">All uploaders</option>
+                {mlaMembers.map((mla) => (
+                  <option key={mla.id} value={mla.id}>
+                    {mla.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             <select
               value={monthFilter}
@@ -244,7 +258,7 @@ export function MisScansPage({
               <tr>
                 <th>Scan ID</th>
                 <th>Name</th>
-                <th>MLA</th>
+                <th>Uploaded by</th>
                 <th>Scan upload date</th>
               </tr>
             </thead>
@@ -262,7 +276,7 @@ export function MisScansPage({
                     <td data-label="Name">
                       <span className="mis-scan-name">{scan.clientName}</span>
                     </td>
-                    <td data-label="MLA">{scan.mlaName}</td>
+                    <td data-label="Uploaded by">{scan.mlaName}</td>
                     <td data-label="Upload date">{scan.uploadedAt}</td>
                   </tr>
                 ))

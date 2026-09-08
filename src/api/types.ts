@@ -129,6 +129,7 @@ export type DashboardNotice = {
   severity: 'high' | 'medium' | 'low';
   author_name: string;
   author_initials: string;
+  author_role?: string | null;
   created_at: string;
   reply_count: number;
   seen_count: number;
@@ -279,6 +280,7 @@ export type CommunicationApi = {
   severity: string;
   author: string;
   author_initials: string;
+  author_role?: string | null;
   created_at: string;
   created_at_ms: number;
   audience_mode: string;
@@ -450,6 +452,8 @@ export type LedgerData = {
   billing_window_days: number;
   expenses_year: number;
   company_wide?: boolean;
+  available_balance?: number;
+  available_balance_display?: string;
 };
 
 export type CabDebitAudioApi = {

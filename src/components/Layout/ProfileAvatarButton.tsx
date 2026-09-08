@@ -1,11 +1,19 @@
 import { shadow } from '../../styles/theme';
+import { memberInitial, useCurrentMember } from '../Auth/MemberContext';
 
 type ProfileAvatarButtonProps = {
   onClick?: () => void;
+  /** Override when member context is unavailable */
+  name?: string;
 };
 
-/** Top-right avatar — blue fill, white ring, soft elevation (reference “U” bubble) */
-export function ProfileAvatarButton({ onClick }: ProfileAvatarButtonProps) {
+/** Top-right avatar — Midna pink fill, white ring, member initial */
+export function ProfileAvatarButton({ onClick, name }: ProfileAvatarButtonProps) {
+  const member = useCurrentMember();
+  const initial = name?.trim()
+    ? name.trim().charAt(0).toUpperCase()
+    : memberInitial(member);
+
   return (
     <button
       type="button"
@@ -19,7 +27,7 @@ export function ProfileAvatarButton({ onClick }: ProfileAvatarButtonProps) {
         padding: 0,
         flexShrink: 0,
         cursor: 'pointer',
-        background: '#5C7CFA',
+        background: 'var(--color-primary, #DD127B)',
         color: '#fff',
         display: 'grid',
         placeItems: 'center',
@@ -29,7 +37,7 @@ export function ProfileAvatarButton({ onClick }: ProfileAvatarButtonProps) {
         boxShadow: shadow.avatarRing,
       }}
     >
-      U
+      {initial}
     </button>
   );
 }

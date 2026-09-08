@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DashboardNotice } from '../../api';
-import { colors, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
+import { colors, noticeAuthorTokens, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton, SkeletonLine } from '../common/Skeleton';
 
@@ -28,6 +28,12 @@ const severityIcon: Record<SeverityLevel, React.ReactNode> = {
     </svg>
   ),
 };
+
+function authorTone(role: string | null | undefined) {
+  if (role === 'Admin') return noticeAuthorTokens.Admin;
+  if (role === 'Mentor') return noticeAuthorTokens.Mentor;
+  return noticeAuthorTokens.default;
+}
 
 type NoticeBoardProps = {
   notices: DashboardNotice[];
@@ -133,16 +139,17 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
           />
         ) : (
           notices.map((notice) => {
-            const tone = severityTokens[notice.severity];
+            const roleTone = authorTone(notice.author_role);
+            const severity = severityTokens[notice.severity];
             return (
               <article
                 key={notice.id}
                 style={{
                   borderRadius: radius.lg,
                   border: 'none',
-                  background: tone.bg,
+                  background: roleTone.bg,
                   padding: spacing[4],
-                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.55)',
+                  boxShadow: `inset 0 0 0 1px ${roleTone.border}`,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -156,23 +163,41 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
                       flexShrink: 0,
                       marginTop: 1,
                       background: theme['bg-surface'],
-                      color: tone.icon,
+                      color: severity.icon,
                       boxShadow: shadow.float,
                     }}
                   >
                     {severityIcon[notice.severity]}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: tone.text,
-                      }}
-                    >
-                      {notice.title}
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: 15,
+                          fontWeight: 600,
+                          color: roleTone.text,
+                        }}
+                      >
+                        {notice.title}
+                      </h3>
+                      {notice.author_role ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                            color: roleTone.badgeText,
+                            background: roleTone.badgeBg,
+                            borderRadius: radius.pill,
+                            padding: '3px 8px',
+                          }}
+                        >
+                          {notice.author_role}
+                        </span>
+                      ) : null}
+                    </div>
                     <p
                       style={{
                         margin: '6px 0 0',
@@ -266,7 +291,7 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
                             borderRadius: radius.pill,
                             border: 'none',
                             background: acknowledged[notice.id] ? theme.success : theme['bg-surface'],
-                            color: acknowledged[notice.id] ? '#fff' : tone.icon,
+                            color: acknowledged[notice.id] ? '#fff' : severity.icon,
                             fontSize: 11,
                             fontWeight: 600,
                             cursor: 'pointer',

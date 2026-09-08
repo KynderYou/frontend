@@ -4,7 +4,7 @@ import type {
   AdminVisibilityFieldsPayload,
 } from '../../api/types';
 
-export type MemberRole = 'Admin' | 'Mentor' | 'Trainee';
+export type MemberRole = 'Admin' | 'Mentor' | 'Trainee' | 'MLA';
 
 export type AdminAccountFormState = {
   name: string;
@@ -64,7 +64,7 @@ export function billingDigitsForForm(value: string | null | undefined, fallback:
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
-export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'Trainee'];
+export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'Trainee', 'MLA'];
 
 export const emptyAccountForm: AdminAccountFormState = {
   name: '',
