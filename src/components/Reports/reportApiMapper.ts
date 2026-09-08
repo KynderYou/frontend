@@ -1,5 +1,6 @@
 import type { ReportRecordApi } from '../../api/types';
-import type { CabAudio, ReportPlan, ReportRecord } from './reportTypes';
+import { normalizeReportPlan } from './reportPackages';
+import type { CabAudio, ReportRecord } from './reportTypes';
 
 function mapDetails(details: ReportRecordApi['details']) {
   return {
@@ -31,7 +32,7 @@ export function reportToRecord(report: ReportRecordApi): ReportRecord {
     size: report.size,
     generatedAt: report.generated_at,
     status: report.status,
-    plan: report.plan as ReportPlan,
+    plan: normalizeReportPlan(report.plan),
     details: mapDetails(report.details),
     cabAudios: mapCabAudios(report.cab_audios),
     cabRequestedAt: report.cab_requested_at ?? undefined,

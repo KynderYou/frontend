@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { colors } from '../../styles/theme';
 import type { ScanDetails } from './scanTypes';
+import { REPORT_PACKAGES } from '../Reports/reportPackages';
 
 const theme = colors.light;
 
@@ -15,7 +16,6 @@ type EditScanModalProps = {
 const clientTypeOptions = ['Individual', 'Institution', 'Bulk'] as const;
 const referredByOptions = ['SELF', 'MLA', 'HO', 'Referral'] as const;
 const genderOptions = ['Male', 'Female', 'Other'] as const;
-const mrpOptions = ['₹1,500', '₹2,000', '₹2,500', '₹3,000'] as const;
 
 export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditScanModalProps) {
   const [form, setForm] = useState<ScanDetails>(initial);
@@ -173,15 +173,15 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
               </label>
 
               <label className="form-field">
-                <span className="form-label">MRP</span>
+                <span className="form-label">Report package</span>
                 <div className="form-select-wrap">
                   <select className="form-input form-select" value={form.mrp} onChange={update('mrp')}>
                     <option value="" disabled>
-                      Choose amount
+                      Choose package
                     </option>
-                    {mrpOptions.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
+                    {REPORT_PACKAGES.map((pkg) => (
+                      <option key={pkg.id} value={pkg.mrp}>
+                        {pkg.id} · {pkg.mrp} · {pkg.pages} pages
                       </option>
                     ))}
                   </select>

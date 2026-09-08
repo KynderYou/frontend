@@ -22,6 +22,7 @@ import { DeleteScanModal } from './DeleteScanModal';
 import { downloadReportPdf } from './downloadReportPdf';
 import { applyReportUpdate, reportListToRecords } from './reportApiMapper';
 import { type ReportRecord } from './reportTypes';
+import { isTopPackage, packageForPlan, type ReportPlan } from './reportPackages';
 import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_STATUS_FILTERS, scanStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
 import { UpgradeReportModal } from './UpgradeReportModal';
 
@@ -136,7 +137,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     () => ({
       total: records.length,
       ready: records.filter((r) => isReportReady(r.status)).length,
-      premium: records.filter((r) => r.plan === 'Premium').length,
+      plus: records.filter((r) => packageForPlan(r.plan).id === 'GBPB Plus').length,
       cab: records.reduce((sum, r) => sum + r.cabAudios.length, 0),
     }),
     [records]
@@ -164,15 +165,15 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     }
   };
 
-  const handleUpgrade = async (record: ReportRecord) => {
+  const handleUpgrade = async (record: ReportRecord, targetPlan: ReportPlan) => {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const updated = await upgradeReport(record.numericId);
+      const updated = await upgradeReport(record.numericId, targetPlan);
       setRecords((prev) => applyReportUpdate(prev, updated));
-      showSuccess(`Scan ${record.scanId} upgraded to Premium. The upgraded report will be available shortly.`);
-    } catch {
-      showError('Upgrade failed. Please try again.');
+      showSuccess(`Scan ${record.scanId} upgraded to ${targetPlan}. The upgraded report will be available shortly.`);
+    } catch (err) {
+      showError(apiErrorDetail(err, 'Upgrade failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -213,7 +214,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const renderCard = (row: ReportRecord, index: number) => {
     const chip = scanStatusStyles(row.status);
     const ready = isReportReady(row.status);
-    const isPremium = row.plan === 'Premium';
+    const topPlan = isTopPackage(row.plan);
+    const plan = packageForPlan(row.plan);
     const avatar = avatarPalette[index % avatarPalette.length];
 
     return (
@@ -250,7 +252,13 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
               {reportMetaLine(row, ready)}
             </span>
           </div>
-          <span className={`reports-plan-badge${isPremium ? ' is-premium' : ''}`}>{row.plan}</span>
+          <span
+            className={`reports-plan-badge${
+              plan.id === 'GBPB Plus' ? ' is-premium' : plan.id === 'GBPBasic' ? ' is-basic' : ''
+            }`}
+          >
+            {plan.id}
+          </span>
         </div>
 
         <footer className="reports-card-actions">
@@ -286,12 +294,12 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             <button
               type="button"
               className="reports-tool-btn reports-tool-upgrade"
-              disabled={isPremium || !ready}
+              disabled={topPlan || !ready}
               title={
-                isPremium
-                  ? 'Already on the Premium plan'
+                topPlan
+                  ? 'Already on GBPB Plus'
                   : ready
-                    ? 'Upgrade this report to Premium'
+                    ? 'Upgrade to a higher GBP package'
                     : 'Report is still processing'
               }
               onClick={() => setUpgradingRecord(row)}
@@ -360,7 +368,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           {listPagination.pageItems.map((row, index) => {
             const chip = scanStatusStyles(row.status);
             const ready = isReportReady(row.status);
-            const isPremium = row.plan === 'Premium';
+            const topPlan = isTopPackage(row.plan);
             return (
               <tr key={row.id}>
                 <td data-label="Sno">{rowOffset + index + 1}</td>
@@ -405,17 +413,17 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
                   <button
                     type="button"
                     className="scans-action-btn reports-action-upgrade"
-                    disabled={isPremium || !ready}
+                    disabled={topPlan || !ready}
                     title={
-                      isPremium
-                        ? 'Already on the Premium plan'
+                      topPlan
+                        ? 'Already on GBPB Plus'
                         : ready
-                          ? 'Upgrade this report to Premium'
+                          ? 'Upgrade to a higher GBP package'
                           : 'Report is still processing'
                     }
                     onClick={() => setUpgradingRecord(row)}
                   >
-                    {isPremium ? 'Premium' : 'Upgrade'}
+                    {topPlan ? 'GBPB Plus' : 'Upgrade'}
                   </button>
                 </td>
                 <td data-label="CAB">
@@ -521,8 +529,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             </svg>
           </span>
           <div>
-            <span className="reports-stat-value">{stats.premium}</span>
-            <span className="reports-stat-label">Premium</span>
+            <span className="reports-stat-value">{stats.plus}</span>
+            <span className="reports-stat-label">GBPB Plus</span>
           </div>
         </div>
         <div className="reports-stat">

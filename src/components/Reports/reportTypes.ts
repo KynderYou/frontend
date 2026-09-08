@@ -1,6 +1,7 @@
 import type { ScanDetails } from '../Scans/scanTypes';
+import { normalizeReportPlan, type ReportPlan } from './reportPackages';
 
-export type ReportPlan = 'Standard' | 'Premium';
+export type { ReportPlan };
 
 export type CabAudio = {
   id: string;
@@ -30,3 +31,5 @@ export function formatDuration(totalSec: number) {
   const s = totalSec % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+
+export { normalizeReportPlan };

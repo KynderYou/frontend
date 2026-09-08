@@ -1,23 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReportRecord } from './reportTypes';
+import {
+  formatInr,
+  higherPackages,
+  packageForPlan,
+  upgradeDelta,
+  type ReportPlan,
+} from './reportPackages';
 
 type UpgradeReportModalProps = {
   open: boolean;
   record: ReportRecord | null;
   onClose: () => void;
-  onConfirm: (record: ReportRecord) => void;
+  onConfirm: (record: ReportRecord, targetPlan: ReportPlan) => void;
 };
 
-const premiumPerks = [
-  'Extended 40+ page premium report',
-  'Detailed intelligence & personality mapping',
-  'Extra counselling audio bytes (CAB) included',
-  'Priority processing at Head Office',
-];
-
 export function UpgradeReportModal({ open, record, onClose, onConfirm }: UpgradeReportModalProps) {
+  const options = useMemo(() => (record ? higherPackages(record.plan) : []), [record]);
+  const [targetPlan, setTargetPlan] = useState<ReportPlan | null>(null);
+
   useEffect(() => {
     if (!open) return;
+    setTargetPlan(options[0]?.id ?? null);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -27,9 +31,14 @@ export function UpgradeReportModal({ open, record, onClose, onConfirm }: Upgrade
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, options]);
 
   if (!open || !record) return null;
+
+  const current = packageForPlan(record.plan);
+  const selected = targetPlan ? packageForPlan(targetPlan) : null;
+  const delta = targetPlan ? upgradeDelta(record.plan, targetPlan) : 0;
+  const canConfirm = Boolean(targetPlan && selected && delta > 0);
 
   return (
     <div
@@ -49,10 +58,11 @@ export function UpgradeReportModal({ open, record, onClose, onConfirm }: Upgrade
         <div className="modal-header">
           <div>
             <h2 id="upgrade-report-title" className="modal-title">
-              Upgrade to Premium
+              Upgrade report package
             </h2>
             <p className="modal-subtitle">
-              Scan {record.scanId} · {record.details.name || 'Client'} — currently on the {record.plan} plan.
+              Scan {record.scanId} · {record.details.name || 'Client'} — currently {current.id} (
+              {current.pages} pages · {current.mrp}).
             </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
@@ -63,20 +73,46 @@ export function UpgradeReportModal({ open, record, onClose, onConfirm }: Upgrade
         </div>
 
         <div className="modal-body">
-          <div className="reports-upgrade-price">
-            <span className="reports-upgrade-price-value">₹1,000</span>
-            <span className="reports-upgrade-price-meta">one-time upgrade · debited from your ledger</span>
-          </div>
-          <ul className="reports-upgrade-perks">
-            {premiumPerks.map((perk) => (
-              <li key={perk}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-                {perk}
-              </li>
-            ))}
-          </ul>
+          {options.length === 0 ? (
+            <p className="modal-subtitle" style={{ margin: 0 }}>
+              This scan is already on the highest package (GBPB Plus).
+            </p>
+          ) : (
+            <>
+              <div className="reports-upgrade-options" role="radiogroup" aria-label="Choose package">
+                {options.map((pkg) => {
+                  const pkgDelta = upgradeDelta(record.plan, pkg.id);
+                  const checked = targetPlan === pkg.id;
+                  return (
+                    <label key={pkg.id} className={`reports-upgrade-option${checked ? ' is-selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="upgrade-plan"
+                        value={pkg.id}
+                        checked={checked}
+                        onChange={() => setTargetPlan(pkg.id)}
+                      />
+                      <span className="reports-upgrade-option-copy">
+                        <span className="reports-upgrade-option-title">{pkg.id}</span>
+                        <span className="reports-upgrade-option-meta">
+                          {pkg.pages} pages · {pkg.mrp}
+                        </span>
+                      </span>
+                      <span className="reports-upgrade-option-delta">+{formatInr(pkgDelta)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {selected ? (
+                <div className="reports-upgrade-price">
+                  <span className="reports-upgrade-price-value">{formatInr(delta)}</span>
+                  <span className="reports-upgrade-price-meta">
+                    upgrade difference · {selected.pages}-page {selected.id}
+                  </span>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
 
         <div className="modal-footer">
@@ -86,12 +122,14 @@ export function UpgradeReportModal({ open, record, onClose, onConfirm }: Upgrade
           <button
             type="button"
             className="btn-pill-primary"
+            disabled={!canConfirm}
             onClick={() => {
-              onConfirm(record);
+              if (!targetPlan || !canConfirm) return;
+              onConfirm(record, targetPlan);
               onClose();
             }}
           >
-            Upgrade report
+            Upgrade to {selected?.id ?? 'package'}
           </button>
         </div>
       </div>

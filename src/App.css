@@ -4793,6 +4793,11 @@
   color: var(--accent-orange, #ff922b);
 }
 
+.reports-plan-badge.is-basic {
+  background: #e7f5ff;
+  color: #1971c2;
+}
+
 .reports-card-actions {
   display: flex;
   align-items: center;
@@ -5001,6 +5006,59 @@
 /* Upgrade modal */
 .reports-upgrade-modal {
   max-width: 480px;
+}
+
+.reports-upgrade-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.reports-upgrade-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--color-bg-surface, #fff);
+}
+
+.reports-upgrade-option.is-selected {
+  border-color: var(--brand-500, #dd127b);
+  box-shadow: 0 0 0 1px var(--brand-500, #dd127b);
+}
+
+.reports-upgrade-option input {
+  margin: 0;
+}
+
+.reports-upgrade-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.reports-upgrade-option-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary, #212529);
+}
+
+.reports-upgrade-option-meta {
+  font-size: 12px;
+  color: var(--color-text-secondary, #868e96);
+}
+
+.reports-upgrade-option-delta {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-600, #b80e66);
+  white-space: nowrap;
 }
 
 .reports-upgrade-price {

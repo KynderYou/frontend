@@ -24,11 +24,14 @@ export async function authorizeReportDownload(
 }
 
 /** POST /api/reports/{id}/upgrade */
-export async function upgradeReport(scanId: number): Promise<ReportRecordApi> {
+export async function upgradeReport(scanId: number, targetPlan: string): Promise<ReportRecordApi> {
   if (isDemoToken(getToken())) {
     throw new Error('Upgrade not available in demo mode');
   }
-  return apiClient<ReportRecordApi>(`/api/reports/${scanId}/upgrade`, { method: 'POST' });
+  return apiClient<ReportRecordApi>(`/api/reports/${scanId}/upgrade`, {
+    method: 'POST',
+    body: { target_plan: targetPlan },
+  });
 }
 
 /** POST /api/reports/{id}/cab-request */
