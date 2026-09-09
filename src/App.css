@@ -5242,6 +5242,13 @@
   border-top: 1px solid var(--divider);
 }
 
+.admin-form-section--flush,
+.admin-profile-modal .modal-body > .admin-form-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .admin-form-section-title {
   margin: 0;
   font-size: 15px;
@@ -5253,6 +5260,26 @@
   margin: 4px 0 14px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.admin-status-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.admin-status-field {
+  flex: 0 1 240px;
+  margin: 0;
+  min-width: 180px;
+}
+
+.admin-status-resend {
+  flex: 0 0 auto;
+  height: var(--input-height, 40px);
+  white-space: nowrap;
 }
 
 .admin-form-span-2 {
@@ -5557,6 +5584,28 @@
 .auth-card--compact .auth-heading p {
   margin: 6px auto 0;
   font-size: 13px;
+}
+
+.auth-verify-panel {
+  text-align: center;
+}
+
+.auth-verify-panel .auth-heading {
+  margin-bottom: 12px;
+}
+
+.auth-verify-panel .auth-verify-subtitle.is-success {
+  color: var(--color-success, #2f9e44);
+  font-weight: 600;
+}
+
+.auth-verify-panel .auth-verify-status {
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.auth-verify-panel .auth-submit {
+  margin-top: 8px;
 }
 
 .auth-submit {

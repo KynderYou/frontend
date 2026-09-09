@@ -552,6 +552,7 @@ export type AdminMemberApi = {
   role: string;
   created_at: string;
   status: string;
+  mentee_type?: string;
   doj?: string | null;
   mas_type?: string;
   expiry_date?: string | null;
@@ -589,6 +590,7 @@ export type AdminMembershipFieldsPayload = {
   billing?: string;
   op_bal?: number;
   doj?: string;
+  role?: string;
 };
 
 export type AdminVisibilityFieldsPayload = {

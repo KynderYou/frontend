@@ -35,6 +35,7 @@ export type AdminVisibilityFormState = {
 export type AdminEditFormState = AdminMembershipFormState &
   AdminVisibilityFormState & {
     status: 'Active' | 'Invited' | 'Disabled';
+    role: MemberRole;
   };
 
 export type MentorOption = {
@@ -119,10 +120,19 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
   };
 }
 
+export function memberDisplayRole(member: Pick<AdminMemberApi, 'role' | 'mentee_type'>): MemberRole {
+  if (member.role === 'MLA' || (member.mentee_type || '').toLowerCase() === 'mla') return 'MLA';
+  if (member.role === 'Admin' || member.role === 'Mentor' || member.role === 'Trainee') {
+    return member.role;
+  }
+  return 'Trainee';
+}
+
 export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {
   return {
     ...memberToMembershipForm(member),
     ...memberToVisibilityForm(member),
+    role: memberDisplayRole(member),
     status:
       member.status === 'Disabled' ? 'Disabled' : member.status === 'Invited' ? 'Invited' : 'Active',
   };
@@ -138,6 +148,13 @@ export function membershipFormToPayload(form: AdminMembershipFormState): AdminMe
   if (form.expiryDate) payload.expiry_date = form.expiryDate;
   if (form.opBal.trim()) payload.op_bal = Number(form.opBal);
   return payload;
+}
+
+export function editMembershipFormToPayload(form: AdminEditFormState): AdminMembershipFieldsPayload {
+  return {
+    ...membershipFormToPayload(form),
+    role: form.role,
+  };
 }
 
 export function visibilityFormToPayload(form: AdminVisibilityFormState): AdminVisibilityFieldsPayload {

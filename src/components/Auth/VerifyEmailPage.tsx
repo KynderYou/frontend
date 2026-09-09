@@ -7,26 +7,54 @@ type VerifyEmailPageProps = {
   onGoToSignIn: () => void;
 };
 
+type VerifyStatus = 'loading' | 'success' | 'error' | 'missing';
+
+function headingCopy(status: VerifyStatus): { title: string; subtitle: string } {
+  if (status === 'success') {
+    return {
+      title: 'Email verified',
+      subtitle: 'Your Midna Global account is active. You can sign in now.',
+    };
+  }
+  if (status === 'loading') {
+    return {
+      title: 'Verifying email',
+      subtitle: 'Confirming your link — usually under a second.',
+    };
+  }
+  if (status === 'missing') {
+    return {
+      title: 'Link missing',
+      subtitle: 'Open the verification link from your Midna Global email to continue.',
+    };
+  }
+  return {
+    title: 'Unable to verify',
+    subtitle: 'This link is invalid or has already been used. Try signing in, or ask admin to resend.',
+  };
+}
+
 export function VerifyEmailPage({ token, onGoToSignIn }: VerifyEmailPageProps) {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'missing'>(
-    token ? 'loading' : 'missing',
-  );
+  const [status, setStatus] = useState<VerifyStatus>(token ? 'loading' : 'missing');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
 
   useEffect(() => {
     if (!token) return;
 
-    let cancelled = false;
-    verifyEmail(token)
+    const controller = new AbortController();
+    setStatus('loading');
+
+    verifyEmail(token, controller.signal)
       .then((result) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setEmail(result.email);
         setMessage(result.message);
         setStatus('success');
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
+        if (err instanceof ApiError && (err.status === 0 || err.statusText === 'Aborted')) return;
         if (err instanceof ApiError) {
           const detail =
             typeof err.body === 'object' && err.body !== null && 'detail' in err.body
@@ -39,45 +67,32 @@ export function VerifyEmailPage({ token, onGoToSignIn }: VerifyEmailPageProps) {
         setStatus('error');
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [token]);
+
+  const copy = headingCopy(status);
+  const subtitle =
+    status === 'success' && email
+      ? `${email} is verified. You can sign in now.`
+      : status === 'error' && message
+        ? message
+        : copy.subtitle;
 
   return (
     <main className="auth-page">
       <section className="auth-card auth-card--compact" aria-label="Verify email">
-        <div className="auth-form-panel">
-          <img className="auth-logo" src={logo} alt="Midna" />
+        <div className="auth-form-panel auth-verify-panel">
+          <img className="auth-logo" src={logo} alt="Midna Global" />
 
           <div className="auth-heading">
             <span className="auth-eyebrow">Member portal</span>
-            <h1>Verify your email</h1>
-            <p>Confirm your address to activate your Midna account.</p>
+            <h1>{copy.title}</h1>
+            <p className={status === 'success' ? 'auth-verify-subtitle is-success' : undefined}>{subtitle}</p>
           </div>
 
           {status === 'loading' ? (
-            <p className="auth-status-copy">Verifying your link…</p>
-          ) : null}
-
-          {status === 'missing' ? (
-            <p className="auth-error" role="alert">
-              This verification link is missing or invalid.
-            </p>
-          ) : null}
-
-          {status === 'success' ? (
-            <>
-              <p className="auth-status-copy auth-status-copy--success" role="status">
-                {message}
-              </p>
-              {email ? <p className="auth-status-copy">Verified address: {email}</p> : null}
-            </>
-          ) : null}
-
-          {status === 'error' ? (
-            <p className="auth-error" role="alert">
-              {message}
+            <p className="auth-status-copy auth-verify-status" role="status">
+              Verifying…
             </p>
           ) : null}
 

@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { updateAdminMemberMembership, updateAdminMemberStatus, updateAdminMemberVisibility, resendAdminMemberVerification } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
 import { colors, spacing } from '../../styles/theme';
+import { useToast } from '../common/ToastProvider';
 import { AdminMembershipBillingFields } from './AdminMembershipBillingFields';
 import { AdminVisibilityAdminFields } from './AdminVisibilityAdminFields';
 import {
+  editMembershipFormToPayload,
   memberToEditForm,
-  membershipFormToPayload,
+  roleOptions,
   visibilityFormToPayload,
   type AdminEditFormState,
+  type MemberRole,
   type MentorOption,
 } from './adminProfileForm';
 
@@ -29,13 +32,13 @@ export function AdminMemberProfileModal({
   onClose,
   onSaved,
 }: AdminMemberProfileModalProps) {
+  const { showSuccess, showError } = useToast();
   const [form, setForm] = useState<AdminEditFormState>(() =>
     member ? memberToEditForm(member) : memberToEditForm({} as AdminMemberApi),
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
-  const [resendMessage, setResendMessage] = useState('');
 
   useEffect(() => {
     if (open && member) {
@@ -61,13 +64,14 @@ export function AdminMemberProfileModal({
 
   const handleResendVerification = async () => {
     setResending(true);
-    setResendMessage('');
     setError('');
     try {
       const result = await resendAdminMemberVerification(member.id);
-      setResendMessage(result.message);
+      showSuccess(result.message || 'Verification email sent.');
     } catch {
-      setError('Unable to resend verification email.');
+      const message = 'Unable to resend verification email.';
+      setError(message);
+      showError(message);
     } finally {
       setResending(false);
     }
@@ -78,7 +82,7 @@ export function AdminMemberProfileModal({
     setSaving(true);
     setError('');
     try {
-      await updateAdminMemberMembership(member.id, membershipFormToPayload(form));
+      await updateAdminMemberMembership(member.id, editMembershipFormToPayload(form));
       const visibilityResult = await updateAdminMemberVisibility(member.id, visibilityFormToPayload(form));
       let saved = visibilityResult.member;
       if (form.status !== member.status) {
@@ -122,44 +126,64 @@ export function AdminMemberProfileModal({
                 {error}
               </p>
             ) : null}
+            <div className="admin-form-section admin-form-section--flush">
+              <h3 className="admin-form-section-title">Role &amp; status</h3>
+              <div className="admin-status-row">
+                <label className="form-field admin-status-field">
+                  <span className="form-label">Role</span>
+                  <div className="form-select-wrap">
+                    <select
+                      className="form-input form-select"
+                      value={form.role}
+                      onChange={(e) =>
+                        setForm((current) => ({ ...current, role: e.target.value as MemberRole }))
+                      }
+                    >
+                      {roleOptions.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+                <label className="form-field admin-status-field">
+                  <span className="form-label">Sign-in status</span>
+                  <div className="form-select-wrap">
+                    <select
+                      className="form-input form-select"
+                      value={form.status}
+                      onChange={(e) =>
+                        setForm((current) => ({
+                          ...current,
+                          status: e.target.value as AdminEditFormState['status'],
+                        }))
+                      }
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Invited">Invited</option>
+                      <option value="Disabled">Disabled</option>
+                    </select>
+                  </div>
+                </label>
+                {member.status === 'Invited' ? (
+                  <button
+                    type="button"
+                    className="btn-pill-secondary admin-status-resend"
+                    onClick={handleResendVerification}
+                    disabled={resending || saving}
+                  >
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <AdminMembershipBillingFields
               form={form}
               mentors={mentors}
               onChange={(next) => setForm((current) => ({ ...current, ...next }))}
             />
             <AdminVisibilityAdminFields form={form} onChange={(next) => setForm((current) => ({ ...current, ...next }))} />
-            <div className="admin-form-section">
-              <h3 className="admin-form-section-title">Account status</h3>
-              <label className="form-field" style={{ maxWidth: 240 }}>
-                <span className="form-label">Sign-in status</span>
-                <div className="form-select-wrap">
-                  <select
-                    className="form-input form-select"
-                    value={form.status}
-                    onChange={(e) => setForm((current) => ({ ...current, status: e.target.value as AdminEditFormState['status'] }))}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Invited">Invited</option>
-                    <option value="Disabled">Disabled</option>
-                  </select>
-                </div>
-              </label>
-              {member.status === 'Invited' ? (
-                <div style={{ marginTop: spacing[3] }}>
-                  <button
-                    type="button"
-                    className="btn-pill-secondary"
-                    onClick={handleResendVerification}
-                    disabled={resending || saving}
-                  >
-                    {resending ? 'Sending…' : 'Resend verification email'}
-                  </button>
-                  {resendMessage ? (
-                    <p style={{ color: theme.success, fontSize: 13, marginTop: spacing[2] }}>{resendMessage}</p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={saving}>
