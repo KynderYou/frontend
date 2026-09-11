@@ -8,6 +8,7 @@ import {
 } from '../../api';
 import type { Certification, MemberProfile } from '../../api';
 import { buttonTokens, colors, metricColors, radius, severityTokens, spacing, typography } from '../../styles/theme';
+import { useMemberActions } from '../Auth/MemberContext';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonProfileBody } from '../common/Skeleton';
 import { AvatarCropModal } from './AvatarCropModal';
@@ -264,6 +265,7 @@ function LitePopup({ open, title, children, onClose }: LitePopupProps) {
 }
 
 export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
+  const { patchMember } = useMemberActions();
   const [editOpen, setEditOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -278,9 +280,12 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
   const loadProfile = useCallback(async () => {
     const data = await getMyProfile();
     setProfile(data);
+    // Keep top-right header avatar in sync with profile photo
+    const avatarPath = data.avatar_url?.match(/\/api\/files\/\d+/)?.[0] ?? data.avatar_url ?? null;
+    patchMember({ avatar_url: avatarPath, name: data.name });
     setError('');
     return data;
-  }, []);
+  }, [patchMember]);
 
   const loadCertifications = useCallback(async () => {
     const certs = await getCertifications();
@@ -361,6 +366,9 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
       const blob = await dataUrlToBlob(dataUrl);
       const updated = await uploadAvatar(blob, 'avatar.jpg');
       setProfile(updated);
+      const avatarPath =
+        updated.avatar_url?.match(/\/api\/files\/\d+/)?.[0] ?? updated.avatar_url ?? null;
+      patchMember({ avatar_url: avatarPath, name: updated.name });
     } catch {
       setAvatarUrl(dataUrl);
     }
@@ -368,6 +376,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
 
   const handleProfileSaved = async (updated: MemberProfile) => {
     setProfile(updated);
+    patchMember({ name: updated.name });
     await loadCertifications();
   };
 

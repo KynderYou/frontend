@@ -1,20 +1,49 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
 import type { Member } from '../../api';
 
-const MemberContext = createContext<Member | null>(null);
+type MemberContextValue = {
+  member: Member | null;
+  setMember: (member: Member | null) => void;
+  patchMember: (patch: Partial<Member>) => void;
+};
+
+const MemberContext = createContext<MemberContextValue>({
+  member: null,
+  setMember: () => undefined,
+  patchMember: () => undefined,
+});
 
 export function MemberProvider({
   member,
+  setMember,
   children,
 }: {
   member: Member | null;
+  setMember: (member: Member | null) => void;
   children: ReactNode;
 }) {
-  return <MemberContext.Provider value={member}>{children}</MemberContext.Provider>;
+  const patchMember = useCallback(
+    (patch: Partial<Member>) => {
+      setMember(member ? { ...member, ...patch } : member);
+    },
+    [member, setMember],
+  );
+
+  const value = useMemo(
+    () => ({ member, setMember, patchMember }),
+    [member, setMember, patchMember],
+  );
+
+  return <MemberContext.Provider value={value}>{children}</MemberContext.Provider>;
 }
 
 export function useCurrentMember() {
-  return useContext(MemberContext);
+  return useContext(MemberContext).member;
+}
+
+export function useMemberActions() {
+  const { setMember, patchMember } = useContext(MemberContext);
+  return { setMember, patchMember };
 }
 
 /** First letter of the member's display name (falls back to email / U). */

@@ -13,6 +13,7 @@ export const demoMember: Member = {
   role: 'Admin',
   status: 'Active',
   name: 'Admin User',
+  avatar_url: null,
   nav: {
     ho_trainees: true,
     ho_mlas: true,

@@ -253,7 +253,7 @@ function App() {
 
   return (
     <ToastProvider>
-      <MemberProvider member={member}>
+      <MemberProvider member={member} setMember={setMember}>
       {!isAuthenticated ? (
         isVerifyEmailRoute ? (
           <VerifyEmailPage
