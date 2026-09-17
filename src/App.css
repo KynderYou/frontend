@@ -569,9 +569,11 @@
 
 .mis-cab-audio-cell {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 220px;
+  max-width: 340px;
 }
 
 .mis-cab-audio-play {
@@ -5121,8 +5123,9 @@
 
 .reports-cab-item {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   padding: 12px 14px;
   border-radius: var(--radius-md, 16px);
   background: var(--color-bg-muted, #f1f3f5);
@@ -5149,6 +5152,42 @@
 
 button.reports-cab-play:hover:not(:disabled) {
   filter: brightness(0.96);
+}
+
+.cab-audio-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.cab-audio-scrub {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cab-audio-seek {
+  width: 100%;
+  height: 6px;
+  margin: 0;
+  accent-color: var(--color-primary, #dd127b);
+  cursor: pointer;
+}
+
+.cab-audio-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-muted, #868e96);
+  font-variant-numeric: tabular-nums;
+}
+
+.cab-audio-player.is-compact .cab-audio-times {
+  font-size: 10px;
 }
 
 .reports-cab-item-body {

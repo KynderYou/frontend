@@ -11,7 +11,6 @@ import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabPlayButton } from '../Reports/CabPlayButton';
 import { cabCountFor, mapCabState, pendingCabCountFor } from './cabApiMapper';
 import {
-  formatAudioLabel,
   type CabDebitRecord,
   type CabDebitStatus,
   type CabPendingRequest,
@@ -616,15 +615,17 @@ function CabRow({
       <td data-label={isTrainee ? 'Mentor' : 'Mentee'}>{isTrainee ? row.mentorName : row.menteeName}</td>
       <td data-label="Audio File">
         <div className="mis-cab-audio-cell">
+          <div className="mis-cab-audio-text">
+            <span className="mis-cab-audio-title">{row.audio.title}</span>
+            <span className="mis-cab-audio-meta">{row.audio.fileName}</span>
+          </div>
           <CabPlayButton
             url={row.audio.url}
             title={row.audio.title}
+            durationSec={row.audio.durationSec}
             className="reports-cab-play mis-cab-audio-play"
+            compact
           />
-          <div className="mis-cab-audio-text">
-            <span className="mis-cab-audio-title">{row.audio.title}</span>
-            <span className="mis-cab-audio-meta">{formatAudioLabel(row.audio)} · {row.audio.fileName}</span>
-          </div>
         </div>
       </td>
       <td data-label={isTrainee ? 'Status' : 'Debit'} className="col-center">

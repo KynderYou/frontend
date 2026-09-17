@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CabPlayButton } from './CabPlayButton';
-import { formatDuration, type ReportRecord } from './reportTypes';
+import type { ReportRecord } from './reportTypes';
 
 type CabModalProps = {
   open: boolean;
@@ -63,16 +63,13 @@ export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
             <ul className="reports-cab-list">
               {record.cabAudios.map((audio, index) => (
                 <li key={audio.id} className="reports-cab-item">
-                  <CabPlayButton url={audio.url} title={audio.title} />
                   <span className="reports-cab-item-body">
                     <span className="reports-cab-item-title">
                       {index + 1}. {audio.title}
                     </span>
-                    <span className="reports-cab-item-meta">
-                      {audio.counsellor}
-                      {audio.durationSec > 0 ? ` · ${formatDuration(audio.durationSec)}` : ''}
-                    </span>
+                    <span className="reports-cab-item-meta">{audio.counsellor}</span>
                   </span>
+                  <CabPlayButton url={audio.url} title={audio.title} durationSec={audio.durationSec} />
                 </li>
               ))}
             </ul>
