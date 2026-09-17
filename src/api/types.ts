@@ -330,6 +330,7 @@ export type CabAudioApi = {
   title: string;
   counsellor: string;
   duration_sec: number;
+  url?: string | null;
 };
 
 export type ReportRecordApi = {
@@ -462,6 +463,7 @@ export type CabDebitAudioApi = {
   title: string;
   file_name: string;
   duration_sec: number;
+  url?: string | null;
 };
 
 export type CabDebitApi = {
@@ -481,6 +483,15 @@ export type CabDebitApi = {
 export type CabStateApi = {
   mentors: MentorApi[];
   records: CabDebitApi[];
+  pending_requests?: CabPendingRequestApi[];
+};
+
+export type CabPendingRequestApi = {
+  scan_code: string;
+  client_name: string;
+  mentee_id: number;
+  mentee_name: string;
+  requested_at: string;
 };
 
 export type MisContributorApi = {

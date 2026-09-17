@@ -8,6 +8,7 @@ export type CabAudio = {
   title: string;
   counsellor: string;
   durationSec: number;
+  url?: string | null;
 };
 
 export type ReportRecord = {

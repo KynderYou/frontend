@@ -8,12 +8,15 @@ import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { CabPlayButton } from '../Reports/CabPlayButton';
 import { cabCountFor, mapCabState, pendingCabCountFor } from './cabApiMapper';
 import {
   formatAudioLabel,
   type CabDebitRecord,
   type CabDebitStatus,
+  type CabPendingRequest,
 } from './cabData';
+import { MisCabUploadModal } from './MisCabUploadModal';
 import type { Mentor } from '../Trainees/traineesData';
 
 const theme = colors.light;
@@ -22,6 +25,9 @@ const CAB_PAGE_SIZE = 12;
 type MisCabPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
+  /** Open upload modal for this scan (notification deep link). */
+  initialScanCode?: string | null;
+  onClearInitialScan?: () => void;
 };
 
 function initials(name: string) {
@@ -113,31 +119,42 @@ function CabDebitConfirmModal({
   );
 }
 
-export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps) {
+export function MisCabPage({
+  onOpenMobileMenu,
+  onOpenProfile,
+  initialScanCode = null,
+  onClearInitialScan,
+}: MisCabPageProps) {
   const { showSuccess, showError } = useToast();
   const [isAdmin, setIsAdmin] = useState(true);
   const [isTrainee, setIsTrainee] = useState(false);
+  const [canUpload, setCanUpload] = useState(false);
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [records, setRecords] = useState<CabDebitRecord[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<CabPendingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [selectedMentorId, setSelectedMentorId] = useState('');
   const [mentorQuery, setMentorQuery] = useState('');
   const [query, setQuery] = useState('');
   const [debitTarget, setDebitTarget] = useState<CabDebitRecord | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ scanCode: string; clientName?: string } | null>(null);
 
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const member = await getMe(signal);
       const staffView = member.role === 'Admin';
+      const mentorView = member.role === 'Mentor';
       setIsAdmin(staffView);
       setIsTrainee(member.role === 'Trainee');
-      const scope = staffView ? undefined : member.role === 'Mentor' ? 'mine' : undefined;
+      setCanUpload(staffView || mentorView);
+      const scope = staffView ? undefined : mentorView ? 'mine' : undefined;
       const state = await getCabState(signal, scope);
       const mapped = mapCabState(state);
       setMentors(mapped.mentors);
       setRecords(mapped.records);
+      setPendingRequests(mapped.pendingRequests);
       setSelectedMentorId((prev) => prev || mapped.mentors[0]?.id || '');
       setLoadError('');
     } catch {
@@ -152,6 +169,16 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
     loadState(controller.signal);
     return () => controller.abort();
   }, [loadState]);
+
+  useEffect(() => {
+    if (!initialScanCode || !canUpload || loading) return;
+    const pending = pendingRequests.find((row) => row.scanCode === initialScanCode);
+    setUploadTarget({
+      scanCode: initialScanCode,
+      clientName: pending?.clientName,
+    });
+    onClearInitialScan?.();
+  }, [initialScanCode, canUpload, loading, pendingRequests, onClearInitialScan]);
 
   const filteredMentors = useMemo(() => {
     const q = mentorQuery.trim().toLowerCase();
@@ -195,10 +222,15 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
       const mapped = mapCabState(state);
       setMentors(mapped.mentors);
       setRecords(mapped.records);
+      setPendingRequests(mapped.pendingRequests);
       showSuccess(`${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`);
     } catch {
       showError('Unable to record debit. Please try again.');
     }
+  };
+
+  const openUpload = (row: CabPendingRequest) => {
+    setUploadTarget({ scanCode: row.scanCode, clientName: row.clientName });
   };
 
   if (loading) {
@@ -248,8 +280,8 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
             {isTrainee
               ? 'Counselling audio uploaded for your scans.'
               : isAdmin
-                ? 'Debit trainees for counselling audio bytes taken from their mentor.'
-                : 'Review mentee scans with CAB audio and record debits.'}
+                ? 'Upload CAB for pending requests, then debit mentees.'
+                : 'Upload counselling audio for mentee CAB requests, then record debits.'}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -263,7 +295,54 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
         </div>
       </div>
 
-      {records.length === 0 ? (
+      {canUpload && pendingRequests.length > 0 ? (
+        <div className="dash-card" style={{ padding: 0, marginBottom: spacing[5] }}>
+          <div style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: theme['text-primary'] }}>
+              Pending CAB uploads
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+              {pendingRequests.length} request{pendingRequests.length === 1 ? '' : 's'} waiting for counselling audio
+            </p>
+          </div>
+          <div className="trainees-table-body">
+            <table className="mis-data-table trainees-data-table mis-cab-table">
+              <thead>
+                <tr>
+                  <th>Scan ID</th>
+                  <th>Client</th>
+                  <th>Mentee</th>
+                  <th>Requested</th>
+                  <th className="col-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingRequests.map((row) => (
+                  <tr key={row.scanCode}>
+                    <td data-label="Scan ID">
+                      <span className="mis-scan-id">{row.scanCode}</span>
+                    </td>
+                    <td data-label="Client">{row.clientName || '—'}</td>
+                    <td data-label="Mentee">{row.menteeName}</td>
+                    <td data-label="Requested">{row.requestedAt || '—'}</td>
+                    <td data-label="Action" className="col-center">
+                      <button
+                        type="button"
+                        className="scans-action-btn scans-action-export"
+                        onClick={() => openUpload(row)}
+                      >
+                        Upload CAB
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {records.length === 0 && pendingRequests.length === 0 ? (
         <div className="dash-card" style={{ padding: spacing[2] }}>
           <EmptyState
             title="No CAB entries yet"
@@ -271,12 +350,12 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
               isTrainee
                 ? 'When counselling audio is uploaded for your scans, it will appear here.'
                 : isAdmin
-                  ? 'When a mentee requests CAB on a report and audio is uploaded, debit records will show up here.'
-                  : 'When your mentees request CAB and counselling audio is uploaded, entries will appear here.'
+                  ? 'When a mentee requests CAB, pending uploads appear here for mentors to complete.'
+                  : 'When your mentees request CAB, upload counselling audio here. Debit entries appear after upload.'
             }
           />
         </div>
-      ) : (
+      ) : records.length === 0 ? null : (
       <div className={`trainees-layout${isAdmin ? '' : ' trainees-layout--single'}`} style={{ gap: spacing[5] }}>
         {isAdmin ? (
           <div className="dash-card trainees-panel" style={{ padding: 0 }}>
@@ -502,6 +581,16 @@ export function MisCabPage({ onOpenMobileMenu, onOpenProfile }: MisCabPageProps)
           void handleDebit(record);
         }}
       />
+
+      <MisCabUploadModal
+        open={Boolean(uploadTarget)}
+        scanCode={uploadTarget?.scanCode ?? ''}
+        clientName={uploadTarget?.clientName}
+        onClose={() => setUploadTarget(null)}
+        onUploaded={() => {
+          void loadState();
+        }}
+      />
     </section>
   );
 }
@@ -527,11 +616,11 @@ function CabRow({
       <td data-label={isTrainee ? 'Mentor' : 'Mentee'}>{isTrainee ? row.mentorName : row.menteeName}</td>
       <td data-label="Audio File">
         <div className="mis-cab-audio-cell">
-          <span className="reports-cab-play mis-cab-audio-play" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </span>
+          <CabPlayButton
+            url={row.audio.url}
+            title={row.audio.title}
+            className="reports-cab-play mis-cab-audio-play"
+          />
           <div className="mis-cab-audio-text">
             <span className="mis-cab-audio-title">{row.audio.title}</span>
             <span className="mis-cab-audio-meta">{formatAudioLabel(row.audio)} · {row.audio.fileName}</span>

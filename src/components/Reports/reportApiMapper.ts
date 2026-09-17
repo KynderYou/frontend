@@ -20,6 +20,7 @@ function mapCabAudios(audios: ReportRecordApi['cab_audios']): CabAudio[] {
     title: audio.title,
     counsellor: audio.counsellor,
     durationSec: audio.duration_sec,
+    url: audio.url ?? null,
   }));
 }
 

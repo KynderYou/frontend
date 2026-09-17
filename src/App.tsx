@@ -88,6 +88,9 @@ function writeHash(
   if (view === 'mis-scans' && options.misScanCode) {
     params.set('scan', options.misScanCode);
   }
+  if (view === 'mis-cab' && options.misScanCode) {
+    params.set('scan', options.misScanCode);
+  }
   const query = params.toString();
   window.location.hash = query ? `#/${view}?${query}` : `#/${view}`;
 }
@@ -158,6 +161,12 @@ function App() {
       return;
     }
     if (nextView === 'mis-scans' && target) {
+      setMisScanCode(target);
+      setThreadId(null);
+      setTopUpId(null);
+      return;
+    }
+    if (nextView === 'mis-cab' && target) {
       setMisScanCode(target);
       setThreadId(null);
       setTopUpId(null);
@@ -386,6 +395,8 @@ function App() {
               <MisCabPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
+                initialScanCode={misScanCode}
+                onClearInitialScan={() => setMisScanCode(null)}
               />
             ) : null}
           </main>

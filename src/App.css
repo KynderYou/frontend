@@ -5134,9 +5134,21 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  border: none;
+  padding: 0;
   flex-shrink: 0;
   background: var(--color-primary-soft, #eef0ff);
   color: var(--color-primary, #6d7af2);
+  cursor: pointer;
+}
+
+.reports-cab-play:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+button.reports-cab-play:hover:not(:disabled) {
+  filter: brightness(0.96);
 }
 
 .reports-cab-item-body {

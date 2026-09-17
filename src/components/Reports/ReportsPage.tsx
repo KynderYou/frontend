@@ -85,7 +85,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
   const [walletOk, setWalletOk] = useState(true);
   const [walletChecked, setWalletChecked] = useState(false);
-  /** Mentors / trainees / MLAs need ledger balance to download; Admin does not. */
+  /** Mentors / trainees / MLAs need ledger balance for report actions; Admin/HO does not. */
   const [walletRequired, setWalletRequired] = useState(false);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
@@ -143,17 +143,29 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     [records]
   );
 
-  const downloadTitle = (ready: boolean) => {
-    if (!ready) return 'Report is still processing';
-    if (walletChecked && !walletOk) return 'Top up your ledger to download reports';
+  const walletBlocked = walletChecked && !walletOk;
+  const canUseActions = !walletChecked || walletOk;
+  const walletBlockTitle = 'Top up your ledger to use report actions';
+
+  const downloadTitle = () => {
+    if (walletBlocked) return walletBlockTitle;
     return 'Download report PDF';
   };
 
-  const canDownload = (ready: boolean) => ready && (!walletChecked || walletOk);
+  const upgradeTitle = (topPlan: boolean) => {
+    if (topPlan) return 'Already on GBPB Plus';
+    if (walletBlocked) return walletBlockTitle;
+    return 'Upgrade to a higher GBP package';
+  };
+
+  const cabTitle = () => {
+    if (walletBlocked) return walletBlockTitle;
+    return 'Counselling Audio Bytes';
+  };
 
   const handleDownload = async (record: ReportRecord) => {
-    if (!isReportReady(record.status)) {
-      showError('Report is still processing');
+    if (walletBlocked) {
+      showError(walletBlockTitle);
       return;
     }
     try {
@@ -190,8 +202,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
         return applyReportUpdate([current], updated)[0] ?? current;
       });
       showSuccess(`CAB requested for scan ${record.scanId}. The counselling team has been notified.`);
-    } catch {
-      showError('CAB request failed. Please try again.');
+    } catch (err) {
+      showError(apiErrorDetail(err, 'CAB request failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -265,8 +277,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
           <button
             type="button"
             className="reports-card-download"
-            disabled={!canDownload(ready)}
-            title={downloadTitle(ready)}
+            disabled={!canUseActions}
+            title={downloadTitle()}
             onClick={() => handleDownload(row)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -294,14 +306,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             <button
               type="button"
               className="reports-tool-btn reports-tool-upgrade"
-              disabled={topPlan || !ready}
-              title={
-                topPlan
-                  ? 'Already on GBPB Plus'
-                  : ready
-                    ? 'Upgrade to a higher GBP package'
-                    : 'Report is still processing'
-              }
+              disabled={topPlan || !canUseActions}
+              title={upgradeTitle(topPlan)}
               onClick={() => setUpgradingRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -314,8 +320,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             <button
               type="button"
               className="reports-tool-btn reports-tool-cab"
-              disabled={!ready}
-              title={ready ? 'Counselling Audio Bytes' : 'Report is still processing'}
+              disabled={!canUseActions}
+              title={cabTitle()}
               onClick={() => setCabRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -392,8 +398,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
                   <button
                     type="button"
                     className="scans-action-btn scans-action-export"
-                    disabled={!canDownload(ready)}
-                    title={downloadTitle(ready)}
+                    disabled={!canUseActions}
+                    title={downloadTitle()}
                     onClick={() => handleDownload(row)}
                   >
                     Download
@@ -413,14 +419,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
                   <button
                     type="button"
                     className="scans-action-btn reports-action-upgrade"
-                    disabled={topPlan || !ready}
-                    title={
-                      topPlan
-                        ? 'Already on GBPB Plus'
-                        : ready
-                          ? 'Upgrade to a higher GBP package'
-                          : 'Report is still processing'
-                    }
+                    disabled={topPlan || !canUseActions}
+                    title={upgradeTitle(topPlan)}
                     onClick={() => setUpgradingRecord(row)}
                   >
                     {topPlan ? 'GBPB Plus' : 'Upgrade'}
@@ -430,8 +430,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
                   <button
                     type="button"
                     className="scans-action-btn reports-action-cab"
-                    disabled={!ready}
-                    title={ready ? 'Counselling Audio Bytes' : 'Report is still processing'}
+                    disabled={!canUseActions}
+                    title={cabTitle()}
                     onClick={() => setCabRecord(row)}
                   >
                     CAB{row.cabAudios.length > 0 ? ` (${row.cabAudios.length})` : ''}
@@ -554,8 +554,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
             <h2 className="scans-card-title">My scans</h2>
             <p className="scans-card-sub">
               {walletRequired
-                ? 'CAB = Counselling Audio Byte · reports appear once in Processing · download needs a funded wallet'
-                : 'CAB = Counselling Audio Byte · reports appear once in Processing'}
+                ? 'CAB = Counselling Audio Byte · actions need a funded wallet (HO exempt)'
+                : 'CAB = Counselling Audio Byte · available while Processing'}
             </p>
           </div>
 

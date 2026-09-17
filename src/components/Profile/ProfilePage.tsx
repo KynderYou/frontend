@@ -277,15 +277,14 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
   const [error, setError] = useState('');
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  const loadProfile = useCallback(async () => {
-    const data = await getMyProfile();
-    setProfile(data);
-    // Keep top-right header avatar in sync with profile photo
-    const avatarPath = data.avatar_url?.match(/\/api\/files\/\d+/)?.[0] ?? data.avatar_url ?? null;
-    patchMember({ avatar_url: avatarPath, name: data.name });
-    setError('');
-    return data;
-  }, [patchMember]);
+  const syncHeaderMember = useCallback(
+    (data: MemberProfile) => {
+      const avatarPath =
+        data.avatar_url?.match(/\/api\/files\/\d+/)?.[0] ?? data.avatar_url ?? null;
+      patchMember({ avatar_url: avatarPath, name: data.name });
+    },
+    [patchMember],
+  );
 
   const loadCertifications = useCallback(async () => {
     const certs = await getCertifications();
@@ -295,7 +294,14 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([loadProfile(), loadCertifications()])
+    Promise.all([getMyProfile(), getCertifications()])
+      .then(([data, certs]) => {
+        if (cancelled) return;
+        setProfile(data);
+        setCertifications(certs);
+        syncHeaderMember(data);
+        setError('');
+      })
       .catch(() => {
         if (!cancelled) setError('Unable to load profile.');
       })
@@ -305,7 +311,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
     return () => {
       cancelled = true;
     };
-  }, [loadProfile, loadCertifications]);
+  }, [syncHeaderMember]);
 
   useEffect(() => {
     if (!profile?.avatar_url) {
@@ -366,9 +372,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
       const blob = await dataUrlToBlob(dataUrl);
       const updated = await uploadAvatar(blob, 'avatar.jpg');
       setProfile(updated);
-      const avatarPath =
-        updated.avatar_url?.match(/\/api\/files\/\d+/)?.[0] ?? updated.avatar_url ?? null;
-      patchMember({ avatar_url: avatarPath, name: updated.name });
+      syncHeaderMember(updated);
     } catch {
       setAvatarUrl(dataUrl);
     }
@@ -376,7 +380,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
 
   const handleProfileSaved = async (updated: MemberProfile) => {
     setProfile(updated);
-    patchMember({ name: updated.name });
+    syncHeaderMember(updated);
     await loadCertifications();
   };
 

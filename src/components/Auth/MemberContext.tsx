@@ -1,9 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import type { Member } from '../../api';
 
 type MemberContextValue = {
   member: Member | null;
-  setMember: (member: Member | null) => void;
+  setMember: Dispatch<SetStateAction<Member | null>>;
   patchMember: (patch: Partial<Member>) => void;
 };
 
@@ -19,14 +27,20 @@ export function MemberProvider({
   children,
 }: {
   member: Member | null;
-  setMember: (member: Member | null) => void;
+  setMember: Dispatch<SetStateAction<Member | null>>;
   children: ReactNode;
 }) {
   const patchMember = useCallback(
     (patch: Partial<Member>) => {
-      setMember(member ? { ...member, ...patch } : member);
+      setMember((current) => {
+        if (!current) return current;
+        const next = { ...current, ...patch };
+        const keys = Object.keys(patch) as (keyof Member)[];
+        if (keys.every((key) => current[key] === next[key])) return current;
+        return next;
+      });
     },
-    [member, setMember],
+    [setMember],
   );
 
   const value = useMemo(
