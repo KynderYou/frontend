@@ -55,7 +55,7 @@ export function groupScanImages(images: ScanImage[]): FingerprintGroup[] {
   if (other.length > 0) {
     grouped.push({
       key: 'other',
-      label: 'Other images',
+      label: 'Consent form',
       images: other,
     });
   }
@@ -85,7 +85,7 @@ export function organizeByHand(groups: FingerprintGroup[]): HandView[] {
   const views: HandView[] = [];
   if (left.length > 0) views.push({ id: 'left', label: 'Left', groups: left });
   if (right.length > 0) views.push({ id: 'right', label: 'Right', groups: right });
-  if (other.length > 0) views.push({ id: 'other', label: 'Photo', groups: other });
+  if (other.length > 0) views.push({ id: 'other', label: 'Consent form', groups: other });
   return views;
 }
 

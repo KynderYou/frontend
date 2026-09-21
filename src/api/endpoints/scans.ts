@@ -53,6 +53,22 @@ export async function updateMlaScan(scanId: number, body: MlaScanUpdatePayload):
   return apiClient<MlaScan>(`/api/scans/${scanId}`, { method: 'PATCH', body });
 }
 
+/** POST /api/scans/{id}/verify-consent */
+export async function verifyMlaConsent(scanId: number): Promise<MlaScan> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Not available in demo mode');
+  }
+  return apiClient<MlaScan>(`/api/scans/${scanId}/verify-consent`, { method: 'POST' });
+}
+
+/** POST /api/scans/{id}/qc-check */
+export async function markMlaQcChecked(scanId: number): Promise<MlaScan> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Not available in demo mode');
+  }
+  return apiClient<MlaScan>(`/api/scans/${scanId}/qc-check`, { method: 'POST' });
+}
+
 /** POST /api/scans/{id}/export */
 export async function exportMlaScan(scanId: number): Promise<MlaScan> {
   if (isDemoToken(getToken())) {

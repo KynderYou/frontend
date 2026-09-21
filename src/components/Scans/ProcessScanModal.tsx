@@ -466,7 +466,7 @@ export function ProcessScanModal({
               </p>
             ) : isProcess ? (
               <p className="process-scan-view-hint">
-                Patterns from preprocess are shown per finger — edit if needed · enter URC, RRC, and LFO for each finger
+                Patterns from preprocess are shown per finger — edit if needed · enter URC and RRC for each finger
               </p>
             ) : (
               <p className="process-scan-view-hint">
@@ -554,10 +554,6 @@ export function ProcessScanModal({
                   <p className="process-scan-section-label">RRC</p>
                   <p className="process-scan-pattern-value">0</p>
                 </div>
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">LFO</p>
-                  <p className="process-scan-pattern-value">0</p>
-                </div>
               </div>
             ) : null}
 
@@ -585,18 +581,6 @@ export function ProcessScanModal({
                     value={rrc}
                     onChange={(e) => setRrc(e.target.value)}
                     aria-label="Radial Ridge Count"
-                  />
-                </label>
-                <label className="form-field">
-                  <span className="form-label">LFO</span>
-                  <input
-                    className="form-input"
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={lfo}
-                    onChange={(e) => setLfo(e.target.value)}
-                    aria-label="LFO count"
                   />
                 </label>
               </div>
@@ -658,10 +642,6 @@ export function ProcessScanModal({
                 <div className="process-scan-pattern-block">
                   <p className="process-scan-section-label">RRC</p>
                   <p className="process-scan-pattern-value">{rrc}</p>
-                </div>
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">LFO</p>
-                  <p className="process-scan-pattern-value">{lfo}</p>
                 </div>
               </div>
             ) : null}

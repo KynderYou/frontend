@@ -3,6 +3,11 @@ import { colors, radius, shadow, spacing } from '../../styles/theme';
 
 const theme = colors.light;
 
+const TOPUP_AMOUNTS = [
+  { value: '5000', label: '₹5,000' },
+  { value: '10000', label: '₹10,000' },
+] as const;
+
 type TopUpModalProps = {
   open: boolean;
   onClose: () => void;
@@ -61,7 +66,7 @@ export function TopUpModal({ open, onClose, onSubmit, submitting = false, error 
     setProofFile(null);
   };
 
-  const canSubmit = amount.trim().length > 0 && Boolean(proofFile) && !submitting;
+  const canSubmit = Boolean(amount) && Boolean(proofFile) && !submitting;
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
@@ -78,7 +83,7 @@ export function TopUpModal({ open, onClose, onSubmit, submitting = false, error 
             <h2 id="topup-title" className="modal-title">
               Top up
             </h2>
-            <p className="modal-subtitle">Enter the amount sent and upload a payment proof photo.</p>
+            <p className="modal-subtitle">Choose ₹5,000 or ₹10,000 and upload a payment proof photo.</p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -88,17 +93,26 @@ export function TopUpModal({ open, onClose, onSubmit, submitting = false, error 
         </div>
 
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: spacing[5] }}>
-          <label className="form-field">
-            <span className="form-label">Amount sent</span>
-            <input
-              className="form-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="e.g. 5000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </label>
+          <fieldset className="form-field" style={{ border: 'none', margin: 0, padding: 0 }}>
+            <legend className="form-label">Top-up amount</legend>
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              {TOPUP_AMOUNTS.map((option) => {
+                const active = amount === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={active ? 'btn-pill-primary' : 'btn-pill-secondary'}
+                    aria-pressed={active}
+                    onClick={() => setAmount(option.value)}
+                    style={{ flex: 1 }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
 
           <div className="form-field">
             <span className="form-label">Proof of payment</span>
@@ -118,85 +132,33 @@ export function TopUpModal({ open, onClose, onSubmit, submitting = false, error 
                   alt="Payment proof preview"
                   style={{ width: '100%', maxHeight: 220, objectFit: 'cover', display: 'block' }}
                 />
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    padding: '12px 14px',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: theme['text-secondary'],
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px' }}>
+                  <span style={{ fontSize: 12, color: theme['text-secondary'], overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {proofName}
                   </span>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button type="button" className="btn-pill-secondary" style={{ height: 32, fontSize: 12, padding: '0 12px' }} onClick={() => fileRef.current?.click()}>
-                      Replace
-                    </button>
-                    <button type="button" className="btn-pill-secondary" style={{ height: 32, fontSize: 12, padding: '0 12px', color: theme.error }} onClick={clearProof}>
-                      Remove
-                    </button>
-                  </div>
+                  <button type="button" className="btn-pill-secondary" onClick={clearProof}>
+                    Remove
+                  </button>
                 </div>
               </div>
             ) : (
               <button
                 type="button"
+                className="btn-pill-secondary"
                 onClick={() => fileRef.current?.click()}
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  borderRadius: radius.lg,
-                  padding: spacing[6],
-                  background: theme['bg-muted'],
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 10,
-                  fontFamily: 'inherit',
-                }}
+                style={{ width: '100%', justifyContent: 'center' }}
               >
-                <span
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    background: theme['bg-surface'],
-                    color: theme.primary,
-                    display: 'grid',
-                    placeItems: 'center',
-                    boxShadow: shadow.float,
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                </span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>Upload proof picture</span>
-                <span style={{ fontSize: 12, color: theme['text-muted'], textAlign: 'center' }}>
-                  Photo of the transfer / UPI / bank receipt
-                </span>
+                Upload proof photo
               </button>
             )}
           </div>
-        </div>
 
-        {error ? (
-          <p role="alert" style={{ margin: `0 ${spacing[5]}`, color: theme.error, fontSize: 13 }}>
-            {error}
-          </p>
-        ) : null}
+          {error ? (
+            <p role="alert" style={{ margin: 0, color: theme.error, fontSize: 13 }}>
+              {error}
+            </p>
+          ) : null}
+        </div>
 
         <div className="modal-footer">
           <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={submitting}>
@@ -207,12 +169,11 @@ export function TopUpModal({ open, onClose, onSubmit, submitting = false, error 
             className="btn-pill-primary"
             disabled={!canSubmit}
             onClick={() => {
-              if (!canSubmit || !proofFile || !onSubmit) return;
+              if (!proofFile || !amount || !onSubmit) return;
               void onSubmit(amount, proofFile);
             }}
-            style={{ opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
           >
-            {submitting ? 'Submitting…' : 'Submit top up'}
+            {submitting ? 'Submitting…' : 'Submit top-up'}
           </button>
         </div>
       </div>

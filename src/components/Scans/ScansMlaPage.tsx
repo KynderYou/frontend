@@ -4,6 +4,7 @@ import {
   deleteMlaScan,
   exportMlaScan,
   getMyMlaScans,
+  markMlaQcChecked,
   resolveMlaScanListImages,
   updateMlaScan,
 } from '../../api';
@@ -16,8 +17,8 @@ import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
-import { EditScanModal } from './EditScanModal';
-import { extractClientFromZip, revokeScanZipImages, categoryToClientType, type ScanZipImage } from './extractClientFromZip';
+import { EditScanModal, CLIENT_TYPE_FAMILY, CLIENT_TYPE_INDIVIDUAL } from './EditScanModal';
+import { extractClientFromZip, revokeScanZipImages, categoryToClientType, consentFormValidationError, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
 import {
@@ -57,15 +58,37 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function statusStyles(status: ScanRecordStatus) {
-  if (status === 'Exported') return { color: theme.success, background: theme['success-bg'] };
-  if (status === 'Saved') return { color: theme.primary, background: theme['primary-soft'] };
+function statusStyles(status: ScanRecordStatus | string) {
+  if (status === 'Exported' || status === 'QC checked') {
+    return { color: theme.success, background: theme['success-bg'] };
+  }
+  if (status === 'Consent form verified') {
+    return { color: theme.primary, background: theme['primary-soft'] };
+  }
   if (status === 'Processing') return { color: theme.warning, background: theme['warning-bg'] };
   return { color: theme['text-secondary'], background: theme['bg-muted'] };
 }
 
 function canExport(record: ScanRecord) {
-  return record.detailsSaved && !record.exported;
+  return record.detailsSaved && !record.exported && record.status === 'QC checked';
+}
+
+function canMarkQc(record: ScanRecord) {
+  return (
+    !record.exported &&
+    (record.status === 'Consent form verified' ||
+      record.status === 'Imported' ||
+      record.status === 'Saved')
+  );
+}
+
+function exportBlockedReason(record: ScanRecord) {
+  if (record.status === 'QC checked') {
+    if (!record.detailsSaved) return 'Complete scan details before exporting';
+    return 'Send to HO process scan';
+  }
+  if (!record.detailsSaved) return 'Complete scan details, then mark QC checked before exporting';
+  return 'Mark QC checked before exporting';
 }
 
 function displayValue(value: string, fallback = '—') {
@@ -128,10 +151,14 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     };
   }, []);
 
+  const isFamilyClient =
+    clientForm.clientType.trim().toLowerCase().startsWith('family') ||
+    clientForm.clientType === CLIENT_TYPE_FAMILY;
   const clientComplete =
     clientForm.name.trim().length > 0 &&
     clientForm.age.trim().length > 0 &&
-    clientForm.gender.trim().length > 0;
+    clientForm.gender.trim().length > 0 &&
+    (!isFamilyClient || clientForm.phone.trim().length > 0);
 
   const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
 
@@ -174,10 +201,18 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         age: data.age,
         phone: data.phone,
         gender: data.gender,
-        clientType: data.clientType || categoryToClientType(data.category) || 'Individual',
+        clientType: data.clientType || categoryToClientType(data.category) || CLIENT_TYPE_INDIVIDUAL,
         referredBy: 'SELF',
         mrp: '₹2,000',
       });
+
+      const consentError = consentFormValidationError(images);
+      if (consentError) {
+        setExtractOk(false);
+        setExtractNotice(consentError);
+        setError('Consent form validation failed — this zip cannot be submitted.');
+        return;
+      }
 
       if (foundAny) {
         setExtractOk(true);
@@ -277,12 +312,32 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     const scanId = Number(record.id);
     if (Number.isNaN(scanId)) return;
     try {
-      const exported = await exportMlaScan(scanId);
+      await exportMlaScan(scanId);
       replaceRecords(records.filter((row) => row.id !== record.id));
-      showSuccess(`Scan ${exported.scan_code} exported to scans DB. Head Office has been notified.`);
-    } catch {
-      const message = 'Could not export scan.';
-      setError(message);
+      showSuccess(`Scan ${record.scanId} exported to HO.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed.';
+      showError(message);
+    }
+  };
+
+  const applyUpdatedScan = async (updated: Awaited<ReturnType<typeof markMlaQcChecked>>) => {
+    const resolved = await resolveMlaScanListImages([updated]);
+    const nextRecord = mlaScanToRecord(resolved[0]);
+    replaceRecords(records.map((row) => (row.id === nextRecord.id ? nextRecord : row)));
+    setViewingImages((current) => (current?.id === nextRecord.id ? nextRecord : current));
+    return nextRecord;
+  };
+
+  const handleMarkQc = async (record: ScanRecord) => {
+    const scanId = Number(record.id);
+    if (Number.isNaN(scanId)) return;
+    try {
+      const updated = await markMlaQcChecked(scanId);
+      await applyUpdatedScan(updated);
+      showSuccess(`QC checked for ${record.scanId}.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not mark QC checked.';
       showError(message);
     }
   };
@@ -438,28 +493,30 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                 />
               </label>
               <label className="form-field">
+                <span className="form-label">Referred By</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.referredBy, '')} placeholder="—" readOnly disabled />
+              </label>
+              <label className="form-field">
                 <span className="form-label">Name</span>
                 <input className="form-input" type="text" value={displayValue(clientForm.name, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Age</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.age, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Phno</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.phone, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Gender</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.gender, '')} placeholder="—" readOnly disabled />
               </label>
               <label className="form-field">
                 <span className="form-label">Client Type</span>
                 <input className="form-input" type="text" value={displayValue(clientForm.clientType, '')} placeholder="—" readOnly disabled />
               </label>
               <label className="form-field">
-                <span className="form-label">Referred By</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.referredBy, '')} placeholder="—" readOnly disabled />
+                <span className="form-label">Age</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.age, '')} placeholder="—" readOnly disabled />
+              </label>
+              {isFamilyClient ? (
+                <label className="form-field">
+                  <span className="form-label">Phno</span>
+                  <input className="form-input" type="text" value={displayValue(clientForm.phone, '')} placeholder="—" readOnly disabled />
+                </label>
+              ) : null}
+              <label className="form-field">
+                <span className="form-label">Gender</span>
+                <input className="form-input" type="text" value={displayValue(clientForm.gender, '')} placeholder="—" readOnly disabled />
               </label>
               <label className="form-field">
                 <span className="form-label">MRP</span>
@@ -515,8 +572,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                 <th>Scan Id</th>
                 <th>Name</th>
                 <th>Gender</th>
-                <th>File</th>
                 <th className="col-center">Status</th>
+                <th className="col-center">QC</th>
                 <th className="col-center">Export</th>
                 <th className="col-center">Edit</th>
                 <th className="col-center">Delete</th>
@@ -530,35 +587,48 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                   <tr key={row.id}>
                     <td data-label="Sno">{rowOffset + index + 1}</td>
                     <td data-label="Scan Id">
-                      <button type="button" className="scans-table-link" onClick={() => setEditingRecord(row)}>
+                      <button
+                        type="button"
+                        className="scans-table-link"
+                        title="View scan images"
+                        onClick={() => setViewingImages(row)}
+                      >
                         {row.scanId}
                       </button>
                     </td>
                     <td data-label="Name">{row.details.name || '—'}</td>
                     <td data-label="Gender">{row.details.gender || '—'}</td>
-                    <td data-label="File">
-                      <button
-                        type="button"
-                        className="scans-table-file-link"
-                        title="View scan images"
-                        onClick={() => setViewingImages(row)}
-                      >
-                        {row.fileName}
-                      </button>
-                      <span className="scans-table-meta">{row.size}</span>
-                    </td>
                     <td data-label="Status">
                       <span className="scans-status-chip" style={chip}>
                         {row.status}
                       </span>
                     </td>
+                    <td data-label="QC">
+                      {canMarkQc(row) ? (
+                        <button
+                          type="button"
+                          className="scans-action-btn"
+                          onClick={() => void handleMarkQc(row)}
+                        >
+                          Mark QC
+                        </button>
+                      ) : row.status === 'QC checked' ? (
+                        <span className="scans-table-meta">Done</span>
+                      ) : (
+                        <span className="scans-table-meta">—</span>
+                      )}
+                    </td>
                     <td data-label="Export">
                       <button
                         type="button"
-                        className="scans-action-btn scans-action-export"
+                        className={`scans-action-btn scans-action-export${exportReady ? '' : ' is-disabled'}`}
                         disabled={!exportReady}
-                        title={exportReady ? 'Send to scans DB and notify HO' : 'Complete scan details before exporting'}
-                        onClick={() => handleExport(row)}
+                        aria-disabled={!exportReady}
+                        title={exportReady ? 'Send to HO process scan' : exportBlockedReason(row)}
+                        onClick={() => {
+                          if (!exportReady) return;
+                          void handleExport(row);
+                        }}
                       >
                         Export
                       </button>
@@ -604,7 +674,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           onSave={handleSaveDetails}
         />
       )}
-      <ScanImagesModal open={Boolean(viewingImages)} record={viewingImages} onClose={() => setViewingImages(null)} />
+      <ScanImagesModal
+        open={Boolean(viewingImages)}
+        record={viewingImages}
+        onClose={() => setViewingImages(null)}
+      />
     </section>
   );
 }

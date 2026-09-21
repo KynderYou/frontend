@@ -13,12 +13,43 @@ type EditScanModalProps = {
   onSave: (details: ScanDetails) => void;
 };
 
-const clientTypeOptions = ['Individual', 'Institution', 'Bulk'] as const;
+export const CLIENT_TYPE_INDIVIDUAL = 'Individual';
+export const CLIENT_TYPE_FAMILY = 'Family (phone required)';
+
+const clientTypeOptions = [CLIENT_TYPE_INDIVIDUAL, CLIENT_TYPE_FAMILY] as const;
 const referredByOptions = ['SELF', 'MLA', 'HO', 'Referral'] as const;
 const genderOptions = ['Male', 'Female', 'Other'] as const;
 
+function normalizeClientType(value: string): string {
+  const raw = value.trim();
+  if (!raw) return CLIENT_TYPE_INDIVIDUAL;
+  const lower = raw.toLowerCase();
+  if (lower === 'individual' || lower === 'personal' || lower === 'private') {
+    return CLIENT_TYPE_INDIVIDUAL;
+  }
+  if (
+    lower.startsWith('family') ||
+    lower === 'institution' ||
+    lower === 'bulk' ||
+    lower === 'business' ||
+    lower === 'corporate' ||
+    lower === 'company'
+  ) {
+    return CLIENT_TYPE_FAMILY;
+  }
+  if (clientTypeOptions.includes(raw as (typeof clientTypeOptions)[number])) return raw;
+  return CLIENT_TYPE_INDIVIDUAL;
+}
+
+function phoneRequiredFor(clientType: string): boolean {
+  return normalizeClientType(clientType) === CLIENT_TYPE_FAMILY;
+}
+
 export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditScanModalProps) {
-  const [form, setForm] = useState<ScanDetails>(initial);
+  const [form, setForm] = useState<ScanDetails>(() => ({
+    ...initial,
+    clientType: normalizeClientType(initial.clientType),
+  }));
 
   useEffect(() => {
     if (!open) return;
@@ -34,7 +65,12 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open) setForm(initial);
+    if (open) {
+      setForm({
+        ...initial,
+        clientType: normalizeClientType(initial.clientType),
+      });
+    }
   }, [open, initial]);
 
   if (!open) return null;
@@ -42,25 +78,38 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
   const update = (key: keyof ScanDetails) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
+    const value = e.target.value;
+    setForm((f) => {
+      if (key === 'clientType') {
+        const nextType = normalizeClientType(value);
+        return {
+          ...f,
+          clientType: nextType,
+          phone: nextType === CLIENT_TYPE_INDIVIDUAL ? '' : f.phone,
+        };
+      }
+      return { ...f, [key]: value };
+    });
   };
 
+  const needsPhone = phoneRequiredFor(form.clientType);
   const canSave =
     form.name.trim().length > 0 &&
     form.age.trim().length > 0 &&
-    form.phone.trim().length > 0 &&
     form.gender.trim().length > 0 &&
-    form.mrp.trim().length > 0;
+    form.mrp.trim().length > 0 &&
+    (!needsPhone || form.phone.trim().length > 0);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
+    const clientType = normalizeClientType(form.clientType);
     onSave({
-      clientType: form.clientType,
+      clientType,
       referredBy: form.referredBy,
       name: form.name.trim(),
       age: form.age.trim(),
-      phone: form.phone.trim(),
+      phone: clientType === CLIENT_TYPE_INDIVIDUAL ? '' : form.phone.trim(),
       gender: form.gender,
       mrp: form.mrp,
     });
@@ -107,6 +156,22 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
               </label>
 
               <label className="form-field">
+                <span className="form-label">Referred By</span>
+                <div className="form-select-wrap">
+                  <select className="form-input form-select" value={form.referredBy} onChange={update('referredBy')}>
+                    {referredByOptions.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </div>
+              </label>
+
+              <label className="form-field">
                 <span className="form-label">Name</span>
                 <input className="form-input" type="text" value={form.name} onChange={update('name')} />
               </label>
@@ -132,26 +197,12 @@ export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditSc
                 <input className="form-input" type="number" min={1} max={120} value={form.age} onChange={update('age')} />
               </label>
 
-              <label className="form-field">
-                <span className="form-label">Phno</span>
-                <input className="form-input" type="tel" value={form.phone} onChange={update('phone')} />
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Referred By</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={form.referredBy} onChange={update('referredBy')}>
-                    {referredByOptions.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </label>
+              {needsPhone ? (
+                <label className="form-field">
+                  <span className="form-label">Phno</span>
+                  <input className="form-input" type="tel" value={form.phone} onChange={update('phone')} required />
+                </label>
+              ) : null}
 
               <label className="form-field">
                 <span className="form-label">Gender</span>

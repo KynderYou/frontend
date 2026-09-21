@@ -14,7 +14,14 @@ export type ScanDetails = {
   mrp: string;
 };
 
-export type ScanRecordStatus = 'Draft' | 'Saved' | 'Exported' | 'Processing';
+export type ScanRecordStatus =
+  | 'Imported'
+  | 'Consent form verified'
+  | 'QC checked'
+  | 'Exported'
+  | 'Saved'
+  | 'Draft'
+  | 'Processing';
 
 export type ScanRecord = {
   id: string;

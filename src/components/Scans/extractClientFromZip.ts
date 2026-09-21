@@ -14,7 +14,58 @@ export type ScanZipImage = {
   name: string;
   url: string;
   label: string;
+  /** Uncompressed image bytes from the zip entry. */
+  byteSize: number;
 };
+
+/** Minimum size for a consent-form image (rejects tiny client/profile placeholders). */
+export const MIN_CONSENT_FORM_BYTES = 50 * 1024;
+
+function stemName(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/i, '').toLowerCase();
+}
+
+export function isConsentFormFileName(fileName: string, label?: string): boolean {
+  const base = stemName(fileName);
+  if (base === 'photo' || base.startsWith('consent')) return true;
+  return Boolean(label && /consent/i.test(label));
+}
+
+/**
+ * True when zip images include a consent-form file large enough to be a document scan
+ * (not a small client portrait / placeholder).
+ */
+export function hasConsentFormImage(
+  images: { name: string; label?: string; byteSize?: number }[],
+): boolean {
+  return images.some(
+    (image) =>
+      isConsentFormFileName(image.name, image.label) &&
+      (image.byteSize ?? 0) >= MIN_CONSENT_FORM_BYTES,
+  );
+}
+
+/** Human-readable reason when consent validation fails, or null when valid. */
+export function consentFormValidationError(
+  images: { name: string; label?: string; byteSize?: number }[],
+): string | null {
+  const candidates = images.filter((image) => isConsentFormFileName(image.name, image.label));
+  if (candidates.length === 0) {
+    return 'Consent form missing. Add a scanned consent form as photo.jpg or consent*.jpg, then choose the file again.';
+  }
+  const largest = Math.max(...candidates.map((image) => image.byteSize ?? 0));
+  if (largest < MIN_CONSENT_FORM_BYTES) {
+    const kb = Math.round(MIN_CONSENT_FORM_BYTES / 1024);
+    return `Consent form is too small (${formatConsentBytes(largest)}). Client profile photos are not accepted — include a scanned consent form of at least ${kb} KB as photo.jpg or consent*.jpg.`;
+  }
+  return null;
+}
+
+function formatConsentBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export type ZipExtractResult = {
   data: ExtractedClientData;
@@ -54,11 +105,17 @@ function normalizeGender(raw: string): string {
 export function categoryToClientType(category: string): string {
   const value = category.trim().toLowerCase();
   if (!value) return '';
-  if (value === 'bulk') return 'Bulk';
-  if (value === 'business' || value === 'institution' || value === 'corporate' || value === 'company') {
-    return 'Institution';
-  }
   if (value === 'individual' || value === 'personal' || value === 'private') return 'Individual';
+  if (
+    value.startsWith('family') ||
+    value === 'bulk' ||
+    value === 'business' ||
+    value === 'institution' ||
+    value === 'corporate' ||
+    value === 'company'
+  ) {
+    return 'Family (phone required)';
+  }
   return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
 }
 
@@ -120,7 +177,7 @@ function labelForImage(fileName: string): string {
     const hand = match[1].toUpperCase() === 'L' ? 'Left' : 'Right';
     return `${hand} ${match[2]} · ${match[3]}`;
   }
-  if (/^photo$/i.test(base)) return 'Profile photo';
+  if (/^photo$/i.test(base) || /^consent/i.test(base)) return 'Consent form';
   return base;
 }
 
@@ -159,6 +216,7 @@ async function extractImagesFromZip(zip: JSZip, paths: string[]): Promise<ScanZi
       name,
       url: URL.createObjectURL(blob),
       label: labelForImage(name),
+      byteSize: blob.size,
     });
   }
   return images;
