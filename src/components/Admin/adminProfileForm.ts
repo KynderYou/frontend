@@ -4,7 +4,7 @@ import type {
   AdminVisibilityFieldsPayload,
 } from '../../api/types';
 
-export type MemberRole = 'Admin' | 'Mentor' | 'Trainee' | 'MLA';
+export type MemberRole = 'Admin' | 'Mentor' | 'MLA';
 
 export type AdminAccountFormState = {
   name: string;
@@ -65,7 +65,7 @@ export function billingDigitsForForm(value: string | null | undefined, fallback:
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
-export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'Trainee', 'MLA'];
+export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA'];
 
 export const emptyAccountForm: AdminAccountFormState = {
   name: '',
@@ -122,10 +122,9 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
 
 export function memberDisplayRole(member: Pick<AdminMemberApi, 'role' | 'mentee_type'>): MemberRole {
   if (member.role === 'MLA' || (member.mentee_type || '').toLowerCase() === 'mla') return 'MLA';
-  if (member.role === 'Admin' || member.role === 'Mentor' || member.role === 'Trainee') {
-    return member.role;
-  }
-  return 'Trainee';
+  if (member.role === 'Admin' || member.role === 'Mentor') return member.role;
+  // Legacy Trainee login accounts — directory trainees are not users.
+  return 'MLA';
 }
 
 export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {

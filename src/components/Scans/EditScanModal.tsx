@@ -9,6 +9,8 @@ type EditScanModalProps = {
   open: boolean;
   scanId: string;
   initial: ScanDetails;
+  /** Mentor trainee directory names for Referred by */
+  traineeNames?: string[];
   onClose: () => void;
   onSave: (details: ScanDetails) => void;
 };
@@ -17,7 +19,7 @@ export const CLIENT_TYPE_INDIVIDUAL = 'Individual';
 export const CLIENT_TYPE_FAMILY = 'Family (phone required)';
 
 const clientTypeOptions = [CLIENT_TYPE_INDIVIDUAL, CLIENT_TYPE_FAMILY] as const;
-const referredByOptions = ['SELF', 'MLA', 'HO', 'Referral'] as const;
+const BASE_REFERRED_BY = ['SELF', 'MLA', 'HO', 'Referral'] as const;
 const genderOptions = ['Male', 'Female', 'Other'] as const;
 
 function normalizeClientType(value: string): string {
@@ -45,11 +47,19 @@ function phoneRequiredFor(clientType: string): boolean {
   return normalizeClientType(clientType) === CLIENT_TYPE_FAMILY;
 }
 
-export function EditScanModal({ open, scanId, initial, onClose, onSave }: EditScanModalProps) {
+export function EditScanModal({ open, scanId, initial, traineeNames = [], onClose, onSave }: EditScanModalProps) {
   const [form, setForm] = useState<ScanDetails>(() => ({
     ...initial,
     clientType: normalizeClientType(initial.clientType),
   }));
+
+  const referredByOptions = [
+    ...BASE_REFERRED_BY,
+    ...traineeNames.filter((name) => name && !(BASE_REFERRED_BY as readonly string[]).includes(name)),
+  ];
+  if (form.referredBy && !referredByOptions.includes(form.referredBy)) {
+    referredByOptions.push(form.referredBy);
+  }
 
   useEffect(() => {
     if (!open) return;

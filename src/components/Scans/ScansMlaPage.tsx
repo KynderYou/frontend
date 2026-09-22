@@ -4,6 +4,7 @@ import {
   deleteMlaScan,
   exportMlaScan,
   getMyMlaScans,
+  getTraineesState,
   markMlaQcChecked,
   resolveMlaScanListImages,
   updateMlaScan,
@@ -104,7 +105,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const { showSuccess, showError } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
-  const [_extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
+  const [extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
   const [records, setRecords] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -113,9 +114,12 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const [extractNotice, setExtractNotice] = useState<string | null>(null);
   const [extractOk, setExtractOk] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'reading' | 'uploading'>('idle');
   const [declarationOpen, setDeclarationOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ScanRecord | null>(null);
   const [viewingImages, setViewingImages] = useState<ScanRecord | null>(null);
+  const [traineeNames, setTraineeNames] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const extractRequestId = useRef(0);
@@ -144,6 +148,21 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    getTraineesState(undefined, 'mine')
+      .then((state) => {
+        if (cancelled) return;
+        setTraineeNames(
+          (state.trainees ?? [])
+            .filter((row) => row.status === 'Active')
+            .map((row) => row.name)
+            .filter(Boolean),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setTraineeNames([]);
+      });
+
     return () => {
       cancelled = true;
       revokeBlobUrls(blobUrlsRef.current);
@@ -161,6 +180,31 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     (!isFamilyClient || clientForm.phone.trim().length > 0);
 
   const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
+  const canPreviewUploadImages = extractedImages.length > 0 && !extracting;
+
+  const openUploadImagePreview = () => {
+    if (!canPreviewUploadImages) return;
+    setViewingImages({
+      id: 'upload-preview',
+      scanId: clientForm.scanId || file?.name.replace(/\.zip$/i, '') || 'Upload preview',
+      fileName: file?.name ?? 'package.zip',
+      size: file ? formatBytes(file.size) : '—',
+      uploadedAt: new Date().toISOString(),
+      status: 'Draft',
+      details: {
+        clientType: clientForm.clientType,
+        referredBy: clientForm.referredBy,
+        name: clientForm.name,
+        age: clientForm.age,
+        phone: clientForm.phone,
+        gender: clientForm.gender,
+        mrp: clientForm.mrp,
+      },
+      detailsSaved: false,
+      exported: false,
+      images: extractedImages.map(({ name, url, label }) => ({ name, url, label })),
+    });
+  };
 
   const pickFile = async (next: File | null) => {
     setError(null);
@@ -184,11 +228,15 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     setFile(next);
     setClientForm(emptyClientForm);
     setExtracting(true);
+    setUploadPhase('reading');
+    setUploadProgress(8);
     const requestId = ++extractRequestId.current;
 
     try {
+      setUploadProgress(28);
       const { data, images, sourceFile, foundAny, fileCount } = await extractClientFromZip(next);
       if (requestId !== extractRequestId.current) return;
+      setUploadProgress(72);
 
       setExtractedImages((prev) => {
         revokeScanZipImages(prev);
@@ -206,7 +254,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         mrp: '₹2,000',
       });
 
-      const consentError = consentFormValidationError(images);
+      const consentError = await consentFormValidationError(images);
       if (consentError) {
         setExtractOk(false);
         setExtractNotice(consentError);
@@ -242,7 +290,16 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       });
       setError('Could not read client data from this zip.');
     } finally {
-      if (requestId === extractRequestId.current) setExtracting(false);
+      if (requestId === extractRequestId.current) {
+        setExtracting(false);
+        setUploadProgress(100);
+        window.setTimeout(() => {
+          if (extractRequestId.current === requestId) {
+            setUploadPhase('idle');
+            setUploadProgress(0);
+          }
+        }, 400);
+      }
     }
   };
 
@@ -253,6 +310,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     setExtractNotice(null);
     setExtractOk(false);
     setExtracting(false);
+    setUploadPhase('idle');
+    setUploadProgress(0);
     setClientForm(emptyClientForm);
     setExtractedImages((prev) => {
       revokeScanZipImages(prev);
@@ -269,7 +328,10 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     if (!canSubmit || !file || submitting) return;
     setSubmitting(true);
     setError(null);
+    setUploadPhase('uploading');
+    setUploadProgress(12);
     try {
+      setUploadProgress(45);
       const created = await createMlaScan(file, {
         client_name: clientForm.name.trim(),
         age: clientForm.age.trim(),
@@ -279,7 +341,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         referred_by: clientForm.referredBy,
         mrp: clientForm.mrp.trim() || '₹2,000',
       });
+      setUploadProgress(82);
       const resolved = await resolveMlaScanListImages([created]);
+      setUploadProgress(100);
       replaceRecords([mlaScanToRecord(resolved[0]), ...records]);
       setExtractedImages([]);
       resetForm();
@@ -289,6 +353,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       setError('Could not upload scan. Check your connection and try again.');
     } finally {
       setSubmitting(false);
+      setUploadPhase('idle');
+      setUploadProgress(0);
     }
   };
 
@@ -469,6 +535,31 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                 </span>
               )}
             </button>
+            {canPreviewUploadImages ? (
+              <button
+                type="button"
+                className="btn-pill-secondary scans-upload-preview-btn"
+                onClick={openUploadImagePreview}
+              >
+                View images · {extractedImages.length}
+              </button>
+            ) : null}
+            {uploadPhase !== 'idle' ? (
+              <div className="scans-upload-progress" role="status" aria-live="polite">
+                <div className="scans-upload-progress-meta">
+                  <span>
+                    {uploadPhase === 'reading' ? 'Reading package…' : 'Uploading scan…'}
+                  </span>
+                  <span>{Math.min(100, Math.round(uploadProgress))}%</span>
+                </div>
+                <div className="scans-upload-progress-track" aria-hidden="true">
+                  <span
+                    className={`scans-upload-progress-fill${uploadPhase === 'reading' ? ' is-indeterminate' : ''}`}
+                    style={{ width: `${Math.min(100, Math.max(uploadProgress, 6))}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="scans-upload-panel">
@@ -670,6 +761,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           open={Boolean(editingRecord)}
           scanId={editingRecord.scanId}
           initial={editingRecord.details}
+          traineeNames={traineeNames}
           onClose={() => setEditingRecord(null)}
           onSave={handleSaveDetails}
         />

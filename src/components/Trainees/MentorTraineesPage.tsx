@@ -135,8 +135,8 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {mentorName
-              ? `${mentorName} · view your trainees and open a row to see their scans`
-              : 'View your trainees and open a row to see their scans'}
+              ? `${mentorName} · your trainee list for Referred by (directory details, not login users)`
+              : 'Your trainee list for Referred by (directory details, not login users)'}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -319,7 +319,7 @@ function TraineeScansModal({
       scans={scans}
       loading={loadingScans}
       error={scanError}
-      emptyMessage="No scans uploaded by this trainee yet."
+      emptyMessage="No scans referred by this trainee yet."
       statusStyle={(status) => scanStatusStyles(status as TraineeScanStatus)}
     />
   );

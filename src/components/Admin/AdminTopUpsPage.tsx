@@ -145,7 +145,7 @@ export function AdminTopUpsPage({
       setRequests((current) => current.filter((row) => row.id !== selected.id));
       showSuccess(result.message);
     } catch {
-      showError('Unable to approve this top-up.');
+      showError('Unable to verify this top-up.');
     } finally {
       setActing(false);
     }
@@ -159,7 +159,7 @@ export function AdminTopUpsPage({
       setRequests((current) => current.filter((row) => row.id !== selected.id));
       showSuccess(result.message);
     } catch {
-      showError('Unable to decline this top-up.');
+      showError('Unable to reject this top-up.');
     } finally {
       setActing(false);
     }
@@ -204,7 +204,7 @@ export function AdminTopUpsPage({
             Top-up Requests
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Verify payment proof and credit member ledgers.
+            Verify payment proof. Amount is already credited on submit — reject raises a debit note.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -221,7 +221,7 @@ export function AdminTopUpsPage({
       <div className="trainees-layout" style={{ gap: spacing[5] }}>
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Pending requests</h2>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Awaiting verification</h2>
             <p style={{ margin: '4px 0 0', fontSize: 12, color: theme['text-muted'] }}>
               {filtered.length} of {requests.length}
             </p>
@@ -261,7 +261,7 @@ export function AdminTopUpsPage({
           <div role="listbox" aria-label="Pending top-up requests" className="trainees-panel-scroll">
             {filtered.length === 0 ? (
               <p style={{ padding: spacing[5], margin: 0, fontSize: 13, color: theme['text-muted'], textAlign: 'center' }}>
-                No pending top-ups.
+                No top-ups awaiting verification.
               </p>
             ) : (
               listPagination.pageItems.map((row) => {
@@ -346,7 +346,7 @@ export function AdminTopUpsPage({
         <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0 }}>
           {!selected ? (
             <div style={{ padding: spacing[6] }}>
-              <EmptyState title="Select a request" description="Choose a pending top-up from the list to review proof and take action." />
+              <EmptyState title="Select a request" description="Choose a credited top-up from the list to review proof — verify or reject with a debit note." />
             </div>
           ) : (
             <>
@@ -371,10 +371,10 @@ export function AdminTopUpsPage({
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
                   <button type="button" className="btn-pill-secondary" disabled={acting} onClick={handleDecline} style={{ height: 38 }}>
-                    Decline
+                    Reject & debit
                   </button>
                   <button type="button" className="btn-pill-primary" disabled={acting} onClick={handleApprove} style={{ height: 38, minWidth: 148 }}>
-                    {acting ? 'Working…' : 'Approve & credit'}
+                    {acting ? 'Working…' : 'Mark verified'}
                   </button>
                 </div>
               </div>

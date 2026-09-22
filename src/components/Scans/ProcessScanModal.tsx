@@ -74,7 +74,7 @@ const VIEW_LABELS: Record<(typeof VIEW_TABS)[number], string> = {
   R: 'Right side',
 };
 
-const EMPTY_RIDGES: FingerRidges = { urc: '0', rrc: '0', lfo: '0' };
+const EMPTY_RIDGES: FingerRidges = { urc: '', rrc: '', lfo: '' };
 
 function fingerPayloadFromEntry(fingerId: string, entry: FingerEntry): ScanFingerPayload {
   return {
@@ -299,6 +299,15 @@ export function ProcessScanModal({
   useEffect(() => {
     if (!open || !record || !scanKey) return;
     const seeded = initialFingerMap(record);
+    // Preprocess stores ridge defaults as 0 — clear those in Process so green only appears after URC/RRC are entered.
+    if (mode === 'process') {
+      for (const fingerId of Object.keys(seeded)) {
+        const entry = seeded[fingerId];
+        if (entry.urc === '0' && entry.rrc === '0') {
+          seeded[fingerId] = { ...entry, urc: '', rrc: '', lfo: '' };
+        }
+      }
+    }
     const startFinger = record.defaultFinger && seeded[record.defaultFinger] ? record.defaultFinger : 'L1';
     const startEntry = seeded[startFinger] ?? {
       main: normalizeMainPattern(record.defaultPattern),
@@ -354,12 +363,29 @@ export function ProcessScanModal({
     return Boolean(entry?.main && entry?.sub);
   };
 
-  const fingerProcessComplete = (fingerId: string, entries = mergedFingerEntries()) =>
-    fingerPatternComplete(fingerId, entries);
+  const ridgeCountsFilled = (entry?: FingerEntry | null) => {
+    if (!entry) return false;
+    return entry.urc.trim() !== '' && entry.rrc.trim() !== '';
+  };
+
+  /** Process step: patterns + URC + RRC (same green chip as preprocess after Next). */
+  const fingerProcessComplete = (fingerId: string, entries = mergedFingerEntries()) => {
+    const entry = entries[fingerId];
+    return fingerPatternComplete(fingerId, entries) && ridgeCountsFilled(entry);
+  };
+
+  const fingerFilled = (fingerId: string) =>
+    isPreprocess ? fingerPatternComplete(fingerId) : fingerProcessComplete(fingerId);
 
   const allFingersComplete = isPreprocess
     ? ALL_FINGERS.every((fingerId) => fingerPatternComplete(fingerId))
     : ALL_FINGERS.every((fingerId) => fingerProcessComplete(fingerId));
+
+  const currentRidgesFilled = ridgeCountsFilled(currentFingerEntry());
+  const canGoNext =
+    Boolean(mainPattern && subPattern) &&
+    (!isProcess || currentRidgesFilled) &&
+    finger !== 'R5';
 
   const fingerIndex = (fingerId: string) =>
     ALL_FINGERS.indexOf(fingerId as (typeof ALL_FINGERS)[number]);
@@ -374,13 +400,13 @@ export function ProcessScanModal({
     const saved = updated[nextFinger];
     setMainPattern(saved?.main ? normalizeMainPattern(saved.main) : '');
     setSubPattern(saved?.sub ?? '');
-    setUrc(saved?.urc ?? '0');
-    setRrc(saved?.rrc ?? '0');
-    setLfo(saved?.lfo ?? '0');
+    setUrc(saved?.urc ?? '');
+    setRrc(saved?.rrc ?? '');
+    setLfo(saved?.lfo ?? '');
   };
 
   const handleNextFinger = () => {
-    if (!mainPattern || !subPattern) return;
+    if (!canGoNext) return;
     const idx = fingerIndex(finger);
     if (idx < 0 || idx >= ALL_FINGERS.length - 1) return;
     selectFinger(ALL_FINGERS[idx + 1]);
@@ -559,25 +585,27 @@ export function ProcessScanModal({
 
             {showRidgeFields ? (
               <div className="process-scan-ridge-grid">
-                <label className="form-field">
+                <label className={`form-field${urc.trim() !== '' ? ' is-ridge-filled' : ''}`}>
                   <span className="form-label">URC</span>
                   <input
                     className="form-input"
                     type="number"
                     min={0}
                     inputMode="numeric"
+                    placeholder="0"
                     value={urc}
                     onChange={(e) => setUrc(e.target.value)}
                     aria-label="Ulnar Ridge Count"
                   />
                 </label>
-                <label className="form-field">
+                <label className={`form-field${rrc.trim() !== '' ? ' is-ridge-filled' : ''}`}>
                   <span className="form-label">RRC</span>
                   <input
                     className="form-input"
                     type="number"
                     min={0}
                     inputMode="numeric"
+                    placeholder="0"
                     value={rrc}
                     onChange={(e) => setRrc(e.target.value)}
                     aria-label="Radial Ridge Count"
@@ -592,7 +620,7 @@ export function ProcessScanModal({
                   <button
                     type="button"
                     className="scans-action-btn process-scan-next-btn"
-                    disabled={!mainPattern || !subPattern || finger === 'R5'}
+                    disabled={!canGoNext}
                     onClick={handleNextFinger}
                   >
                     Next · {fingerIndex(finger) >= 0 ? ALL_FINGERS[fingerIndex(finger) + 1] ?? 'Done' : 'Next'}
@@ -601,16 +629,31 @@ export function ProcessScanModal({
                 <div className="process-scan-qc">
                 <p className="process-scan-section-label">
                   QC - Finger Prints · {finger}
-                  {fingerPatternComplete(finger) ? (
-                    <span className="process-scan-qc-progress"> · {ALL_FINGERS.filter((id) => fingerPatternComplete(id)).length}/10 done</span>
-                  ) : null}
+                  <span className="process-scan-qc-progress">
+                    {' '}
+                    · {ALL_FINGERS.filter((id) => fingerFilled(id)).length}/10 done
+                  </span>
                 </p>
+                <div
+                  className="process-scan-qc-bar"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={10}
+                  aria-valuenow={ALL_FINGERS.filter((id) => fingerFilled(id)).length}
+                  aria-label="Finger QC progress"
+                >
+                  <span
+                    style={{
+                      width: `${(ALL_FINGERS.filter((id) => fingerFilled(id)).length / 10) * 100}%`,
+                    }}
+                  />
+                </div>
                 <div className="process-scan-qc-row">
                   {LEFT_FINGERS.map((item) => (
                     <button
                       key={item}
                       type="button"
-                      className={`process-scan-qc-btn process-scan-qc-left${finger === item ? ' is-active' : ''}${fingerPatternComplete(item) ? ' is-filled' : ''}`}
+                      className={`process-scan-qc-btn process-scan-qc-left${finger === item ? ' is-active' : ''}${fingerFilled(item) ? ' is-filled' : ''}`}
                       onClick={() => selectFinger(item)}
                     >
                       {item}
@@ -622,7 +665,7 @@ export function ProcessScanModal({
                     <button
                       key={item}
                       type="button"
-                      className={`process-scan-qc-btn process-scan-qc-right${finger === item ? ' is-active' : ''}${fingerPatternComplete(item) ? ' is-filled' : ''}`}
+                      className={`process-scan-qc-btn process-scan-qc-right${finger === item ? ' is-active' : ''}${fingerFilled(item) ? ' is-filled' : ''}`}
                       onClick={() => selectFinger(item)}
                     >
                       {item}

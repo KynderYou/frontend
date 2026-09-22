@@ -20,6 +20,10 @@ export type ScanZipImage = {
 
 /** Minimum size for a consent-form image (rejects tiny client/profile placeholders). */
 export const MIN_CONSENT_FORM_BYTES = 50 * 1024;
+/** Full-page Midna consent forms are portrait A4-like, not square profile photos. */
+export const MIN_CONSENT_SHORT_SIDE = 700;
+export const MIN_CONSENT_LONG_SIDE = 900;
+export const MIN_CONSENT_ASPECT = 1.25;
 
 function stemName(fileName: string): string {
   return fileName.replace(/\.[^.]+$/i, '').toLowerCase();
@@ -31,10 +35,67 @@ export function isConsentFormFileName(fileName: string, label?: string): boolean
   return Boolean(label && /consent/i.test(label));
 }
 
+function formatConsentBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function consentFormLooksLikeDocument(width: number, height: number): boolean {
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+  if (shortSide < MIN_CONSENT_SHORT_SIDE || longSide < MIN_CONSENT_LONG_SIDE) return false;
+  return longSide / shortSide >= MIN_CONSENT_ASPECT;
+}
+
+function loadImageDimensions(url: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 /**
- * True when zip images include a consent-form file large enough to be a document scan
- * (not a small client portrait / placeholder).
+ * Validates Midna consent form presence:
+ * - file named photo.* or consent*
+ * - at least 50 KB
+ * - page-like proportions (portrait/landscape document, not a square profile avatar)
  */
+export async function consentFormValidationError(
+  images: { name: string; label?: string; byteSize?: number; url?: string }[],
+): Promise<string | null> {
+  const candidates = images.filter((image) => isConsentFormFileName(image.name, image.label));
+  if (candidates.length === 0) {
+    return 'Consent form missing. Add a scanned Midna Family Consent Form as photo.jpg or consent*.jpg, then choose the file again.';
+  }
+
+  const largeEnough = candidates.filter((image) => (image.byteSize ?? 0) >= MIN_CONSENT_FORM_BYTES);
+  if (largeEnough.length === 0) {
+    const largest = Math.max(...candidates.map((image) => image.byteSize ?? 0));
+    const kb = Math.round(MIN_CONSENT_FORM_BYTES / 1024);
+    return `Consent form is too small (${formatConsentBytes(largest)}). Client profile photos are not accepted — include a full-page scanned Midna consent form of at least ${kb} KB.`;
+  }
+
+  let sawReadableImage = false;
+  for (const image of largeEnough) {
+    if (!image.url) continue;
+    const dims = await loadImageDimensions(image.url);
+    if (!dims) continue;
+    sawReadableImage = true;
+    if (consentFormLooksLikeDocument(dims.width, dims.height)) return null;
+  }
+
+  if (!sawReadableImage) {
+    // Size gate passed; dimensions unavailable (e.g. no object URL) — allow and rely on backend.
+    return null;
+  }
+
+  return 'Consent form does not look like a full-page Midna consent form. Use a clear scan/photo of the Family Consent Form (not a client profile picture).';
+}
+
+/** Sync size/name check only (backend does the full document-shape check). */
 export function hasConsentFormImage(
   images: { name: string; label?: string; byteSize?: number }[],
 ): boolean {
@@ -43,28 +104,6 @@ export function hasConsentFormImage(
       isConsentFormFileName(image.name, image.label) &&
       (image.byteSize ?? 0) >= MIN_CONSENT_FORM_BYTES,
   );
-}
-
-/** Human-readable reason when consent validation fails, or null when valid. */
-export function consentFormValidationError(
-  images: { name: string; label?: string; byteSize?: number }[],
-): string | null {
-  const candidates = images.filter((image) => isConsentFormFileName(image.name, image.label));
-  if (candidates.length === 0) {
-    return 'Consent form missing. Add a scanned consent form as photo.jpg or consent*.jpg, then choose the file again.';
-  }
-  const largest = Math.max(...candidates.map((image) => image.byteSize ?? 0));
-  if (largest < MIN_CONSENT_FORM_BYTES) {
-    const kb = Math.round(MIN_CONSENT_FORM_BYTES / 1024);
-    return `Consent form is too small (${formatConsentBytes(largest)}). Client profile photos are not accepted — include a scanned consent form of at least ${kb} KB as photo.jpg or consent*.jpg.`;
-  }
-  return null;
-}
-
-function formatConsentBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export type ZipExtractResult = {

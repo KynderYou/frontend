@@ -361,6 +361,7 @@ export type TraineeApi = {
   mentor_id: number;
   name: string;
   email: string;
+  phone?: string;
   doj: string;
   billing_percent: number;
   scan_count: number;

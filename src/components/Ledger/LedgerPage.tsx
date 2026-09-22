@@ -168,11 +168,12 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     setTopUpSubmitting(true);
     setTopUpError('');
     try {
-      await submitLedgerTopUp(amount, proof);
+      const ledger = await submitLedgerTopUp(amount, proof);
+      setData(ledger);
       setTopUpOpen(false);
       const formatted = amount.trim().replace(/^₹\s*/, '');
       showSuccess(
-        `Top-up of ₹${formatted} submitted successfully. Admin will verify your payment proof and credit your ledger shortly.`,
+        `₹${formatted} credited to your ledger. Admin may verify the payment proof later.`,
       );
     } catch {
       const message = 'Could not submit top up. Check amount and proof, then try again.';
