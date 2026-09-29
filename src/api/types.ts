@@ -134,6 +134,8 @@ export type DashboardNotice = {
   created_at: string;
   reply_count: number;
   seen_count: number;
+  read_by_me: boolean;
+  viewer_names: string[];
   has_poll: boolean;
 };
 
@@ -289,6 +291,7 @@ export type CommunicationApi = {
   group_ids: number[];
   group_names: string[];
   seen_count: number;
+  read_by_me?: boolean;
   viewers: { id: string; name: string; initials: string; role: string; seen_at: string }[];
   poll: CommPollApi | null;
   replies: CommReplyApi[];
@@ -359,15 +362,34 @@ export type MentorApi = {
 export type TraineeApi = {
   id: number;
   mentor_id: number;
+  mentor_name?: string;
   name: string;
   email: string;
   phone?: string;
   doj: string;
+  doj_iso?: string | null;
   billing_percent: number;
+  subscription?: string;
   scan_count: number;
   doex: string;
+  expiry_iso?: string | null;
+  remarks?: string;
   status: string;
   role: string;
+  created_at?: string;
+};
+
+export type TraineePayload = {
+  name: string;
+  mentor_id: number;
+  phone: string;
+  email?: string;
+  doj?: string;
+  expiry_date?: string;
+  subscription: string;
+  billing_percent: number;
+  remarks?: string;
+  status: 'Active' | 'Inactive';
 };
 
 export type TraineesStateApi = {

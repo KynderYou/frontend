@@ -18,92 +18,134 @@ export type ScanZipImage = {
   byteSize: number;
 };
 
-/** Minimum size for a consent-form image (rejects tiny client/profile placeholders). */
-export const MIN_CONSENT_FORM_BYTES = 50 * 1024;
-/** Full-page Midna consent forms are portrait A4-like, not square profile photos. */
-export const MIN_CONSENT_SHORT_SIDE = 700;
-export const MIN_CONSENT_LONG_SIDE = 900;
-export const MIN_CONSENT_ASPECT = 1.25;
+/*
+ * Consent form detection is content-based (file names are ignored), mirrored in
+ * midna_backend/app/utils/zip_extract.py — keep thresholds in sync.
+ * A consent form is a page: large, paper-proportioned, mostly white, with printed text.
+ * Fingerprints are dark (30–60% near-black); client avatars are small squares.
+ */
+export const MIN_CONSENT_FORM_BYTES = 30 * 1024;
+export const MIN_CONSENT_SHORT_SIDE = 500;
+export const MIN_CONSENT_LONG_SIDE = 700;
+export const MIN_CONSENT_ASPECT = 1.2;
+export const MAX_CONSENT_ASPECT = 1.8;
+export const MIN_CONSENT_WHITE_RATIO = 0.5;
+export const MAX_CONSENT_DARK_RATIO = 0.2;
+export const MIN_CONSENT_INK_RATIO = 0.005;
+export const MAX_CONSENT_INK_RATIO = 0.45;
+const CONSENT_INK_LUMA = 160;
+const ANALYSIS_SIZE = 256;
+const CONSENT_TEXT_MARGIN = 0.1;
 
-function stemName(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/i, '').toLowerCase();
+export type ImagePageStats = {
+  width: number;
+  height: number;
+  whiteRatio: number;
+  darkRatio: number;
+  inkRatio: number;
+};
+
+type ConsentCandidate = { name: string; label?: string; byteSize?: number; url?: string };
+
+/** Returns why the image is not a consent page, or null when it is one. */
+export function consentPageRejection(stats: ImagePageStats, byteSize: number): string | null {
+  const shortSide = Math.min(stats.width, stats.height);
+  const longSide = Math.max(stats.width, stats.height);
+  const aspect = longSide / Math.max(shortSide, 1);
+  if (stats.darkRatio > MAX_CONSENT_DARK_RATIO) return 'too dark to be a paper form';
+  if (stats.whiteRatio < MIN_CONSENT_WHITE_RATIO) return 'not enough white paper area';
+  if (shortSide < MIN_CONSENT_SHORT_SIDE || longSide < MIN_CONSENT_LONG_SIDE) {
+    return `resolution too low (${stats.width}×${stats.height}, need at least ${MIN_CONSENT_SHORT_SIDE}×${MIN_CONSENT_LONG_SIDE})`;
+  }
+  if (aspect < MIN_CONSENT_ASPECT || aspect > MAX_CONSENT_ASPECT) return 'not page-shaped';
+  if (stats.inkRatio < MIN_CONSENT_INK_RATIO) return 'looks blank — no printed text found';
+  if (stats.inkRatio > MAX_CONSENT_INK_RATIO) return 'too much dark content for a printed form';
+  if (byteSize < MIN_CONSENT_FORM_BYTES) return 'file too small for a readable scan';
+  return null;
 }
 
-export function isConsentFormFileName(fileName: string, label?: string): boolean {
-  const base = stemName(fileName);
-  if (base === 'photo' || base.startsWith('consent')) return true;
-  return Boolean(label && /consent/i.test(label));
-}
-
-function formatConsentBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export function consentFormLooksLikeDocument(width: number, height: number): boolean {
-  const shortSide = Math.min(width, height);
-  const longSide = Math.max(width, height);
-  if (shortSide < MIN_CONSENT_SHORT_SIDE || longSide < MIN_CONSENT_LONG_SIDE) return false;
-  return longSide / shortSide >= MIN_CONSENT_ASPECT;
-}
-
-function loadImageDimensions(url: string): Promise<{ width: number; height: number } | null> {
+function analyzeImage(url: string): Promise<ImagePageStats | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onload = () => {
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      const scale = ANALYSIS_SIZE / Math.max(width, height);
+      const w = Math.max(1, Math.round(width * scale));
+      const h = Math.max(1, Math.round(height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      const { data } = ctx.getImageData(0, 0, w, h);
+      // Text is measured inside the margins so a coloured page border is not mistaken for print.
+      const mx = Math.floor(w * CONSENT_TEXT_MARGIN);
+      const my = Math.floor(h * CONSENT_TEXT_MARGIN);
+      let white = 0;
+      let dark = 0;
+      let ink = 0;
+      let inner = 0;
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const i = (y * w + x) * 4;
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          if (lum >= 200) white += 1;
+          if (lum <= 50) dark += 1;
+          if (x >= mx && x < w - mx && y >= my && y < h - my) {
+            inner += 1;
+            if (lum < CONSENT_INK_LUMA) ink += 1;
+          }
+        }
+      }
+      const total = w * h;
+      resolve({
+        width,
+        height,
+        whiteRatio: white / total,
+        darkRatio: dark / total,
+        inkRatio: ink / Math.max(inner, 1),
+      });
+    };
     img.onerror = () => resolve(null);
     img.src = url;
   });
 }
 
-/**
- * Validates Midna consent form presence:
- * - file named photo.* or consent*
- * - at least 50 KB
- * - page-like proportions (portrait/landscape document, not a square profile avatar)
- */
-export async function consentFormValidationError(
-  images: { name: string; label?: string; byteSize?: number; url?: string }[],
-): Promise<string | null> {
-  const candidates = images.filter((image) => isConsentFormFileName(image.name, image.label));
-  if (candidates.length === 0) {
-    return 'Consent form missing. Add a scanned Midna Family Consent Form as photo.jpg or consent*.jpg, then choose the file again.';
-  }
-
-  const largeEnough = candidates.filter((image) => (image.byteSize ?? 0) >= MIN_CONSENT_FORM_BYTES);
-  if (largeEnough.length === 0) {
-    const largest = Math.max(...candidates.map((image) => image.byteSize ?? 0));
-    const kb = Math.round(MIN_CONSENT_FORM_BYTES / 1024);
-    return `Consent form is too small (${formatConsentBytes(largest)}). Client profile photos are not accepted — include a full-page scanned Midna consent form of at least ${kb} KB.`;
-  }
-
-  let sawReadableImage = false;
-  for (const image of largeEnough) {
+/** Finds the consent form among zip images by content. */
+export async function findConsentFormImage<T extends ConsentCandidate>(
+  images: T[],
+): Promise<{ image: T | null; rejection: string | null }> {
+  let bestRejection: { name: string; reason: string; area: number } | null = null;
+  for (const image of images) {
     if (!image.url) continue;
-    const dims = await loadImageDimensions(image.url);
-    if (!dims) continue;
-    sawReadableImage = true;
-    if (consentFormLooksLikeDocument(dims.width, dims.height)) return null;
+    const stats = await analyzeImage(image.url);
+    if (!stats) continue;
+    const reason = consentPageRejection(stats, image.byteSize ?? 0);
+    if (!reason) return { image, rejection: null };
+    // Explain using the largest paper-like image — the most likely consent attempt.
+    const area = stats.width * stats.height;
+    if (stats.darkRatio <= MAX_CONSENT_DARK_RATIO && (!bestRejection || area > bestRejection.area)) {
+      bestRejection = { name: image.name, reason, area };
+    }
   }
-
-  if (!sawReadableImage) {
-    // Size gate passed; dimensions unavailable (e.g. no object URL) — allow and rely on backend.
-    return null;
-  }
-
-  return 'Consent form does not look like a full-page Midna consent form. Use a clear scan/photo of the Family Consent Form (not a client profile picture).';
+  return {
+    image: null,
+    rejection: bestRejection ? `${bestRejection.name}: ${bestRejection.reason}` : null,
+  };
 }
 
-/** Sync size/name check only (backend does the full document-shape check). */
-export function hasConsentFormImage(
-  images: { name: string; label?: string; byteSize?: number }[],
-): boolean {
-  return images.some(
-    (image) =>
-      isConsentFormFileName(image.name, image.label) &&
-      (image.byteSize ?? 0) >= MIN_CONSENT_FORM_BYTES,
-  );
+export async function consentFormValidationError(images: ConsentCandidate[]): Promise<string | null> {
+  const { image, rejection } = await findConsentFormImage(images);
+  if (image) return null;
+  if (rejection) {
+    return `Consent form not accepted (${rejection}). Include a clear full-page scan of the Midna Family Consent Form.`;
+  }
+  return 'Consent form missing. The zip must include a full-page scan of the Midna Family Consent Form.';
 }
 
 export type ZipExtractResult = {
@@ -216,7 +258,6 @@ function labelForImage(fileName: string): string {
     const hand = match[1].toUpperCase() === 'L' ? 'Left' : 'Right';
     return `${hand} ${match[2]} · ${match[3]}`;
   }
-  if (/^photo$/i.test(base) || /^consent/i.test(base)) return 'Consent form';
   return base;
 }
 
@@ -437,6 +478,6 @@ export async function extractClientFromZip(file: File): Promise<ZipExtractResult
   };
 }
 
-export function revokeScanZipImages(images: ScanZipImage[] | undefined) {
+export function revokeScanZipImages(images: { url: string }[] | undefined) {
   images?.forEach((image) => URL.revokeObjectURL(image.url));
 }

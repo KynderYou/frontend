@@ -3630,6 +3630,7 @@
 /* Chip / button columns: center header and data together so they never look offset */
 .scans-table th.col-center,
 .scans-table td[data-label='Status'],
+.scans-table td[data-label='QC'],
 .scans-table td[data-label='Images'],
 .scans-table td[data-label='Action'],
 .scans-table td[data-label='Export'],
@@ -3765,6 +3766,25 @@
   color: var(--color-error, #fa5252);
 }
 
+.scans-action-qc {
+  background: var(--color-warning-bg, #fff9db);
+  color: var(--color-warning, #f59f00);
+}
+
+.scans-qc-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-success-bg, #ebfbee);
+  color: var(--color-success, #2f9e44);
+  white-space: nowrap;
+}
+
+.scans-table td[data-label='QC'],
 .scans-table td[data-label='Export'],
 .scans-table td[data-label='Action'],
 .scans-table td[data-label='Edit'],
@@ -4772,6 +4792,7 @@
     flex-shrink: 0;
   }
 
+  .scans-table td[data-label='QC'] .scans-action-btn,
   .scans-table td[data-label='Export'] .scans-action-btn,
   .scans-table td[data-label='Action'] .scans-action-btn,
   .scans-table td[data-label='Edit'] .scans-action-btn,

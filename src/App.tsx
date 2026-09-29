@@ -88,7 +88,7 @@ function writeHash(
   if (view === 'mis-scans' && options.misScanCode) {
     params.set('scan', options.misScanCode);
   }
-  if (view === 'mis-cab' && options.misScanCode) {
+  if ((view === 'mis-cab' || view === 'reports') && options.misScanCode) {
     params.set('scan', options.misScanCode);
   }
   const query = params.toString();
@@ -166,7 +166,7 @@ function App() {
       setTopUpId(null);
       return;
     }
-    if (nextView === 'mis-cab' && target) {
+    if ((nextView === 'mis-cab' || nextView === 'reports') && target) {
       setMisScanCode(target);
       setThreadId(null);
       setTopUpId(null);
@@ -337,6 +337,8 @@ function App() {
               <ReportsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
+                openCabForScan={misScanCode}
+                onCabOpened={() => setMisScanCode(null)}
               />
             ) : view === 'admin-members' ? (
               <AdminMembersPage

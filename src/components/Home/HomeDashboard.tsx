@@ -57,7 +57,14 @@ export function HomeDashboard({ nav, onOpenMobileMenu, onOpenProfile, onNavigate
         onNavigate={onNavigate}
       />
       <div className="home-lower">
-        <NoticeBoard notices={notices} loading={loading} onReply={onReply} />
+        <NoticeBoard
+          notices={notices}
+          loading={loading}
+          onReply={onReply}
+          onNoticeUpdated={(updated) =>
+            setNotices((prev) => prev.map((notice) => (notice.id === updated.id ? updated : notice)))
+          }
+        />
         <TopPerformers performers={performers} loading={loading} />
       </div>
     </div>

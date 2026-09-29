@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ApiError,
   authorizeReportDownload,
@@ -69,9 +69,12 @@ function apiErrorDetail(err: unknown, fallback: string) {
 type ReportsPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
+  /** Scan code from a "CAB ready" notification — opens that report's CAB audio modal. */
+  openCabForScan?: string | null;
+  onCabOpened?: () => void;
 };
 
-export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProps) {
+export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, onCabOpened }: ReportsPageProps) {
   const { showSuccess, showError } = useToast();
   const [records, setRecords] = useState<ReportRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +119,29 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile }: ReportsPageProp
     loadReports(controller.signal);
     return () => controller.abort();
   }, [loadReports]);
+
+  const loadedOnceRef = useRef(false);
+  const [pendingCabScan, setPendingCabScan] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openCabForScan) return;
+    setPendingCabScan(openCabForScan);
+    onCabOpened?.();
+    if (loadedOnceRef.current) void loadReports();
+  }, [openCabForScan, onCabOpened, loadReports]);
+
+  useEffect(() => {
+    if (loading) return;
+    loadedOnceRef.current = true;
+    if (!pendingCabScan) return;
+    const target = records.find((row) => row.scanId.toLowerCase() === pendingCabScan.toLowerCase());
+    setPendingCabScan(null);
+    if (target) {
+      setCabRecord(target);
+    } else {
+      showError(`Report ${pendingCabScan} was not found in My Reports.`);
+    }
+  }, [loading, records, pendingCabScan, showError]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

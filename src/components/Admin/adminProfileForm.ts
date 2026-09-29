@@ -6,12 +6,15 @@ import type {
 
 export type MemberRole = 'Admin' | 'Mentor' | 'MLA';
 
+/** Trainee is create-only: it stores directory details and never creates a login. */
+export type CreateRole = MemberRole | 'Trainee';
+
 export type AdminAccountFormState = {
   name: string;
   email: string;
   phone: string;
   password: string;
-  role: '' | MemberRole;
+  role: '' | CreateRole;
 };
 
 export type AdminMembershipFormState = {
@@ -66,6 +69,7 @@ export function billingDigitsForForm(value: string | null | undefined, fallback:
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
 export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA'];
+export const createRoleOptions: CreateRole[] = [...roleOptions, 'Trainee'];
 
 export const emptyAccountForm: AdminAccountFormState = {
   name: '',

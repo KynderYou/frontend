@@ -56,6 +56,14 @@ export async function replyToCommunication(
   });
 }
 
+/** POST /api/communications/{id}/read */
+export async function markCommunicationRead(messageId: number): Promise<CommunicationApi> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Mark as read not available in demo mode');
+  }
+  return apiClient<CommunicationApi>(`/api/communications/${messageId}/read`, { method: 'POST' });
+}
+
 /** POST /api/communications/{id}/poll-vote */
 export async function voteOnPoll(messageId: number, optionId: number): Promise<PollVoteResultApi> {
   if (isDemoToken(getToken())) {

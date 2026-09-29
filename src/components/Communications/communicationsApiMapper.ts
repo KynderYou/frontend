@@ -74,6 +74,8 @@ export function mapCommunicationsToDashboardNotices(communications: Communicatio
     created_at: item.created_at,
     reply_count: item.replies.length,
     seen_count: item.seen_count,
+    read_by_me: Boolean(item.read_by_me),
+    viewer_names: item.viewers.map((viewer) => viewer.name),
     has_poll: item.poll !== null,
   }));
 }

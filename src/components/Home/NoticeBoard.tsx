@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { markCommunicationRead } from '../../api';
 import type { DashboardNotice } from '../../api';
+import { mapCommunicationsToDashboardNotices } from '../Communications/communicationsApiMapper';
 import { colors, noticeAuthorTokens, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton, SkeletonLine } from '../common/Skeleton';
@@ -39,13 +40,20 @@ type NoticeBoardProps = {
   notices: DashboardNotice[];
   loading?: boolean;
   onReply?: (communicationId: string) => void;
+  onNoticeUpdated?: (notice: DashboardNotice) => void;
 };
 
-export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
-  const [acknowledged, setAcknowledged] = useState<Record<number, boolean>>({});
-
-  const toggleAcknowledged = (id: number) => {
-    setAcknowledged((prev) => ({ ...prev, [id]: !prev[id] }));
+export function NoticeBoard({ notices, loading, onReply, onNoticeUpdated }: NoticeBoardProps) {
+  const markRead = async (notice: DashboardNotice) => {
+    if (notice.read_by_me) return;
+    onNoticeUpdated?.({ ...notice, read_by_me: true, seen_count: notice.seen_count + 1 });
+    try {
+      const updated = await markCommunicationRead(notice.id);
+      const [mapped] = mapCommunicationsToDashboardNotices([updated]);
+      onNoticeUpdated?.(mapped);
+    } catch {
+      onNoticeUpdated?.(notice);
+    }
   };
 
   return (
@@ -279,8 +287,14 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
                         )}
                         <button
                           type="button"
-                          onClick={() => toggleAcknowledged(notice.id)}
-                          aria-pressed={!!acknowledged[notice.id]}
+                          onClick={() => void markRead(notice)}
+                          aria-pressed={notice.read_by_me}
+                          disabled={notice.read_by_me}
+                          title={
+                            notice.viewer_names.length > 0
+                              ? `Read by: ${notice.viewer_names.join(', ')}`
+                              : 'No one has read this yet'
+                          }
                           className="notice-ack-btn"
                           style={{
                             display: 'inline-flex',
@@ -290,19 +304,19 @@ export function NoticeBoard({ notices, loading, onReply }: NoticeBoardProps) {
                             padding: '6px 12px',
                             borderRadius: radius.pill,
                             border: 'none',
-                            background: acknowledged[notice.id] ? theme.success : theme['bg-surface'],
-                            color: acknowledged[notice.id] ? '#fff' : severity.icon,
+                            background: notice.read_by_me ? theme.success : theme['bg-surface'],
+                            color: notice.read_by_me ? '#fff' : severity.icon,
                             fontSize: 11,
                             fontWeight: 600,
-                            cursor: 'pointer',
-                            boxShadow: acknowledged[notice.id] ? '0 6px 14px rgba(81, 207, 102, 0.3)' : shadow.float,
+                            cursor: notice.read_by_me ? 'default' : 'pointer',
+                            boxShadow: notice.read_by_me ? '0 6px 14px rgba(81, 207, 102, 0.3)' : shadow.float,
                           }}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M20 6 9 17l-5-5" />
                           </svg>
-                          {acknowledged[notice.id]
-                            ? `Read · ${notice.seen_count + 1}`
+                          {notice.read_by_me
+                            ? `Read · ${notice.seen_count}`
                             : `Mark as read · ${notice.seen_count}`}
                         </button>
                       </div>

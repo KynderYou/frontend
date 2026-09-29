@@ -6,8 +6,6 @@ import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { MemberScansModal } from '../common/MemberScansModal';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { useToast } from '../common/ToastProvider';
-import { AddTraineeModal } from './AddTraineeModal';
 import { mapTraineeScans, mapTraineesState, traineeCountFor } from './traineesApiMapper';
 import { type Mentor, type Trainee, type TraineeScan, type TraineeScanStatus, type TraineeStatus } from './traineesData';
 
@@ -33,7 +31,6 @@ function initials(name: string) {
 }
 
 export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPageProps) {
-  const { showSuccess } = useToast();
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [trainees, setTrainees] = useState<Trainee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +41,6 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
   const [statusFilter, setStatusFilter] = useState<'All' | TraineeStatus>('All');
   const [page, setPage] = useState(1);
   const [scansTrainee, setScansTrainee] = useState<Trainee | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
@@ -193,7 +188,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
             My Trainees
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Search a mentor, then manage their trainees (directory details — not login accounts).
+            Search a mentor to see their trainees. Add trainees from Member Accounts → Create account.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -201,14 +196,6 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
-          </button>
-          <button
-            type="button"
-            className="btn-pill-primary"
-            style={{ height: 36, fontSize: 13, padding: '8px 14px' }}
-            onClick={() => setAddOpen(true)}
-          >
-            + Add trainee
           </button>
           <NotificationButton />
           <ProfileAvatarButton onClick={onOpenProfile} />
@@ -464,16 +451,6 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
       </div>
 
       <TraineeScansModal open={Boolean(scansTrainee)} trainee={scansTrainee} onClose={() => setScansTrainee(null)} />
-      <AddTraineeModal
-        open={addOpen}
-        mentors={mentors}
-        defaultMentorId={selectedMentorId}
-        onClose={() => setAddOpen(false)}
-        onCreated={() => {
-          showSuccess('Trainee details saved.');
-          void loadState();
-        }}
-      />
     </section>
   );
 }

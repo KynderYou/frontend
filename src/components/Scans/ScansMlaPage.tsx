@@ -19,7 +19,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
 import { EditScanModal, CLIENT_TYPE_FAMILY, CLIENT_TYPE_INDIVIDUAL } from './EditScanModal';
-import { extractClientFromZip, revokeScanZipImages, categoryToClientType, consentFormValidationError, type ScanZipImage } from './extractClientFromZip';
+import { extractClientFromZip, revokeScanZipImages, categoryToClientType, findConsentFormImage, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
 import {
@@ -238,9 +238,14 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       if (requestId !== extractRequestId.current) return;
       setUploadProgress(72);
 
+      const consentCheck = await findConsentFormImage(images);
+      if (requestId !== extractRequestId.current) return;
+      const labelledImages = consentCheck.image
+        ? images.map((image) => (image === consentCheck.image ? { ...image, label: 'Consent form' } : image))
+        : images;
       setExtractedImages((prev) => {
         revokeScanZipImages(prev);
-        return images;
+        return labelledImages;
       });
 
       setClientForm({
@@ -254,11 +259,13 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         mrp: '₹2,000',
       });
 
-      const consentError = await consentFormValidationError(images);
-      if (consentError) {
+      if (!consentCheck.image) {
+        const consentError = consentCheck.rejection
+          ? `Consent form not accepted — ${consentCheck.rejection}. Include a clear full-page scan of the Midna Family Consent Form.`
+          : 'Consent form missing — the zip must include a full-page scan of the Midna Family Consent Form.';
         setExtractOk(false);
         setExtractNotice(consentError);
-        setError('Consent form validation failed — this zip cannot be submitted.');
+        setError(consentError);
         return;
       }
 
@@ -698,13 +705,13 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                       {canMarkQc(row) ? (
                         <button
                           type="button"
-                          className="scans-action-btn"
+                          className="scans-action-btn scans-action-qc"
                           onClick={() => void handleMarkQc(row)}
                         >
                           Mark QC
                         </button>
                       ) : row.status === 'QC checked' ? (
-                        <span className="scans-table-meta">Done</span>
+                        <span className="scans-qc-done">✓ QC done</span>
                       ) : (
                         <span className="scans-table-meta">—</span>
                       )}

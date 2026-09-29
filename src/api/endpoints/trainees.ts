@@ -1,7 +1,7 @@
 import { apiClient } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
-import type { TraineeApi, TraineeScanApi, TraineesStateApi } from '../types';
+import type { TraineeApi, TraineePayload, TraineeScanApi, TraineesStateApi } from '../types';
 
 /** GET /api/trainees/state — pass scope=mine for mentor Trainee List */
 export async function getTraineesState(
@@ -16,18 +16,27 @@ export async function getTraineesState(
 }
 
 /** POST /api/trainees — admin adds directory trainee details (not a login user) */
-export async function createTrainee(payload: {
-  name: string;
-  mentor_id: number;
-  phone?: string;
-  email?: string;
-  doj?: string;
-  status?: string;
-}): Promise<{ trainee: TraineeApi; message: string }> {
+export async function createTrainee(payload: TraineePayload): Promise<{ trainee: TraineeApi; message: string }> {
   return apiClient('/api/trainees', {
     method: 'POST',
     body: payload,
   });
+}
+
+/** PATCH /api/trainees/{id} */
+export async function updateTrainee(
+  traineeId: number,
+  payload: TraineePayload,
+): Promise<{ trainee: TraineeApi; message: string }> {
+  return apiClient(`/api/trainees/${traineeId}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+/** DELETE /api/trainees/{id} */
+export async function deleteTrainee(traineeId: number): Promise<{ id: number; message: string }> {
+  return apiClient(`/api/trainees/${traineeId}`, { method: 'DELETE' });
 }
 
 /** GET /api/trainees/{id}/scans */

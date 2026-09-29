@@ -67,7 +67,7 @@ export function navigateFromNotification(
   }
   if (target && view === 'mis-scans') {
     window.location.hash = `#/${view}?scan=${encodeURIComponent(target)}`;
-  } else if (target && view === 'mis-cab') {
+  } else if (target && (view === 'mis-cab' || view === 'reports')) {
     window.location.hash = `#/${view}?scan=${encodeURIComponent(target)}`;
   } else if (target && view === 'admin-topups') {
     window.location.hash = `#/${view}?id=${encodeURIComponent(target)}`;

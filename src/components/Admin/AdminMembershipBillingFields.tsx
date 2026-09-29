@@ -5,9 +5,10 @@ type AdminMembershipBillingFieldsProps = {
   form: AdminMembershipFormState;
   mentors: MentorOption[];
   onChange: (next: AdminMembershipFormState) => void;
+  traineeMode?: boolean;
 };
 
-export function AdminMembershipBillingFields({ form, mentors, onChange }: AdminMembershipBillingFieldsProps) {
+export function AdminMembershipBillingFields({ form, mentors, onChange, traineeMode = false }: AdminMembershipBillingFieldsProps) {
   const update = <K extends keyof AdminMembershipFormState>(key: K, value: AdminMembershipFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -23,7 +24,11 @@ export function AdminMembershipBillingFields({ form, mentors, onChange }: AdminM
   return (
     <div className="admin-form-section">
       <h3 className="admin-form-section-title">Membership &amp; billing</h3>
-      <p className="admin-form-section-sub">Admin-only · member cannot edit these on profile</p>
+      <p className="admin-form-section-sub">
+        {traineeMode
+          ? 'Trainee appears in this mentor’s Referred by list when uploading scans'
+          : 'Admin-only · member cannot edit these on profile'}
+      </p>
       <div className="admin-create-grid">
         <label className="form-field">
           <span className="form-label">Mentored by</span>
@@ -33,7 +38,7 @@ export function AdminMembershipBillingFields({ form, mentors, onChange }: AdminM
               value={form.mentoredById}
               onChange={(e) => update('mentoredById', e.target.value)}
             >
-              <option value="">None</option>
+              <option value="">{traineeMode ? 'Select mentor' : 'None'}</option>
               {mentors.map((mentor) => (
                 <option key={mentor.id} value={mentor.id}>
                   {mentor.name} · {mentor.role}
@@ -90,18 +95,20 @@ export function AdminMembershipBillingFields({ form, mentors, onChange }: AdminM
             onChange={(e) => update('expiryDate', e.target.value)}
           />
         </label>
-        <label className="form-field">
-          <span className="form-label">Opening balance</span>
-          <input
-            className="form-input"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.opBal}
-            onChange={(e) => update('opBal', e.target.value)}
-            placeholder="0"
-          />
-        </label>
+        {!traineeMode ? (
+          <label className="form-field">
+            <span className="form-label">Opening balance</span>
+            <input
+              className="form-input"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.opBal}
+              onChange={(e) => update('opBal', e.target.value)}
+              placeholder="0"
+            />
+          </label>
+        ) : null}
       </div>
     </div>
   );
