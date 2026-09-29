@@ -34,6 +34,7 @@ type ScansHoPageProps = {
 const sectionLabels: Record<HoSectionId, string> = {
   preprocess: 'Preprocess',
   process: 'Process',
+  review: 'Review',
   verify: 'Verify',
   download: 'Download',
   report: 'Upload',
@@ -46,7 +47,11 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
   },
   process: {
     title: 'Process',
-    subtitle: 'Mark scans as completed or move them for review.',
+    subtitle: 'Mark scans as completed or move them for review. Flag X scans go to Review.',
+  },
+  review: {
+    title: 'Flag Review',
+    subtitle: 'Confirm Flag X on complex scans, then they move to Download. Send back to Process to fix counts.',
   },
   verify: {
     title: 'Verify',
@@ -366,12 +371,14 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   );
 
   const canOpenFingerprint =
-    activeSection === 'preprocess' || (isAdmin && (activeSection === 'process' || activeSection === 'verify'));
+    activeSection === 'preprocess' ||
+    (isAdmin && (activeSection === 'process' || activeSection === 'review' || activeSection === 'verify'));
 
   const grouped = useMemo(
     () => ({
       preprocess: records.filter((record) => record.section === 'preprocess'),
       process: records.filter((record) => record.section === 'process'),
+      review: records.filter((record) => record.section === 'review'),
       verify: records.filter((record) => record.section === 'verify'),
       download: records.filter((record) => record.section === 'download'),
       report: records.filter((record) => record.section === 'report'),
@@ -383,7 +390,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
     row: HoScanRecord,
     action: string,
     fields?: ReturnType<typeof actionPayloadFromProcess>,
-    message?: string,
+    message?: string | ((updated: HoScanRecord) => string),
   ) => {
     if (acting) return;
     setActing(true);
@@ -392,11 +399,11 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
       const defaultMessage = `Scan ${row.scanId} updated.`;
       if (result === null) {
         setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
-        showSuccess(message ?? `Scan ${row.scanId} deleted from report upload.`);
+        showSuccess(typeof message === 'string' ? message : `Scan ${row.scanId} deleted from report upload.`);
       } else {
         const mapped = hoScanListToRecords([result]);
         setRecords((prev) => prev.map((item) => (item.numericId === row.numericId ? mapped[0] : item)));
-        showSuccess(message ?? defaultMessage);
+        showSuccess(typeof message === 'function' ? message(mapped[0]) : message ?? defaultMessage);
       }
     } catch {
       showError('Action failed. Please try again.');
@@ -413,7 +420,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   const showProcessedBy = activeSection !== 'preprocess' && activeSection !== 'process';
   const showPreprocessedBy = activeSection === 'process';
 
-  const showFlagColumn = isAdmin && activeSection === 'verify';
+  const showFlagColumn = isAdmin && (activeSection === 'verify' || activeSection === 'review');
 
   const panelProcessRecord = useMemo(
     () => (panelTarget ? toProcessRecord(panelTarget, panelFingers ?? undefined) : null),
@@ -687,12 +694,23 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             actionPayloadFromProcess(record),
             panelMode === 'verify'
               ? `Scan ${record.scanId} verified.`
-              : `Scan ${record.scanId} completed · moved to Verify.`
+              : (updated) =>
+                  updated.section === 'review'
+                    ? `Scan ${record.scanId} is Flag X · moved to Review to confirm the flag.`
+                    : `Scan ${record.scanId} completed · moved to Verify.`
           );
         }}
         onReview={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
           if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} moved to review.`);
+        }}
+        onConfirmFlag={(record) => {
+          const row = records.find((item) => item.scanId === record.scanId);
+          if (row) void runAction(row, 'confirm_flag', undefined, `Flag X confirmed for ${record.scanId} · moved to Download.`);
+        }}
+        onSendBack={(record) => {
+          const row = records.find((item) => item.scanId === record.scanId);
+          if (row) void runAction(row, 'send_back', undefined, `Scan ${record.scanId} sent back to Process.`);
         }}
       />
 

@@ -4,7 +4,7 @@ import {
   deleteMlaScan,
   exportMlaScan,
   getMyMlaScans,
-  getTraineesState,
+  getTraineeReferralOptions,
   markMlaQcChecked,
   resolveMlaScanListImages,
   updateMlaScan,
@@ -149,15 +149,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         if (!cancelled) setLoading(false);
       });
 
-    getTraineesState(undefined, 'mine')
-      .then((state) => {
-        if (cancelled) return;
-        setTraineeNames(
-          (state.trainees ?? [])
-            .filter((row) => row.status === 'Active')
-            .map((row) => row.name)
-            .filter(Boolean),
-        );
+    getTraineeReferralOptions()
+      .then((names) => {
+        if (!cancelled) setTraineeNames(names);
       })
       .catch(() => {
         if (!cancelled) setTraineeNames([]);

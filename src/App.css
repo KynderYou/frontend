@@ -567,6 +567,13 @@
   min-width: 880px;
 }
 
+.mis-cab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
 .mis-cab-audio-cell {
   display: flex;
   flex-direction: column;
@@ -3658,6 +3665,24 @@
   background: var(--color-bg-muted, #f1f3f5);
 }
 
+.scans-table tbody tr.reports-row-flagged td {
+  background: #fdecec;
+  color: #b42318;
+}
+
+.scans-table tbody tr.reports-row-flagged td:first-child {
+  box-shadow: inset 3px 0 0 #d92d20;
+}
+
+.scans-table tbody tr.reports-row-flagged:hover td {
+  background: #fbdada;
+}
+
+.reports-card.reports-row-flagged {
+  background: #fdecec;
+  border-color: #f5b5b0;
+}
+
 .scans-table-link {
   border: none;
   background: none;
@@ -4437,6 +4462,13 @@
   border-color: #69db7c;
   background: #ebfbee;
   color: #2b8a3e;
+}
+
+.process-scan-qc-btn.is-flagged,
+.process-scan-qc-btn.is-flagged.is-filled:not(.is-active) {
+  border-color: #fa5252;
+  background: #fff5f5;
+  color: #c92a2a;
 }
 
 .process-scan-ridge-grid .form-field.is-ridge-filled .form-input {

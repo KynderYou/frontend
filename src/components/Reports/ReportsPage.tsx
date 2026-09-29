@@ -257,7 +257,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     const avatar = avatarPalette[index % avatarPalette.length];
 
     return (
-      <article key={row.id} className="reports-card">
+      <article key={row.id} className={row.flaggedX ? 'reports-card reports-row-flagged' : 'reports-card'}>
         <header className="reports-card-top">
           <span className="reports-card-avatar" style={avatar} aria-hidden="true">
             {initials(row.details.name)}
@@ -402,7 +402,11 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             const ready = isReportReady(row.status);
             const topPlan = isTopPackage(row.plan);
             return (
-              <tr key={row.id}>
+              <tr
+                key={row.id}
+                className={row.flaggedX ? 'reports-row-flagged' : undefined}
+                title={row.flaggedX ? 'Flag X: complex scan. CAB is requested automatically and is free for you.' : undefined}
+              >
                 <td data-label="Sno">{rowOffset + index + 1}</td>
                 <td data-label="Scan Id">
                   <span className="scans-table-file-static">{row.scanId}</span>

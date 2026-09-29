@@ -392,7 +392,8 @@ function findDataXmlPaths(paths: string[]): string[] {
 
 function isIgnoredPath(path: string): boolean {
   const n = normalizeZipPath(path).toLowerCase();
-  return n.startsWith('__macosx/') || n.includes('/.ds_store') || n.endsWith('/.ds_store');
+  const name = baseName(n);
+  return n.startsWith('__macosx/') || n.includes('/__macosx/') || name.startsWith('._') || name === '.ds_store';
 }
 
 /**

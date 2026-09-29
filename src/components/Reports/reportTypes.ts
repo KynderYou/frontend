@@ -25,6 +25,7 @@ export type ReportRecord = {
   cabAudios: CabAudio[];
   cabRequestedAt?: string;
   reportFileUrl?: string | null;
+  flaggedX?: boolean;
 };
 
 export function formatDuration(totalSec: number) {

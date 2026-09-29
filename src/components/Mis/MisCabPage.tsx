@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { debitCabRecord, getCabState, getMe } from '../../api';
+import { ApiError, debitCabRecord, deleteCabRecord, deleteCabRequest, getCabState, getMe, reviewCabUpload } from '../../api';
+import type { CabStateApi } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonCabPage } from '../common/Skeleton';
@@ -9,14 +10,16 @@ import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabPlayButton } from '../Reports/CabPlayButton';
-import { cabCountFor, mapCabState, pendingCabCountFor } from './cabApiMapper';
+import { mapCabState } from './cabApiMapper';
 import {
+  buildCabEntries,
   type CabDebitRecord,
   type CabDebitStatus,
+  type CabEntry,
   type CabPendingRequest,
+  type CabUpload,
 } from './cabData';
 import { MisCabUploadModal } from './MisCabUploadModal';
-import type { Mentor } from '../Trainees/traineesData';
 
 const theme = colors.light;
 const CAB_PAGE_SIZE = 12;
@@ -28,14 +31,6 @@ type MisCabPageProps = {
   initialScanCode?: string | null;
   onClearInitialScan?: () => void;
 };
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 function statusStyles(status: CabDebitStatus) {
   if (status === 'Debited') return { color: theme.success, background: theme['success-bg'] };
@@ -128,16 +123,22 @@ export function MisCabPage({
   const [isAdmin, setIsAdmin] = useState(true);
   const [isTrainee, setIsTrainee] = useState(false);
   const [canUpload, setCanUpload] = useState(false);
-  const [mentors, setMentors] = useState<Mentor[]>([]);
   const [records, setRecords] = useState<CabDebitRecord[]>([]);
   const [pendingRequests, setPendingRequests] = useState<CabPendingRequest[]>([]);
+  const [uploads, setUploads] = useState<CabUpload[]>([]);
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [selectedMentorId, setSelectedMentorId] = useState('');
-  const [mentorQuery, setMentorQuery] = useState('');
   const [query, setQuery] = useState('');
   const [debitTarget, setDebitTarget] = useState<CabDebitRecord | null>(null);
   const [uploadTarget, setUploadTarget] = useState<{ scanCode: string; clientName?: string } | null>(null);
+
+  const applyState = useCallback((state: CabStateApi) => {
+    const mapped = mapCabState(state);
+    setRecords(mapped.records);
+    setPendingRequests(mapped.pendingRequests);
+    setUploads(mapped.uploads);
+  }, []);
 
   const loadState = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -149,19 +150,14 @@ export function MisCabPage({
       setIsTrainee(member.role === 'Trainee');
       setCanUpload(staffView || mentorView);
       const scope = staffView ? undefined : mentorView ? 'mine' : undefined;
-      const state = await getCabState(signal, scope);
-      const mapped = mapCabState(state);
-      setMentors(mapped.mentors);
-      setRecords(mapped.records);
-      setPendingRequests(mapped.pendingRequests);
-      setSelectedMentorId((prev) => prev || mapped.mentors[0]?.id || '');
+      applyState(await getCabState(signal, scope));
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load CAB entries.');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [applyState]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -179,54 +175,74 @@ export function MisCabPage({
     onClearInitialScan?.();
   }, [initialScanCode, canUpload, loading, pendingRequests, onClearInitialScan]);
 
-  const filteredMentors = useMemo(() => {
-    const q = mentorQuery.trim().toLowerCase();
-    const withCab = mentors.filter((m) => cabCountFor(m.id, records) > 0);
-    if (!q) return withCab;
-    return withCab.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q) ||
-        m.region.toLowerCase().includes(q)
-    );
-  }, [mentorQuery, mentors, records]);
+  const entries = useMemo(() => buildCabEntries(uploads, records), [uploads, records]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return records.filter((row) => {
-      if (isAdmin && selectedMentorId && row.mentorId !== selectedMentorId) return false;
-      if (!q) return true;
-      return (
-        row.scanId.toLowerCase().includes(q) ||
+    if (!q) return entries;
+    return entries.filter(
+      (row) =>
+        row.scanCode.toLowerCase().includes(q) ||
         row.clientName.toLowerCase().includes(q) ||
         row.menteeName.toLowerCase().includes(q) ||
+        row.mentorName.toLowerCase().includes(q) ||
         row.audio.title.toLowerCase().includes(q) ||
         row.audio.fileName.toLowerCase().includes(q)
-      );
-    });
-  }, [records, isAdmin, selectedMentorId, query]);
+    );
+  }, [entries, query]);
 
-  const cabPagination = useClientPagination(
-    filtered,
-    CAB_PAGE_SIZE,
-    `${selectedMentorId}-${query}`,
-  );
+  const cabPagination = useClientPagination(filtered, CAB_PAGE_SIZE, query);
 
-  const selectedMentor = mentors.find((m) => m.id === selectedMentorId);
-  const pendingCount = filtered.filter((row) => row.status === 'Pending').length;
+  const pendingApprovals = entries.filter((row) => row.upload?.approvalStatus === 'Pending').length;
+  const pendingDebits = entries.filter((row) => row.debit?.status === 'Pending').length;
 
-  const handleDebit = async (record: CabDebitRecord) => {
+  const runCabAction = async (action: () => Promise<CabStateApi>, success: string, failure: string) => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const state = await debitCabRecord(Number(record.id));
-      const mapped = mapCabState(state);
-      setMentors(mapped.mentors);
-      setRecords(mapped.records);
-      setPendingRequests(mapped.pendingRequests);
-      showSuccess(`${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`);
-    } catch {
-      showError('Unable to record debit. Please try again.');
+      applyState(await action());
+      showSuccess(success);
+    } catch (err) {
+      const detail = err instanceof ApiError ? (err.body as { detail?: unknown } | null)?.detail : null;
+      showError(typeof detail === 'string' ? detail : failure);
+    } finally {
+      setBusy(false);
     }
   };
+
+  const handleDebit = (record: CabDebitRecord) =>
+    runCabAction(
+      () => debitCabRecord(Number(record.id)),
+      `${record.debitAmount} debited from ${record.menteeName} for ${record.audio.title}.`,
+      'Unable to record debit. Please try again.',
+    );
+
+  const handleDeleteRecord = (record: CabDebitRecord) => {
+    if (!window.confirm(`Delete the ${record.debitAmount} CAB debit for ${record.menteeName}? They will not be charged.`)) return;
+    void runCabAction(
+      () => deleteCabRecord(Number(record.id)),
+      `CAB debit for ${record.scanId} deleted.`,
+      'Unable to delete CAB debit.',
+    );
+  };
+
+  const handleDeleteRequest = (row: CabPendingRequest) => {
+    if (!window.confirm(`Delete the CAB request for ${row.scanCode} (${row.clientName || row.menteeName})?`)) return;
+    void runCabAction(
+      () => deleteCabRequest(row.scanCode),
+      `CAB request for ${row.scanCode} deleted.`,
+      'Unable to delete CAB request.',
+    );
+  };
+
+  const handleReview = (upload: CabUpload, approve: boolean) =>
+    runCabAction(
+      () => reviewCabUpload(Number(upload.id), approve),
+      approve
+        ? `CAB approved · ${upload.creditAmount} credited to ${upload.mentorName}.`
+        : `CAB for ${upload.scanCode} rejected.`,
+      'Unable to update CAB approval.',
+    );
 
   const openUpload = (row: CabPendingRequest) => {
     setUploadTarget({ scanCode: row.scanCode, clientName: row.clientName });
@@ -258,6 +274,10 @@ export function MisCabPage({
     );
   }
 
+  const summary = isTrainee
+    ? `${filtered.length} audio${filtered.length === 1 ? '' : 's'}`
+    : `${filtered.length} audio${filtered.length === 1 ? '' : 's'} · ${pendingApprovals} awaiting approval · ${pendingDebits} pending debit${pendingDebits === 1 ? '' : 's'}`;
+
   return (
     <section className="page-section trainees-page mis-cab-page">
       <div className="page-header">
@@ -279,7 +299,7 @@ export function MisCabPage({
             {isTrainee
               ? 'Counselling audio uploaded for your scans.'
               : isAdmin
-                ? 'Upload CAB for pending requests, then debit mentees.'
+                ? 'Upload CAB for pending requests, approve uploads to credit mentors, and debit mentees.'
                 : 'Upload counselling audio for mentee CAB requests, then record debits.'}
           </p>
         </div>
@@ -312,6 +332,7 @@ export function MisCabPage({
                   <th>Client</th>
                   <th>Mentee</th>
                   <th>Requested</th>
+                  <th className="col-center">Charge</th>
                   <th className="col-center">Action</th>
                 </tr>
               </thead>
@@ -324,14 +345,36 @@ export function MisCabPage({
                     <td data-label="Client">{row.clientName || '—'}</td>
                     <td data-label="Mentee">{row.menteeName}</td>
                     <td data-label="Requested">{row.requestedAt || '—'}</td>
+                    <td data-label="Charge" className="col-center">
+                      {row.flaggedX ? (
+                        <span className="process-scan-flag-chip" title="CAB is free for the associate on Flag X scans">
+                          Free · Flag X
+                        </span>
+                      ) : (
+                        <span className="trainees-status" style={statusStyles('Pending')}>
+                          Debit after upload
+                        </span>
+                      )}
+                    </td>
                     <td data-label="Action" className="col-center">
-                      <button
-                        type="button"
-                        className="scans-action-btn scans-action-export"
-                        onClick={() => openUpload(row)}
-                      >
-                        Upload CAB
-                      </button>
+                      <div className="mis-cab-actions">
+                        <button
+                          type="button"
+                          className="scans-action-btn scans-action-export"
+                          disabled={busy}
+                          onClick={() => openUpload(row)}
+                        >
+                          Upload CAB
+                        </button>
+                        <button
+                          type="button"
+                          className="scans-action-btn scans-action-danger"
+                          disabled={busy}
+                          onClick={() => handleDeleteRequest(row)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -341,7 +384,7 @@ export function MisCabPage({
         </div>
       ) : null}
 
-      {records.length === 0 && pendingRequests.length === 0 ? (
+      {entries.length === 0 && pendingRequests.length === 0 ? (
         <div className="dash-card" style={{ padding: spacing[2] }}>
           <EmptyState
             title="No CAB entries yet"
@@ -354,130 +397,7 @@ export function MisCabPage({
             }
           />
         </div>
-      ) : records.length === 0 ? null : (
-      <div className={`trainees-layout${isAdmin ? '' : ' trainees-layout--single'}`} style={{ gap: spacing[5] }}>
-        {isAdmin ? (
-          <div className="dash-card trainees-panel" style={{ padding: 0 }}>
-            <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
-              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Mentors</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 12, color: theme['text-muted'] }}>
-                {filteredMentors.length} with CAB entries
-              </p>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: theme['bg-muted'],
-                  borderRadius: radius.md,
-                  padding: '8px 12px',
-                  marginTop: spacing[3],
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme['text-muted']} strokeWidth="1.8">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-                <input
-                  value={mentorQuery}
-                  onChange={(e) => setMentorQuery(e.target.value)}
-                  placeholder="Search mentors"
-                  aria-label="Search mentors"
-                  style={{
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    fontSize: 13,
-                    color: theme['text-primary'],
-                    width: '100%',
-                    fontFamily: 'inherit',
-                  }}
-                />
-              </label>
-            </div>
-
-            <div role="listbox" aria-label="Mentors" className="trainees-panel-scroll">
-              {filteredMentors.length === 0 ? (
-                <p style={{ padding: spacing[5], margin: 0, fontSize: 13, color: theme['text-muted'], textAlign: 'center' }}>
-                  No mentors with CAB entries match your search.
-                </p>
-              ) : (
-                filteredMentors.map((mentor) => {
-                  const count = cabCountFor(mentor.id, records);
-                  const pending = pendingCabCountFor(mentor.id, records);
-                  const selected = mentor.id === selectedMentorId;
-                  return (
-                    <button
-                      key={mentor.id}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      onClick={() => {
-                        setSelectedMentorId(mentor.id);
-                        setQuery('');
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        width: '100%',
-                        padding: `${spacing[3]} ${spacing[5]}`,
-                        border: 'none',
-                        borderBottom: `1px solid ${theme.divider}`,
-                        background: selected ? theme['primary-soft'] : theme['bg-surface'],
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontFamily: 'inherit',
-                        color: 'inherit',
-                        borderLeft: selected ? `3px solid ${theme.primary}` : '3px solid transparent',
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: selected ? theme.primary : theme['bg-muted'],
-                          color: selected ? '#fff' : theme.primary,
-                          display: 'grid',
-                          placeItems: 'center',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {initials(mentor.name)}
-                      </span>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {mentor.name}
-                        </div>
-                        {mentor.region && mentor.region !== '—' ? (
-                          <div style={{ fontSize: 11, color: theme['text-muted'], marginTop: 2 }}>{mentor.region}</div>
-                        ) : null}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: pending > 0 ? theme.warning : theme.primary,
-                          background: pending > 0 ? theme['warning-bg'] : theme['primary-soft'],
-                          borderRadius: radius.pill,
-                          padding: '2px 8px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {pending > 0 ? `${pending} pending` : count}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        ) : null}
-
+      ) : entries.length === 0 ? null : (
         <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0, width: '100%' }}>
           <div
             className="trainees-table-toolbar"
@@ -493,16 +413,9 @@ export function MisCabPage({
           >
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
-                {isTrainee
-                  ? 'Your CAB audio'
-                  : isAdmin
-                    ? `${selectedMentor?.name ?? 'Mentor'}'s mentee CAB scans`
-                    : 'Your mentee CAB scans'}
+                {isTrainee ? 'Your CAB audio' : 'CAB uploads'}
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
-                {filtered.length} audio{filtered.length === 1 ? '' : 's'}
-                {!isTrainee ? ` · ${pendingCount} pending debit${pendingCount === 1 ? '' : 's'}` : ''}
-              </p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>{summary}</p>
             </div>
 
             <label
@@ -524,6 +437,7 @@ export function MisCabPage({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search scans"
+                aria-label="Search CAB uploads"
                 style={{
                   border: 'none',
                   outline: 'none',
@@ -542,20 +456,31 @@ export function MisCabPage({
               <thead>
                 <tr>
                   <th>Scan ID</th>
-                  <th>Name</th>
+                  <th>Client</th>
+                  {isAdmin ? <th>Mentor</th> : null}
                   {isTrainee ? <th>Mentor</th> : <th>Mentee</th>}
                   <th>Audio File</th>
-                  <th className="col-center">{isTrainee ? 'Status' : 'Debit'}</th>
+                  {!isTrainee ? <th className="col-center">Mentor credit</th> : null}
+                  <th className="col-center">{isTrainee ? 'Charge' : 'Mentee debit'}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={5}>No CAB audio entries for this selection.</td>
+                    <td colSpan={7}>No CAB uploads match your search.</td>
                   </tr>
                 ) : (
                   cabPagination.pageItems.map((row) => (
-                    <CabRow key={row.id} row={row} isTrainee={isTrainee} onDebit={() => setDebitTarget(row)} />
+                    <CabEntryRow
+                      key={row.key}
+                      row={row}
+                      isAdmin={isAdmin}
+                      isTrainee={isTrainee}
+                      busy={busy}
+                      onReview={(approve) => row.upload && void handleReview(row.upload, approve)}
+                      onDebit={() => row.debit && setDebitTarget(row.debit)}
+                      onDeleteDebit={() => row.debit && handleDeleteRecord(row.debit)}
+                    />
                   ))
                 )}
               </tbody>
@@ -569,7 +494,6 @@ export function MisCabPage({
             className="mis-table-footer"
           />
         </div>
-      </div>
       )}
 
       <CabDebitConfirmModal
@@ -594,24 +518,81 @@ export function MisCabPage({
   );
 }
 
-function CabRow({
+function approvalStyles(status: CabUpload['approvalStatus']) {
+  if (status === 'Approved') return { color: theme.success, background: theme['success-bg'] };
+  if (status === 'Rejected') return { color: theme.error, background: theme['error-bg'] };
+  return { color: theme.warning, background: theme['warning-bg'] };
+}
+
+function approvalLabel(upload: CabUpload) {
+  if (upload.approvalStatus === 'Approved') return upload.creditAmount ? `Credited · ${upload.creditAmount}` : 'Approved · no credit';
+  if (upload.approvalStatus === 'Rejected') return 'Rejected · no credit';
+  return `Awaiting approval · ${upload.creditAmount}`;
+}
+
+const mutedChip = { color: theme['text-muted'], background: theme['bg-muted'] };
+
+function CabEntryRow({
   row,
+  isAdmin,
   isTrainee,
+  busy,
+  onReview,
   onDebit,
+  onDeleteDebit,
 }: {
-  row: CabDebitRecord;
+  row: CabEntry;
+  isAdmin: boolean;
   isTrainee: boolean;
+  busy: boolean;
+  onReview: (approve: boolean) => void;
   onDebit: () => void;
+  onDeleteDebit: () => void;
 }) {
-  const chip = statusStyles(row.status);
-  const debited = row.status === 'Debited';
+  const { upload, debit } = row;
+  const debited = debit?.status === 'Debited';
+
+  let debitCell;
+  if (row.flaggedX) {
+    debitCell = (
+      <span className="process-scan-flag-chip" title="CAB is free for the associate on Flag X scans">
+        Free · Flag X
+      </span>
+    );
+  } else if (debit) {
+    debitCell = (
+      <>
+        <span className="trainees-status" style={statusStyles(debit.status)}>
+          {debited ? `Debited · ${debit.debitAmount}` : isTrainee ? 'Available' : `Pending · ${debit.debitAmount}`}
+        </span>
+        {!isTrainee && !debited ? (
+          <div className="mis-cab-actions" style={{ marginTop: 6 }}>
+            <button type="button" className="scans-action-btn scans-action-export" disabled={busy} onClick={onDebit}>
+              Debit {debit.debitAmount}
+            </button>
+            <button type="button" className="scans-action-btn scans-action-danger" disabled={busy} onClick={onDeleteDebit}>
+              Delete
+            </button>
+          </div>
+        ) : null}
+      </>
+    );
+  } else {
+    debitCell = (
+      <span className="trainees-status" style={mutedChip}>
+        Waived
+      </span>
+    );
+  }
 
   return (
     <tr>
       <td data-label="Scan ID">
-        <span className="mis-scan-id">{row.scanId}</span>
+        <span className="mis-scan-id">{row.scanCode}</span>
+        {row.uploadedAt ? <span className="mis-cab-audio-meta" style={{ display: 'block' }}>{row.uploadedAt}</span> : null}
       </td>
-      <td data-label="Name">{row.clientName}</td>
+      <td data-label="Client">{row.clientName || '—'}</td>
+      {isAdmin ? <td data-label="Mentor">{row.mentorName}</td> : null}
       <td data-label={isTrainee ? 'Mentor' : 'Mentee'}>{isTrainee ? row.mentorName : row.menteeName}</td>
       <td data-label="Audio File">
         <div className="mis-cab-audio-cell">
@@ -628,15 +609,33 @@ function CabRow({
           />
         </div>
       </td>
-      <td data-label={isTrainee ? 'Status' : 'Debit'} className="col-center">
-        <span className="trainees-status" style={{ color: chip.color, background: chip.background }}>
-          {debited ? `Debited · ${row.debitAmount}` : isTrainee ? 'Available' : `Pending · ${row.debitAmount}`}
-        </span>
-        {!isTrainee && !debited ? (
-          <button type="button" className="scans-action-btn scans-action-export" style={{ marginTop: 6 }} onClick={onDebit}>
-            Debit {row.debitAmount}
-          </button>
-        ) : null}
+      {!isTrainee ? (
+        <td data-label="Mentor credit" className="col-center">
+          {upload ? (
+            <>
+              <span className="trainees-status" style={approvalStyles(upload.approvalStatus)}>
+                {approvalLabel(upload)}
+              </span>
+              {isAdmin && upload.approvalStatus === 'Pending' ? (
+                <div className="mis-cab-actions" style={{ marginTop: 6 }}>
+                  <button type="button" className="scans-action-btn scans-action-export" disabled={busy} onClick={() => onReview(true)}>
+                    Approve
+                  </button>
+                  <button type="button" className="scans-action-btn scans-action-danger" disabled={busy} onClick={() => onReview(false)}>
+                    Reject
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <span className="trainees-status" style={mutedChip}>
+              —
+            </span>
+          )}
+        </td>
+      ) : null}
+      <td data-label={isTrainee ? 'Charge' : 'Mentee debit'} className="col-center">
+        {debitCell}
       </td>
     </tr>
   );

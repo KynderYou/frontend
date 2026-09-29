@@ -80,7 +80,7 @@ export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
               </p>
               <p className="reports-cab-empty-sub">
                 {record.cabRequestedAt
-                  ? `Requested on ${record.cabRequestedAt}. The counselling team will attach audio bytes shortly.`
+                  ? `${record.flaggedX ? 'Requested automatically for this Flag X scan (free for you)' : 'Requested'} on ${record.cabRequestedAt}. The counselling team will attach audio bytes shortly.`
                   : 'Request counselling audio bytes for this report and the counselling team will record them for your client.'}
               </p>
             </div>

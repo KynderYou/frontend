@@ -53,13 +53,12 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
     clientType: normalizeClientType(initial.clientType),
   }));
 
-  const referredByOptions = [
-    ...BASE_REFERRED_BY,
-    ...traineeNames.filter((name) => name && !(BASE_REFERRED_BY as readonly string[]).includes(name)),
-  ];
-  if (form.referredBy && !referredByOptions.includes(form.referredBy)) {
-    referredByOptions.push(form.referredBy);
-  }
+  const baseOptions = BASE_REFERRED_BY as readonly string[];
+  const traineeOptions = traineeNames.filter((name) => name && !baseOptions.includes(name));
+  const otherCurrent =
+    form.referredBy && !baseOptions.includes(form.referredBy) && !traineeOptions.includes(form.referredBy)
+      ? form.referredBy
+      : null;
 
   useEffect(() => {
     if (!open) return;
@@ -169,11 +168,21 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
                 <span className="form-label">Referred By</span>
                 <div className="form-select-wrap">
                   <select className="form-input form-select" value={form.referredBy} onChange={update('referredBy')}>
-                    {referredByOptions.map((o) => (
+                    {baseOptions.map((o) => (
                       <option key={o} value={o}>
                         {o}
                       </option>
                     ))}
+                    {traineeOptions.length > 0 ? (
+                      <optgroup label="My trainees">
+                        {traineeOptions.map((name) => (
+                          <option key={`trainee-${name}`} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {otherCurrent ? <option value={otherCurrent}>{otherCurrent}</option> : null}
                   </select>
                   <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="m6 9 6 6 6-6" />

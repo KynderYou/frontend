@@ -38,6 +38,7 @@ export function reportToRecord(report: ReportRecordApi): ReportRecord {
     cabAudios: mapCabAudios(report.cab_audios),
     cabRequestedAt: report.cab_requested_at ?? undefined,
     reportFileUrl: report.report_file_url,
+    flaggedX: Boolean(report.flagged_x),
   };
 }
 

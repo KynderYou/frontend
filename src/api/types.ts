@@ -348,6 +348,7 @@ export type ReportRecordApi = {
   cab_audios: CabAudioApi[];
   cab_requested_at: string | null;
   report_file_url: string | null;
+  flagged_x?: boolean;
 };
 
 export type MentorApi = {
@@ -501,12 +502,14 @@ export type CabDebitApi = {
   debit_amount: string;
   status: string;
   debited_at: string | null;
+  cab_audio_id?: number | null;
 };
 
 export type CabStateApi = {
   mentors: MentorApi[];
   records: CabDebitApi[];
   pending_requests?: CabPendingRequestApi[];
+  uploads?: CabUploadApi[];
 };
 
 export type CabPendingRequestApi = {
@@ -515,6 +518,24 @@ export type CabPendingRequestApi = {
   mentee_id: number;
   mentee_name: string;
   requested_at: string;
+  flagged_x?: boolean;
+};
+
+export type CabApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export type CabUploadApi = {
+  id: number;
+  scan_code: string;
+  client_name: string;
+  flagged_x: boolean;
+  mentor_id: number | null;
+  mentor_name: string;
+  mentee_name: string;
+  audio: CabDebitAudioApi;
+  uploaded_at: string;
+  approval_status: CabApprovalStatus;
+  credit_amount: string;
+  reviewed_at?: string | null;
 };
 
 export type MisContributorApi = {

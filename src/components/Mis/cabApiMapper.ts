@@ -1,11 +1,12 @@
 import type { CabStateApi } from '../../api/types';
 import type { Mentor } from '../Trainees/traineesData';
-import type { CabDebitRecord, CabDebitStatus, CabPendingRequest } from './cabData';
+import type { CabDebitRecord, CabDebitStatus, CabPendingRequest, CabUpload } from './cabData';
 
 export function mapCabState(state: CabStateApi): {
   mentors: Mentor[];
   records: CabDebitRecord[];
   pendingRequests: CabPendingRequest[];
+  uploads: CabUpload[];
 } {
   return {
     mentors: state.mentors.map((mentor) => ({
@@ -34,6 +35,7 @@ export function mapCabState(state: CabStateApi): {
       debitAmount: row.debit_amount,
       status: row.status as CabDebitStatus,
       debitedAt: row.debited_at ?? undefined,
+      cabAudioId: row.cab_audio_id != null ? String(row.cab_audio_id) : undefined,
     })),
     pendingRequests: (state.pending_requests ?? []).map((row) => ({
       scanCode: row.scan_code,
@@ -41,6 +43,26 @@ export function mapCabState(state: CabStateApi): {
       menteeId: String(row.mentee_id),
       menteeName: row.mentee_name,
       requestedAt: row.requested_at,
+      flaggedX: Boolean(row.flagged_x),
+    })),
+    uploads: (state.uploads ?? []).map((row) => ({
+      id: String(row.id),
+      scanCode: row.scan_code,
+      clientName: row.client_name,
+      flaggedX: row.flagged_x,
+      mentorId: row.mentor_id != null ? String(row.mentor_id) : '',
+      mentorName: row.mentor_name,
+      menteeName: row.mentee_name,
+      audio: {
+        id: String(row.audio.id),
+        title: row.audio.title,
+        fileName: row.audio.file_name,
+        durationSec: row.audio.duration_sec,
+        url: row.audio.url ?? null,
+      },
+      uploadedAt: row.uploaded_at,
+      approvalStatus: row.approval_status,
+      creditAmount: row.credit_amount,
     })),
   };
 }

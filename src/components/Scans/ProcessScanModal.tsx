@@ -24,7 +24,7 @@ export type ScanFingerPayload = {
   lfo: number;
 };
 
-export type ProcessScanMode = 'preprocess' | 'process' | 'verify';
+export type ProcessScanMode = 'preprocess' | 'process' | 'review' | 'verify';
 
 export type ProcessScanRecord = {
   scanId: string;
@@ -64,7 +64,15 @@ type ProcessScanModalProps = {
   onReject?: (payload: ProcessScanPayload) => void;
   onComplete?: (payload: ProcessScanPayload) => void;
   onReview?: (payload: ProcessScanPayload) => void;
+  onConfirmFlag?: (payload: ProcessScanPayload) => void;
+  onSendBack?: (payload: ProcessScanPayload) => void;
 };
+
+/** Mirrors the backend Flag X rule: (URC + 3) < RRC. */
+function isFlaggedRidge(urc: string, rrc: string): boolean {
+  if (urc.trim() === '' || rrc.trim() === '') return false;
+  return Number(urc) + 3 < Number(rrc);
+}
 
 const VIEW_TABS = ['L', 'C', 'R'] as const satisfies readonly FingerViewTab[];
 
@@ -113,6 +121,7 @@ function initialFingerMap(record: ProcessScanRecord): Record<string, FingerEntry
 const modeTitles: Record<ProcessScanMode, string> = {
   preprocess: 'Preprocess',
   process: 'Processing',
+  review: 'Flag Review',
   verify: 'Verify',
 };
 
@@ -270,6 +279,8 @@ export function ProcessScanModal({
   onReject,
   onComplete,
   onReview,
+  onConfirmFlag,
+  onSendBack,
 }: ProcessScanModalProps) {
   const [finger, setFinger] = useState('L1');
   const [leftView, setLeftView] = useState<FingerViewTab>('C');
@@ -338,11 +349,13 @@ export function ProcessScanModal({
   const displayName = [record.name, record.age, record.gender, record.phone].filter(Boolean).join(' / ');
   const isPreprocess = mode === 'preprocess';
   const isProcess = mode === 'process';
-  const isVerifyReadOnly = mode === 'verify';
+  const isReview = mode === 'review';
+  const isVerifyReadOnly = mode === 'verify' || isReview;
   const showPatternFields = isPreprocess || isProcess || isVerifyReadOnly;
   const showRidgeFields = isProcess;
   const showCornerValues = isProcess || isVerifyReadOnly;
   const showFlagBanner = isVerifyReadOnly && record.flaggedX;
+  const showFlaggedFingers = isProcess || isVerifyReadOnly;
   const showQcFingers = isPreprocess || isProcess || isVerifyReadOnly;
 
   const currentFingerEntry = (): FingerEntry => ({
@@ -376,6 +389,13 @@ export function ProcessScanModal({
 
   const fingerFilled = (fingerId: string) =>
     isPreprocess ? fingerPatternComplete(fingerId) : fingerProcessComplete(fingerId);
+
+  const fingerFlagged = (fingerId: string) => {
+    if (!showFlaggedFingers) return false;
+    const entry = mergedFingerEntries()[fingerId];
+    return Boolean(entry && isFlaggedRidge(entry.urc, entry.rrc));
+  };
+  const flaggedFingers = ALL_FINGERS.filter((fingerId) => fingerFlagged(fingerId));
 
   const allFingersComplete = isPreprocess
     ? ALL_FINGERS.every((fingerId) => fingerPatternComplete(fingerId))
@@ -482,7 +502,11 @@ export function ProcessScanModal({
               <strong>Name:</strong> {displayName}
             </p>
 
-            {isVerifyReadOnly ? (
+            {isReview ? (
+              <p className="process-scan-view-hint">
+                Confirm the Flag X · flagged fingers are highlighted · send back to Process if the counts are wrong
+              </p>
+            ) : isVerifyReadOnly ? (
               <p className="process-scan-view-hint">
                 Review saved preprocess and process data — fields cannot be edited during verification
               </p>
@@ -504,6 +528,9 @@ export function ProcessScanModal({
               <div className="process-scan-flag-banner" role="status">
                 <strong>Flag X — Complex scan</strong>
                 <span>This scan must be followed with CAB before counselling. Do not proceed without CAB support.</span>
+                {flaggedFingers.length > 0 ? (
+                  <span>Flagged fingers (RRC more than URC + 3): {flaggedFingers.join(', ')}</span>
+                ) : null}
               </div>
             ) : null}
 
@@ -653,7 +680,8 @@ export function ProcessScanModal({
                     <button
                       key={item}
                       type="button"
-                      className={`process-scan-qc-btn process-scan-qc-left${finger === item ? ' is-active' : ''}${fingerFilled(item) ? ' is-filled' : ''}`}
+                      className={`process-scan-qc-btn process-scan-qc-left${finger === item ? ' is-active' : ''}${fingerFilled(item) ? ' is-filled' : ''}${fingerFlagged(item) ? ' is-flagged' : ''}`}
+                      title={fingerFlagged(item) ? 'Flag X: RRC is more than URC + 3' : undefined}
                       onClick={() => selectFinger(item)}
                     >
                       {item}
@@ -665,7 +693,8 @@ export function ProcessScanModal({
                     <button
                       key={item}
                       type="button"
-                      className={`process-scan-qc-btn process-scan-qc-right${finger === item ? ' is-active' : ''}${fingerFilled(item) ? ' is-filled' : ''}`}
+                      className={`process-scan-qc-btn process-scan-qc-right${finger === item ? ' is-active' : ''}${fingerFilled(item) ? ' is-filled' : ''}${fingerFlagged(item) ? ' is-flagged' : ''}`}
+                      title={fingerFlagged(item) ? 'Flag X: RRC is more than URC + 3' : undefined}
                       onClick={() => selectFinger(item)}
                     >
                       {item}
@@ -757,6 +786,31 @@ export function ProcessScanModal({
                 }}
               >
                 Completed
+              </button>
+            </>
+          ) : null}
+
+          {mode === 'review' ? (
+            <>
+              <button
+                type="button"
+                className="scans-action-btn"
+                onClick={() => {
+                  onSendBack?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Send back to Process
+              </button>
+              <button
+                type="button"
+                className="scans-action-btn scans-action-export"
+                onClick={() => {
+                  onConfirmFlag?.(buildPayload());
+                  onClose();
+                }}
+              >
+                Confirm Flag X
               </button>
             </>
           ) : null}

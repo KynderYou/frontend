@@ -15,6 +15,14 @@ export async function getTraineesState(
   return apiClient<TraineesStateApi>(`/api/trainees/state${query}`, { signal });
 }
 
+/** GET /api/trainees/referral-options — trainee names for scan Referred by */
+export async function getTraineeReferralOptions(signal?: AbortSignal): Promise<string[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<string[]>('/api/trainees/referral-options', { signal });
+}
+
 /** POST /api/trainees — admin adds directory trainee details (not a login user) */
 export async function createTrainee(payload: TraineePayload): Promise<{ trainee: TraineeApi; message: string }> {
   return apiClient('/api/trainees', {

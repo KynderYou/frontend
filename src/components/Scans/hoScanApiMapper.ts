@@ -1,6 +1,6 @@
 import type { HoScan } from '../../api/types';
 
-export type HoSectionId = 'preprocess' | 'process' | 'verify' | 'download' | 'report';
+export type HoSectionId = 'preprocess' | 'process' | 'review' | 'verify' | 'download' | 'report';
 
 export type HoScanRecord = {
   id: string;
