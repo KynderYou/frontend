@@ -1,6 +1,6 @@
 import type { ReportRecordApi } from '../../api/types';
 import { normalizeReportPlan } from './reportPackages';
-import type { CabAudio, ReportRecord } from './reportTypes';
+import type { ReportCabFeedback, ReportRecord } from './reportTypes';
 
 function mapDetails(details: ReportRecordApi['details']) {
   return {
@@ -14,14 +14,14 @@ function mapDetails(details: ReportRecordApi['details']) {
   };
 }
 
-function mapCabAudios(audios: ReportRecordApi['cab_audios']): CabAudio[] {
-  return audios.map((audio) => ({
-    id: String(audio.id),
-    title: audio.title,
-    counsellor: audio.counsellor,
-    durationSec: audio.duration_sec,
-    url: audio.url ?? null,
-  }));
+function mapCabFeedback(feedback: ReportRecordApi['cab_feedback']): ReportCabFeedback | undefined {
+  if (!feedback) return undefined;
+  return {
+    rating: feedback.rating,
+    comments: feedback.comments,
+    status: feedback.status,
+    submittedAt: feedback.submitted_at,
+  };
 }
 
 export function reportToRecord(report: ReportRecordApi): ReportRecord {
@@ -35,8 +35,9 @@ export function reportToRecord(report: ReportRecordApi): ReportRecord {
     status: report.status,
     plan: normalizeReportPlan(report.plan),
     details: mapDetails(report.details),
-    cabAudios: mapCabAudios(report.cab_audios),
-    cabRequestedAt: report.cab_requested_at ?? undefined,
+    cabFeedback: mapCabFeedback(report.cab_feedback),
+    ownerId: report.owner_id,
+    cabEligible: Boolean(report.cab_eligible),
     reportFileUrl: report.report_file_url,
     flaggedX: Boolean(report.flagged_x),
   };

@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getHoScanDetail, getHoScans, hoScanAction, resolveHoScanImages } from '../../api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  downloadHoScanExcel,
+  getHoScanDetail,
+  getHoScans,
+  hoScanAction,
+  isApiError,
+  resolveHoScanImages,
+  uploadHoScanReport,
+} from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonTableCard } from '../common/Skeleton';
@@ -170,11 +178,6 @@ function HoDebitScanModal({
             This will debit <strong>{debitAmount}</strong> from <strong>{record.scanBy}</strong> using{' '}
             <strong>{billingLabel}</strong> of the report MRP <strong>{record.cost}</strong>.
           </p>
-          {record.flaggedX ? (
-            <p className="process-scan-view-hint" style={{ marginTop: 12 }}>
-              This scan is flagged — additional NCD billing may also apply if CAB was not requested.
-            </p>
-          ) : null}
         </div>
 
         <div className="modal-footer">
@@ -282,6 +285,8 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [acting, setActing] = useState(false);
+  const reportInputRef = useRef<HTMLInputElement>(null);
+  const reportTargetRef = useRef<HoScanRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [debitTarget, setDebitTarget] = useState<HoScanRecord | null>(null);
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
@@ -410,6 +415,46 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
     } finally {
       setActing(false);
     }
+  };
+
+  const pickReportFile = (row: HoScanRecord) => {
+    reportTargetRef.current = row;
+    reportInputRef.current?.click();
+  };
+
+  const handleReportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const row = reportTargetRef.current;
+    reportTargetRef.current = null;
+    if (!file || !row || acting) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      showError('Report must be a PDF file.');
+      return;
+    }
+    setActing(true);
+    try {
+      const updated = await uploadHoScanReport(row.numericId, file);
+      const mapped = hoScanListToRecords([updated]);
+      setRecords((prev) => prev.map((item) => (item.numericId === row.numericId ? mapped[0] : item)));
+      showSuccess(`Report uploaded for ${row.scanId}.`);
+    } catch (err) {
+      const detail = isApiError(err) ? (err.body as { detail?: unknown } | null)?.detail : null;
+      showError(typeof detail === 'string' ? detail : `Could not upload the report for ${row.scanId}.`);
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleExcelDownload = async (row: HoScanRecord) => {
+    if (acting) return;
+    try {
+      await downloadHoScanExcel(row.numericId, row.scanId);
+    } catch {
+      showError(`Could not download the Excel sheet for ${row.scanId}.`);
+      return;
+    }
+    await runAction(row, 'download', undefined, `${row.scanId}.xlsx downloaded · moved to Upload.`);
   };
 
   const rows = grouped[activeSection];
@@ -603,7 +648,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                             type="button"
                             className="scans-action-btn"
                             disabled={acting}
-                            onClick={() => runAction(row, 'download', undefined, `Excel download started for ${row.scanId}.`)}
+                            onClick={() => void handleExcelDownload(row)}
                           >
                             Download as XL
                           </button>
@@ -617,9 +662,23 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                               type="button"
                               className="scans-action-btn scans-action-export"
                               disabled={acting}
-                              onClick={() => runAction(row, 'upload', undefined, `Report uploaded for ${row.scanId}.`)}
+                              title={row.hasReportFile ? 'Replace the report PDF' : 'Upload the report PDF'}
+                              onClick={() => pickReportFile(row)}
                             >
-                              Upload
+                              {row.hasReportFile ? 'Replace PDF' : 'Upload PDF'}
+                            </button>
+                            <button
+                              type="button"
+                              className="scans-action-btn"
+                              style={{ marginLeft: 6 }}
+                              title="Download the Excel sheet again"
+                              onClick={() =>
+                                void downloadHoScanExcel(row.numericId, row.scanId).catch(() =>
+                                  showError(`Could not download the Excel sheet for ${row.scanId}.`),
+                                )
+                              }
+                            >
+                              XL
                             </button>
                           </td>
                           <td data-label="Debit" onClick={(e) => e.stopPropagation()}>
@@ -737,6 +796,14 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
         onConfirm={(record) => {
           void runAction(record, 'delete');
         }}
+      />
+
+      <input
+        ref={reportInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => void handleReportFile(e)}
       />
     </section>
   );

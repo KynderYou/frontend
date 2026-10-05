@@ -149,6 +149,8 @@ export type TopPerformer = {
 
 export type DashboardData = {
   kpis: DashboardKpis;
+  /** Admin / H.O see totals across the whole company. */
+  company_wide?: boolean;
 };
 
 export type MlaScanDetails = {
@@ -216,6 +218,7 @@ export type HoScan = {
   billing_percent?: number | null;
   report_debit_amount?: string | null;
   report_billed?: boolean;
+  has_report_file?: boolean;
 };
 
 export type ScanFinger = {
@@ -328,12 +331,11 @@ export type ReportDetailsApi = {
   mrp: string;
 };
 
-export type CabAudioApi = {
-  id: number;
-  title: string;
-  counsellor: string;
-  duration_sec: number;
-  url?: string | null;
+export type ReportCabFeedbackApi = {
+  rating: number;
+  comments: string;
+  status: CabFeedbackStatus;
+  submitted_at: string;
 };
 
 export type ReportRecordApi = {
@@ -345,8 +347,9 @@ export type ReportRecordApi = {
   status: string;
   plan: string;
   details: ReportDetailsApi;
-  cab_audios: CabAudioApi[];
-  cab_requested_at: string | null;
+  cab_feedback?: ReportCabFeedbackApi | null;
+  owner_id: number;
+  cab_eligible?: boolean;
   report_file_url: string | null;
   flagged_x?: boolean;
 };
@@ -372,6 +375,8 @@ export type TraineeApi = {
   billing_percent: number;
   subscription?: string;
   scan_count: number;
+  last_scan?: string;
+  last_scan_days?: number | null;
   doex: string;
   expiry_iso?: string | null;
   remarks?: string;
@@ -426,9 +431,26 @@ export type MlaApi = {
   doj: string;
   billing_percent: number;
   scan_count: number;
+  last_scan?: string;
+  last_scan_days?: number | null;
   doex: string;
   status: string;
   role: string;
+};
+
+export type MentorRowApi = {
+  id: number;
+  name: string;
+  email: string;
+  doj: string;
+  billing_percent: number;
+  scan_count: number;
+  last_scan: string;
+  last_scan_days: number | null;
+  doex: string;
+  status: string;
+  trainee_count: number;
+  mla_count: number;
 };
 
 export type MlasStateApi = {
@@ -480,62 +502,42 @@ export type LedgerData = {
   company_wide?: boolean;
   available_balance?: number;
   available_balance_display?: string;
+  company_entries?: CompanyLedgerEntryApi[];
 };
 
-export type CabDebitAudioApi = {
+export type CompanyLedgerEntryApi = {
   id: number;
+  kind: 'opening' | 'funds' | 'cab_payout' | string;
   title: string;
-  file_name: string;
-  duration_sec: number;
-  url?: string | null;
+  date: string;
+  amount: string;
+  is_credit: boolean;
+  created_by?: string | null;
 };
 
-export type CabDebitApi = {
+export type CabFeedbackStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export type CabFeedbackApi = {
   id: number;
-  scan_id: string;
+  scan_code: string;
   client_name: string;
-  mentor_id: number;
-  mentor_name: string;
   mentee_id: number;
   mentee_name: string;
-  audio: CabDebitAudioApi;
-  debit_amount: string;
-  status: string;
-  debited_at: string | null;
-  cab_audio_id?: number | null;
+  mentee_billing: string;
+  mentor_id: number | null;
+  mentor_name: string;
+  mrp: string;
+  rating: number;
+  comments: string;
+  status: CabFeedbackStatus;
+  credit_amount: string;
+  submitted_at: string;
+  reviewed_at?: string | null;
 };
 
 export type CabStateApi = {
-  mentors: MentorApi[];
-  records: CabDebitApi[];
-  pending_requests?: CabPendingRequestApi[];
-  uploads?: CabUploadApi[];
-};
-
-export type CabPendingRequestApi = {
-  scan_code: string;
-  client_name: string;
-  mentee_id: number;
-  mentee_name: string;
-  requested_at: string;
-  flagged_x?: boolean;
-};
-
-export type CabApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
-
-export type CabUploadApi = {
-  id: number;
-  scan_code: string;
-  client_name: string;
-  flagged_x: boolean;
-  mentor_id: number | null;
-  mentor_name: string;
-  mentee_name: string;
-  audio: CabDebitAudioApi;
-  uploaded_at: string;
-  approval_status: CabApprovalStatus;
-  credit_amount: string;
-  reviewed_at?: string | null;
+  feedback: CabFeedbackApi[];
+  company_balance?: string | null;
 };
 
 export type MisContributorApi = {

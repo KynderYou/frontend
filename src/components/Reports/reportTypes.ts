@@ -3,12 +3,13 @@ import { normalizeReportPlan, type ReportPlan } from './reportPackages';
 
 export type { ReportPlan };
 
-export type CabAudio = {
-  id: string;
-  title: string;
-  counsellor: string;
-  durationSec: number;
-  url?: string | null;
+export type CabFeedbackStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export type ReportCabFeedback = {
+  rating: number;
+  comments: string;
+  status: CabFeedbackStatus;
+  submittedAt: string;
 };
 
 export type ReportRecord = {
@@ -22,8 +23,10 @@ export type ReportRecord = {
   status: string;
   plan: ReportPlan;
   details: ScanDetails;
-  cabAudios: CabAudio[];
-  cabRequestedAt?: string;
+  cabFeedback?: ReportCabFeedback;
+  ownerId: number;
+  /** Only MLA-owned scans get CAB feedback. */
+  cabEligible: boolean;
   reportFileUrl?: string | null;
   flaggedX?: boolean;
 };

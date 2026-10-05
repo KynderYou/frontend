@@ -27,6 +27,8 @@ export function mapMlasState(state: MlasStateApi): { mentors: Mentor[]; mlas: Ml
       doj: mla.doj,
       billingPercent: mla.billing_percent,
       scanCount: mla.scan_count,
+      lastScan: mla.last_scan ?? '—',
+      lastScanDays: mla.last_scan_days ?? null,
       doex: mla.doex,
       status: mla.status as Mla['status'],
       role: mla.role,

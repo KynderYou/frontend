@@ -1,7 +1,7 @@
 import { apiClient } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
-import type { MlaScanApi, MlasStateApi } from '../types';
+import type { MentorRowApi, MlaScanApi, MlasStateApi } from '../types';
 
 /** GET /api/mlas/state — pass scope=mine for mentor MLA List */
 export async function getMlasState(
@@ -21,4 +21,20 @@ export async function getMlaScans(mlaId: number, signal?: AbortSignal): Promise<
     return [];
   }
   return apiClient<MlaScanApi[]>(`/api/mlas/${mlaId}/scans`, { signal });
+}
+
+/** GET /api/mentors — Admin list of mentors; scan figures count only scans the mentor uploaded */
+export async function getMentors(signal?: AbortSignal): Promise<MentorRowApi[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<MentorRowApi[]>('/api/mentors', { signal });
+}
+
+/** GET /api/mentors/{id}/scans — scans uploaded by the mentor themselves */
+export async function getMentorScans(mentorId: number, signal?: AbortSignal): Promise<MlaScanApi[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<MlaScanApi[]>(`/api/mentors/${mentorId}/scans`, { signal });
 }

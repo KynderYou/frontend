@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMlaScans, getMlasState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { LastScanCell } from '../common/LastScanCell';
 import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { MemberScansModal } from '../common/MemberScansModal';
 import { NotificationButton } from '../Layout/NotificationButton';
@@ -395,6 +396,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
                   <th>DOJ</th>
                   <th className="col-center">Billing %</th>
                   <th className="col-center">Number of scans</th>
+                  <th>Last scan</th>
                   <th>DOEx</th>
                   <th className="col-center">Status</th>
                 </tr>
@@ -402,7 +404,7 @@ export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={6}>No mlas for this mentor.</td>
+                    <td colSpan={7}>No mlas for this mentor.</td>
                   </tr>
                 ) : (
                   pageRows.map((row) => <MlaRow key={row.id} mla={row} onOpen={() => setScansMla(row)} />)
@@ -538,6 +540,9 @@ function MlaRow({ mla, onOpen }: { mla: Mla; onOpen: () => void }) {
       </td>
       <td data-label="Number of scans" className="col-center">
         {mla.scanCount}
+      </td>
+      <td data-label="Last scan">
+        <LastScanCell date={mla.lastScan} days={mla.lastScanDays} />
       </td>
       <td data-label="DOEx">{mla.doex}</td>
       <td data-label="Status" className="col-center">

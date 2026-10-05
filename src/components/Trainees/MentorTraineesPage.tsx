@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getMe, getTraineeScans, getTraineesState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { LastScanCell } from '../common/LastScanCell';
 import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { MemberScansModal } from '../common/MemberScansModal';
 import { TablePager } from '../common/TablePager';
@@ -234,6 +235,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
                 <th>DOJ</th>
                 <th className="col-center">Billing %</th>
                 <th className="col-center">Number of scans</th>
+                  <th>Last scan</th>
                 <th>DOEx</th>
                 <th className="col-center">Status</th>
               </tr>
@@ -241,7 +243,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
             <tbody>
               {filtered.length === 0 ? (
                 <tr className="mis-data-empty">
-                  <td colSpan={6}>No trainees found.</td>
+                  <td colSpan={7}>No trainees found.</td>
                 </tr>
               ) : (
                 listPagination.pageItems.map((trainee) => (
@@ -359,6 +361,9 @@ function TraineeListRow({ trainee, onOpen }: { trainee: Trainee; onOpen: () => v
       </td>
       <td data-label="Number of scans" className="col-center">
         {trainee.scanCount}
+      </td>
+      <td data-label="Last scan">
+        <LastScanCell date={trainee.lastScan} days={trainee.lastScanDays} />
       </td>
       <td data-label="DOEx">{trainee.doex}</td>
       <td data-label="Status" className="col-center">

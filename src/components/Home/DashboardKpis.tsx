@@ -30,22 +30,23 @@ function formatCount(value: number): string {
 }
 
 function formatBilling(value: number | null | undefined): string {
-  if (value == null || value === 0) return '–';
-  return formatCount(value);
+  if (value == null || Number(value) === 0) return '–';
+  return `₹${Math.round(Number(value)).toLocaleString('en-IN')}`;
 }
 
-function buildKpis(data: DashboardKpisData | null, nav?: MemberNav): KpiCard[] {
+function buildKpis(data: DashboardKpisData | null, companyWide: boolean, nav?: MemberNav): KpiCard[] {
   const scansYear = data?.scans_this_year ?? 0;
   const scansTotal = data?.scans_total ?? 0;
   const billingYear = data?.billing_this_year;
   const billingTotal = data?.billing_total;
+  const prefix = companyWide ? 'Company' : 'My';
 
   return [
     {
       id: 'scans-year',
-      label: 'My Scans this Year',
+      label: `${prefix} Scans this Year`,
       value: formatCount(scansYear),
-      hint: scansYear === 0 ? 'No scans yet this year' : 'Current year activity',
+      hint: scansYear === 0 ? 'No scans yet this year' : companyWide ? 'All members · current year' : 'Current year activity',
       color: 'blue',
       isEmpty: scansYear === 0,
       icon: (
@@ -59,9 +60,9 @@ function buildKpis(data: DashboardKpisData | null, nav?: MemberNav): KpiCard[] {
     },
     {
       id: 'scans-total',
-      label: 'My Total Scans',
+      label: `${prefix} Total Scans`,
       value: formatCount(scansTotal),
-      hint: scansTotal === 0 ? 'Upload your first scan' : 'All-time scans',
+      hint: scansTotal === 0 ? 'Upload your first scan' : companyWide ? 'All members · all time' : 'All-time scans',
       color: 'pink',
       isEmpty: scansTotal === 0,
       icon: (
@@ -73,7 +74,7 @@ function buildKpis(data: DashboardKpisData | null, nav?: MemberNav): KpiCard[] {
     },
     {
       id: 'billing-year',
-      label: 'My Billing this Year',
+      label: `${prefix} Billing this Year`,
       value: formatBilling(billingYear),
       hint: billingYear == null ? 'No billing recorded this year' : 'Current year billing',
       color: 'purple',
@@ -89,7 +90,7 @@ function buildKpis(data: DashboardKpisData | null, nav?: MemberNav): KpiCard[] {
     },
     {
       id: 'billing-total',
-      label: 'My Total Billing',
+      label: `${prefix} Total Billing`,
       value: formatBilling(billingTotal),
       hint: billingTotal == null ? 'No billing history yet' : 'All-time billing',
       color: 'green',
@@ -106,6 +107,7 @@ function buildKpis(data: DashboardKpisData | null, nav?: MemberNav): KpiCard[] {
 
 type DashboardKpisProps = {
   kpis: DashboardKpisData | null;
+  companyWide?: boolean;
   nav?: MemberNav;
   loading?: boolean;
   error?: string;
@@ -114,10 +116,19 @@ type DashboardKpisProps = {
   onNavigate?: (view: AppView, target?: string) => void;
 };
 
-export function DashboardKpis({ kpis, nav, loading, error, onOpenMobileMenu, onOpenProfile, onNavigate }: DashboardKpisProps) {
+export function DashboardKpis({
+  kpis,
+  companyWide = false,
+  nav,
+  loading,
+  error,
+  onOpenMobileMenu,
+  onOpenProfile,
+  onNavigate,
+}: DashboardKpisProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const cards = buildKpis(kpis, nav);
+  const cards = buildKpis(kpis, companyWide, nav);
 
   return (
     <section>
@@ -144,7 +155,9 @@ export function DashboardKpis({ kpis, nav, loading, error, onOpenMobileMenu, onO
             Dashboard
           </h1>
           <p style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Track your scans, billing, notices, and top performers.
+            {companyWide
+              ? 'Company-wide scans and billing across all members, plus notices and top performers.'
+              : 'Track your scans, billing, notices, and top performers.'}
           </p>
         </div>
 

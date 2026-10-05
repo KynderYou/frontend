@@ -40,6 +40,14 @@ export async function getMyLedger(signal?: AbortSignal): Promise<LedgerData> {
   return apiClient<LedgerData>('/api/ledger/me', { signal });
 }
 
+/** POST /api/ledger/company/funds — Admin adds money to the shared company ledger */
+export async function addCompanyFunds(amount: string): Promise<LedgerData> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Adding funds is not available in demo mode');
+  }
+  return apiClient<LedgerData>('/api/ledger/company/funds', { method: 'POST', body: { amount } });
+}
+
 /** POST /api/ledger/topup */
 export async function submitLedgerTopUp(amount: string, proof: File): Promise<LedgerData> {
   if (isDemoToken(getToken())) {

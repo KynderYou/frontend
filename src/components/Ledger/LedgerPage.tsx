@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getMyLedger, submitLedgerTopUp } from '../../api';
+import { addCompanyFunds, ApiError, getMyLedger, submitLedgerTopUp } from '../../api';
 import type { LedgerEntryRow } from '../../api';
+import type { CompanyLedgerEntryApi } from '../../api/types';
 import { colors, metricColors, radius, shadow, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { TablePager } from '../common/TablePager';
@@ -10,6 +11,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { ExpensesChart } from './ExpensesChart';
 import { TopUpModal } from './TopUpModal';
+import { AddFundsModal } from './AddFundsModal';
 import { SkeletonLedgerBody, SkeletonSubtitle } from '../common/Skeleton';
 
 const theme = colors.light;
@@ -48,7 +50,7 @@ const kpis: KpiDef[] = [
     label: 'Total Billing',
     getValue: (_receipts, billingDisplay) => billingDisplay,
     getHint: (days, companyWide) =>
-      companyWide ? `Last ${days} days · company-wide` : `Last ${days} days`,
+      companyWide ? `Last ${days} days · incl. CAB payouts` : `Last ${days} days`,
     color: 'purple',
     isEmpty: (_receipts, billingTotal) => billingTotal === 0,
     icon: (
@@ -105,6 +107,24 @@ function TransactionRow({ tx }: { tx: LedgerEntryRow }) {
   );
 }
 
+function CompanyEntryRow({ entry }: { entry: CompanyLedgerEntryApi }) {
+  return (
+    <div className="ledger-tx-row ledger-company-row">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>{entry.title}</div>
+        <div style={{ fontSize: 12, color: theme['text-muted'], marginTop: 2 }}>
+          {entry.date}
+          {entry.created_by ? ` · ${entry.created_by}` : ''}
+        </div>
+      </div>
+      <div className={`ledger-company-amount ${entry.is_credit ? 'is-credit' : 'is-debit'}`}>
+        {entry.is_credit ? '+' : '−'}
+        {entry.amount}
+      </div>
+    </div>
+  );
+}
+
 export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps) {
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<LedgerTab>('receipts');
@@ -116,6 +136,9 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const [topUpError, setTopUpError] = useState('');
   const [topUpSubmitting, setTopUpSubmitting] = useState(false);
   const [data, setData] = useState<Awaited<ReturnType<typeof getMyLedger>> | null>(null);
+  const [fundsOpen, setFundsOpen] = useState(false);
+  const [fundsSubmitting, setFundsSubmitting] = useState(false);
+  const [fundsError, setFundsError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +169,8 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const receiptsDisplay = data?.kpis.receipts_display ?? '₹0';
   const billingDisplay = data?.kpis.billing_display ?? '₹0';
   const companyWide = data?.company_wide ?? false;
+  const companyEntries = data?.company_entries ?? [];
+  const companyPagination = useClientPagination(companyEntries, LEDGER_TX_PAGE_SIZE, 'company');
 
   const transactions = activeTab === 'receipts' ? receipts : billing;
   const txPagination = useClientPagination(transactions, LEDGER_TX_PAGE_SIZE, activeTab);
@@ -181,6 +206,24 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
       showError(message);
     } finally {
       setTopUpSubmitting(false);
+    }
+  };
+
+  const handleAddFunds = async (amount: string) => {
+    setFundsSubmitting(true);
+    setFundsError('');
+    try {
+      const ledger = await addCompanyFunds(amount);
+      setData(ledger);
+      setFundsOpen(false);
+      showSuccess(`Funds added · company balance ${ledger.available_balance_display ?? ''}`.trim());
+    } catch (err) {
+      const detail = err instanceof ApiError ? (err.body as { detail?: unknown } | null)?.detail : null;
+      const message = typeof detail === 'string' ? detail : 'Could not add funds. Please try again.';
+      setFundsError(message);
+      showError(message);
+    } finally {
+      setFundsSubmitting(false);
     }
   };
 
@@ -288,6 +331,35 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
           Top up now
         </button>
       </div>
+      ) : null}
+
+      {!loading && companyWide ? (
+        <div className="dash-card ledger-topup-banner ledger-company-banner">
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>Company ledger balance</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: theme['text-primary'], letterSpacing: '-0.02em', marginTop: 4 }}>
+              {data?.available_balance_display ?? '₹0'}
+            </div>
+            <div style={{ fontSize: 13, color: theme['text-muted'], marginTop: 2 }}>
+              Shared by Master Admin and H.O · mentor CAB credits are paid from here.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-pill-primary"
+            onClick={() => {
+              setFundsError('');
+              setFundsOpen(true);
+            }}
+            style={{ height: 44, padding: '0 20px', flexShrink: 0 }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            Add funds
+          </button>
+        </div>
       ) : null}
 
       {loading ? (
@@ -434,6 +506,31 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
 
             <ExpensesChart data={chartData} year={data?.expenses_year ?? new Date().getFullYear()} />
           </div>
+
+          {companyWide ? (
+            <div className="dash-card" style={{ padding: spacing[5], marginTop: spacing[6] }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[4] }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>
+                  Company ledger
+                </h2>
+                <span style={{ color: theme['text-secondary'], fontSize: 13, fontWeight: 500 }}>Funds added and CAB payouts</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {companyEntries.length === 0 ? (
+                  <EmptyState compact title="No company entries yet" description="Funds you add and CAB payouts appear here." />
+                ) : (
+                  companyPagination.pageItems.map((entry) => <CompanyEntryRow key={entry.id} entry={entry} />)
+                )}
+              </div>
+              <TablePager
+                page={companyPagination.page}
+                pageSize={companyPagination.pageSize}
+                total={companyPagination.total}
+                onPageChange={companyPagination.setPage}
+                className="mis-table-footer"
+              />
+            </div>
+          ) : null}
         </>
       )}
 
@@ -443,6 +540,14 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
         onSubmit={handleTopUp}
         submitting={topUpSubmitting}
         error={topUpError}
+      />
+      <AddFundsModal
+        key={fundsOpen ? 'open' : 'closed'}
+        open={fundsOpen}
+        onClose={() => setFundsOpen(false)}
+        onSubmit={handleAddFunds}
+        submitting={fundsSubmitting}
+        error={fundsError}
       />
     </section>
   );

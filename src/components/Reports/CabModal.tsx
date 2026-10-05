@@ -1,15 +1,35 @@
-import { useEffect } from 'react';
-import { CabPlayButton } from './CabPlayButton';
-import type { ReportRecord } from './reportTypes';
+import { useEffect, useState } from 'react';
+import type { CabFeedbackStatus, ReportRecord } from './reportTypes';
 
 type CabModalProps = {
   open: boolean;
   record: ReportRecord | null;
+  /** Only the scan owner (the mentee) can rate the CAB. */
+  isOwner: boolean;
   onClose: () => void;
-  onRequest: (record: ReportRecord) => void;
+  onSubmit: (record: ReportRecord, rating: number, comments: string) => Promise<boolean>;
 };
 
-export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
+const STATUS_COPY: Record<CabFeedbackStatus, { title: string; body: string }> = {
+  Pending: {
+    title: 'Feedback submitted · awaiting H.O approval',
+    body: 'You can still edit your feedback until H.O reviews it.',
+  },
+  Approved: {
+    title: 'Feedback approved',
+    body: 'Thank you. H.O approved your feedback for this CAB.',
+  },
+  Rejected: {
+    title: 'Feedback not approved',
+    body: 'H.O did not approve this feedback. Update it and submit again.',
+  },
+};
+
+export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalProps) {
+  const [rating, setRating] = useState(record?.cabFeedback?.rating ?? 0);
+  const [comments, setComments] = useState(record?.cabFeedback?.comments ?? '');
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -25,7 +45,17 @@ export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
 
   if (!open || !record) return null;
 
-  const hasAudios = record.cabAudios.length > 0;
+  const feedback = record.cabFeedback;
+  const editable = isOwner && record.cabEligible && feedback?.status !== 'Approved';
+  const status = feedback ? STATUS_COPY[feedback.status] : null;
+
+  const submit = async () => {
+    if (!rating || submitting) return;
+    setSubmitting(true);
+    const ok = await onSubmit(record, rating, comments);
+    setSubmitting(false);
+    if (ok) onClose();
+  };
 
   return (
     <div
@@ -45,10 +75,10 @@ export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
         <div className="modal-header">
           <div>
             <h2 id="cab-title" className="modal-title">
-              Counselling Audio Bytes
+              CAB feedback
             </h2>
             <p className="modal-subtitle">
-              Scan {record.scanId} · {record.details.name || 'Client'} — guided audio explanations for this report.
+              Scan {record.scanId} · {record.details.name || 'Client'} — rate the counselling audio byte you received.
             </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
@@ -59,30 +89,52 @@ export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
         </div>
 
         <div className="modal-body">
-          {hasAudios ? (
-            <ul className="reports-cab-list">
-              {record.cabAudios.map((audio, index) => (
-                <li key={audio.id} className="reports-cab-item">
-                  <span className="reports-cab-item-body">
-                    <span className="reports-cab-item-title">
-                      {index + 1}. {audio.title}
-                    </span>
-                    <span className="reports-cab-item-meta">{audio.counsellor}</span>
-                  </span>
-                  <CabPlayButton url={audio.url} title={audio.title} durationSec={audio.durationSec} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="reports-cab-empty">
-              <p className="reports-cab-empty-title">
-                {record.cabRequestedAt ? 'CAB requested' : 'No audio bytes yet'}
-              </p>
+          {status ? (
+            <div className={`reports-cab-status is-${feedback!.status.toLowerCase()}`}>
+              <p className="reports-cab-empty-title">{status.title}</p>
               <p className="reports-cab-empty-sub">
-                {record.cabRequestedAt
-                  ? `${record.flaggedX ? 'Requested automatically for this Flag X scan (free for you)' : 'Requested'} on ${record.cabRequestedAt}. The counselling team will attach audio bytes shortly.`
-                  : 'Request counselling audio bytes for this report and the counselling team will record them for your client.'}
+                Submitted {feedback!.submittedAt}. {isOwner ? status.body : ''}
               </p>
+            </div>
+          ) : null}
+
+          {!feedback && !isOwner ? (
+            <div className="reports-cab-empty">
+              <p className="reports-cab-empty-title">No feedback yet</p>
+              <p className="reports-cab-empty-sub">The mentee hasn't rated the CAB for this scan.</p>
+            </div>
+          ) : (
+            <div className="reports-cab-form">
+              <span className="reports-cab-form-label">Rating</span>
+              <div className="reports-cab-stars" role="radiogroup" aria-label="Rating">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={rating === value}
+                    aria-label={`${value} star${value === 1 ? '' : 's'}`}
+                    className={`reports-cab-star${value <= rating ? ' is-on' : ''}`}
+                    disabled={!editable}
+                    onClick={() => setRating(value)}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <label className="reports-cab-form-label" htmlFor="cab-comments">
+                Feedback
+              </label>
+              <textarea
+                id="cab-comments"
+                className="reports-cab-comments"
+                rows={4}
+                maxLength={2000}
+                placeholder="Was the audio clear and helpful for your client?"
+                value={comments}
+                readOnly={!editable}
+                onChange={(e) => setComments(e.target.value)}
+              />
             </div>
           )}
         </div>
@@ -91,15 +143,11 @@ export function CabModal({ open, record, onClose, onRequest }: CabModalProps) {
           <button type="button" className="btn-pill-secondary" onClick={onClose}>
             Close
           </button>
-          {!hasAudios && !record.cabRequestedAt && (
-            <button
-              type="button"
-              className="btn-pill-primary"
-              onClick={() => onRequest(record)}
-            >
-              Request CAB
+          {editable ? (
+            <button type="button" className="btn-pill-primary" disabled={!rating || submitting} onClick={() => void submit()}>
+              {submitting ? 'Submitting…' : feedback ? 'Update feedback' : 'Submit feedback'}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

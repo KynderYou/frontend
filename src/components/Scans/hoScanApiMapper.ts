@@ -27,6 +27,7 @@ export type HoScanRecord = {
   billingPercent?: number;
   reportDebitAmount?: string;
   reportBilled?: boolean;
+  hasReportFile?: boolean;
 };
 
 export function hoScanToRecord(scan: HoScan): HoScanRecord {
@@ -55,6 +56,7 @@ export function hoScanToRecord(scan: HoScan): HoScanRecord {
     billingPercent: scan.billing_percent ?? undefined,
     reportDebitAmount: scan.report_debit_amount ?? undefined,
     reportBilled: scan.report_billed ?? undefined,
+    hasReportFile: scan.has_report_file ?? false,
   };
 }
 

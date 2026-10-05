@@ -10,6 +10,8 @@ export type Trainee = {
   doj: string;
   billingPercent: number;
   scanCount: number;
+  lastScan: string;
+  lastScanDays: number | null;
   doex: string;
   status: TraineeStatus;
   role: string;

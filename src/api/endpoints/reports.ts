@@ -34,14 +34,6 @@ export async function upgradeReport(scanId: number, targetPlan: string): Promise
   });
 }
 
-/** POST /api/reports/{id}/cab-request */
-export async function requestReportCab(scanId: number): Promise<ReportRecordApi> {
-  if (isDemoToken(getToken())) {
-    throw new Error('CAB request not available in demo mode');
-  }
-  return apiClient<ReportRecordApi>(`/api/reports/${scanId}/cab-request`, { method: 'POST' });
-}
-
 /** DELETE /api/reports/{id} */
 export async function deleteReport(scanId: number): Promise<{ message: string }> {
   if (isDemoToken(getToken())) {

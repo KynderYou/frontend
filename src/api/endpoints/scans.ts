@@ -1,5 +1,5 @@
 import { fetchAuthenticatedAsset } from '../assetUrl';
-import { apiClient, apiUpload } from '../client';
+import { apiClient, apiDownload, apiUpload } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
 import { isApiError } from '../errors';
@@ -125,6 +125,24 @@ export async function resolveHoScanImages(detail: HoScanDetail): Promise<HoScanD
     })),
   );
   return { ...detail, scan_images };
+}
+
+/** GET /api/scans/ho/{id}/excel — saves the scan sheet as {scanCode}.xlsx */
+export async function downloadHoScanExcel(scanId: number, scanCode: string): Promise<void> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Download not available in demo mode');
+  }
+  await apiDownload(`/api/scans/ho/${scanId}/excel`, `${scanCode}.xlsx`);
+}
+
+/** POST /api/scans/ho/{id}/report — attach the report PDF (Admin) */
+export async function uploadHoScanReport(scanId: number, file: File): Promise<HoScan> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Upload not available in demo mode');
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiUpload<HoScan>(`/api/scans/ho/${scanId}/report`, formData, { timeoutMs: 120000 });
 }
 
 /** POST /api/scans/ho/{id}/action */

@@ -6,6 +6,7 @@ import {
   LuFileText,
   LuUsers,
   LuUserCheck,
+  LuUserCog,
   LuUserPlus,
   LuClipboardList,
   LuMessageSquare,
@@ -29,6 +30,7 @@ export const navItems = [
     navKey: 'ho_trainees' as const,
   },
   { id: 'mlas', label: 'My MLAs', Icon: LuUserCheck, section: 'Operations', navKey: 'ho_mlas' as const },
+  { id: 'mentors', label: 'My Mentors', Icon: LuUserCog, section: 'Operations', navKey: 'ho_mlas' as const },
   {
     id: 'mentor-trainees',
     label: 'My Trainees',

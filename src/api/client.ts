@@ -132,3 +132,24 @@ export async function apiUpload<T>(
     signal?.removeEventListener('abort', onAbort);
   }
 }
+
+/** Authenticated GET that saves the response body as a file in the browser. */
+export async function apiDownload(path: string, fallbackName: string): Promise<void> {
+  const token = getToken();
+  const response = await fetch(buildUrl(path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await parseBody(response));
+  }
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

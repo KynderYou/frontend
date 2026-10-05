@@ -21,6 +21,7 @@ import { TraineesPage } from './components/Trainees/TraineesPage';
 import { MentorTraineesPage } from './components/Trainees/MentorTraineesPage';
 import { MlasPage } from './components/Mlas/MlasPage';
 import { MentorMlasPage } from './components/Mlas/MentorMlasPage';
+import { MentorsPage } from './components/Mentors/MentorsPage';
 import { CommunicationsPage } from './components/Communications/CommunicationsPage';
 import { MisScansPage } from './components/Mis/MisScansPage';
 import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
@@ -33,7 +34,7 @@ import { NotificationProvider } from './components/Notifications/NotificationCon
 const MOBILE_QUERY = '(max-width: 860px)';
 
 /** Views whose panels manage their own scrolling and should fill the viewport height */
-const fillViews = new Set<AppView>(['trainees', 'mlas', 'mis-scans', 'mis-cab', 'admin-topups']);
+const fillViews = new Set<AppView>(['trainees', 'mlas', 'mentors', 'mis-scans', 'mis-cab', 'admin-topups']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
@@ -360,6 +361,11 @@ function App() {
               />
             ) : view === 'mlas' ? (
               <MlasPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
+            ) : view === 'mentors' ? (
+              <MentorsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />

@@ -26,6 +26,8 @@ export function mapTraineesState(state: TraineesStateApi): { mentors: Mentor[]; 
       doj: trainee.doj,
       billingPercent: trainee.billing_percent,
       scanCount: trainee.scan_count,
+      lastScan: trainee.last_scan ?? '—',
+      lastScanDays: trainee.last_scan_days ?? null,
       doex: trainee.doex,
       status: trainee.status as Trainee['status'],
       role: trainee.role,

@@ -6,7 +6,7 @@ import {
   getMe,
   getMyLedger,
   getMyReports,
-  requestReportCab,
+  submitCabFeedback,
   upgradeReport,
 } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
@@ -69,7 +69,7 @@ function apiErrorDetail(err: unknown, fallback: string) {
 type ReportsPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
-  /** Scan code from a "CAB ready" notification — opens that report's CAB audio modal. */
+  /** Scan code from a CAB notification — opens that report's CAB feedback modal. */
   openCabForScan?: string | null;
   onCabOpened?: () => void;
 };
@@ -90,11 +90,13 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [walletChecked, setWalletChecked] = useState(false);
   /** Mentors / trainees / MLAs need ledger balance for report actions; Admin/HO does not. */
   const [walletRequired, setWalletRequired] = useState(false);
+  const [memberId, setMemberId] = useState<number | null>(null);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const [member, reports] = await Promise.all([getMe(signal), getMyReports(signal)]);
+      setMemberId(member.mid);
       const needsWallet = member.role === 'Mentor' || member.role === 'Trainee' || member.role === 'MLA';
       setWalletRequired(needsWallet);
       if (needsWallet) {
@@ -164,7 +166,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
       total: records.length,
       ready: records.filter((r) => isReportReady(r.status)).length,
       plus: records.filter((r) => packageForPlan(r.plan).id === 'GBPB Plus').length,
-      cab: records.reduce((sum, r) => sum + r.cabAudios.length, 0),
+      cab: records.filter((r) => r.cabFeedback).length,
     }),
     [records]
   );
@@ -184,9 +186,19 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     return 'Upgrade to a higher GBP package';
   };
 
-  const cabTitle = () => {
-    if (walletBlocked) return walletBlockTitle;
-    return 'Counselling Audio Bytes';
+  const cabTitle = (row: ReportRecord) => {
+    if (!row.cabEligible) return 'CAB feedback is only for MLA scans';
+    if (row.cabFeedback) return `CAB feedback · ${row.cabFeedback.status}`;
+    return 'Rate the CAB your mentor sent';
+  };
+
+  const cabLabel = (row: ReportRecord) => {
+    if (!row.cabEligible) return 'CAB · MLA only';
+    const status = row.cabFeedback?.status;
+    if (status === 'Approved') return 'Feedback ✓';
+    if (status === 'Pending') return 'Feedback sent';
+    if (status === 'Rejected') return 'Resubmit';
+    return 'Feedback';
   };
 
   const handleDownload = async (record: ReportRecord) => {
@@ -217,21 +229,21 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     }
   };
 
-  const handleCabRequest = async (record: ReportRecord) => {
-    if (submitting) return;
-    setSubmitting(true);
+  const handleCabFeedback = async (record: ReportRecord, rating: number, comments: string) => {
     try {
-      const updated = await requestReportCab(record.numericId);
-      setRecords((prev) => applyReportUpdate(prev, updated));
-      setCabRecord((current) => {
-        if (!current || current.id !== record.id) return current;
-        return applyReportUpdate([current], updated)[0] ?? current;
-      });
-      showSuccess(`CAB requested for scan ${record.scanId}. The counselling team has been notified.`);
+      const saved = await submitCabFeedback(record.scanId, rating, comments);
+      const cabFeedback = {
+        rating: saved.rating,
+        comments: saved.comments,
+        status: saved.status,
+        submittedAt: saved.submitted_at,
+      };
+      setRecords((prev) => prev.map((row) => (row.id === record.id ? { ...row, cabFeedback } : row)));
+      showSuccess(`Feedback for scan ${record.scanId} sent to H.O for approval.`);
+      return true;
     } catch (err) {
-      showError(apiErrorDetail(err, 'CAB request failed. Please try again.'));
-    } finally {
-      setSubmitting(false);
+      showError(apiErrorDetail(err, 'Could not submit feedback. Please try again.'));
+      return false;
     }
   };
 
@@ -346,18 +358,15 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <button
               type="button"
               className="reports-tool-btn reports-tool-cab"
-              disabled={!canUseActions}
-              title={cabTitle()}
+              disabled={!row.cabEligible}
+              title={cabTitle(row)}
               onClick={() => setCabRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 14v-3a9 9 0 0 1 18 0v3" />
                 <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
               </svg>
-              <span className="reports-tool-label">CAB</span>
-              {row.cabAudios.length > 0 && (
-                <span className="reports-tool-badge">{row.cabAudios.length}</span>
-              )}
+              <span className="reports-tool-label">{cabLabel(row)}</span>
             </button>
             <button
               type="button"
@@ -405,7 +414,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
               <tr
                 key={row.id}
                 className={row.flaggedX ? 'reports-row-flagged' : undefined}
-                title={row.flaggedX ? 'Flag X: complex scan. CAB is requested automatically and is free for you.' : undefined}
+                title={row.flaggedX ? 'Flag X: complex scan' : undefined}
               >
                 <td data-label="Sno">{rowOffset + index + 1}</td>
                 <td data-label="Scan Id">
@@ -460,11 +469,11 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn reports-action-cab"
-                    disabled={!canUseActions}
-                    title={cabTitle()}
+                    disabled={!row.cabEligible}
+                    title={cabTitle(row)}
                     onClick={() => setCabRecord(row)}
                   >
-                    CAB{row.cabAudios.length > 0 ? ` (${row.cabAudios.length})` : ''}
+                    {cabLabel(row)}
                   </button>
                 </td>
                 <td data-label="Delete Scan">
@@ -509,7 +518,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             My Reports
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            All your scans and their reports — download, upgrade, request CAB, or delete a scan. AI reports are coming soon.
+            All your scans and their reports — download, upgrade, give CAB feedback, or delete a scan. AI reports are coming soon.
           </p>
         </div>
 
@@ -572,7 +581,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
           </span>
           <div>
             <span className="reports-stat-value">{stats.cab}</span>
-            <span className="reports-stat-label">CAB audios</span>
+            <span className="reports-stat-label">CAB feedback</span>
           </div>
         </div>
       </div>
@@ -584,8 +593,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <h2 className="scans-card-title">My scans</h2>
             <p className="scans-card-sub">
               {walletRequired
-                ? 'CAB = Counselling Audio Byte · actions need a funded wallet (HO exempt)'
-                : 'CAB = Counselling Audio Byte · available while Processing'}
+                ? 'CAB = Counselling Audio Byte (sent on WhatsApp) · MLAs rate it under CAB · actions need a funded wallet (HO exempt)'
+                : 'CAB = Counselling Audio Byte (sent on WhatsApp) · MLAs rate it under CAB'}
             </p>
           </div>
 
@@ -687,10 +696,12 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
         onConfirm={handleUpgrade}
       />
       <CabModal
+        key={cabRecord?.id ?? 'none'}
         open={Boolean(cabRecord)}
         record={cabRecord}
+        isOwner={cabRecord != null && cabRecord.ownerId === memberId}
         onClose={() => setCabRecord(null)}
-        onRequest={handleCabRequest}
+        onSubmit={handleCabFeedback}
       />
       <DeleteScanModal
         open={Boolean(deletingRecord)}

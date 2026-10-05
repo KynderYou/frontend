@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getTraineeScans, getTraineesState } from '../../api';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { LastScanCell } from '../common/LastScanCell';
 import { SkeletonMentorSplitPage } from '../common/Skeleton';
 import { MemberScansModal } from '../common/MemberScansModal';
 import { NotificationButton } from '../Layout/NotificationButton';
@@ -391,6 +392,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                   <th>DOJ</th>
                   <th className="col-center">Billing %</th>
                   <th className="col-center">Number of scans</th>
+                  <th>Last scan</th>
                   <th>DOEx</th>
                   <th className="col-center">Status</th>
                 </tr>
@@ -398,7 +400,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={6}>No trainees for this mentor.</td>
+                    <td colSpan={7}>No trainees for this mentor.</td>
                   </tr>
                 ) : (
                   pageRows.map((row) => <TraineeRow key={row.id} trainee={row} onOpen={() => setScansTrainee(row)} />)
@@ -534,6 +536,9 @@ function TraineeRow({ trainee, onOpen }: { trainee: Trainee; onOpen: () => void 
       </td>
       <td data-label="Number of scans" className="col-center">
         {trainee.scanCount}
+      </td>
+      <td data-label="Last scan">
+        <LastScanCell date={trainee.lastScan} days={trainee.lastScanDays} />
       </td>
       <td data-label="DOEx">{trainee.doex}</td>
       <td data-label="Status" className="col-center">

@@ -1,33 +1,25 @@
 import { apiClient } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
-import type { CabStateApi } from '../types';
+import type { CabFeedbackApi, CabStateApi } from '../types';
 
-/** GET /api/cab/state — pass scope=mine for mentor-only CAB view */
-export async function getCabState(signal?: AbortSignal, scope?: 'mine'): Promise<CabStateApi> {
+/** GET /api/cab/state — Admin sees all feedback; mentors/mentees see their own */
+export async function getCabState(signal?: AbortSignal): Promise<CabStateApi> {
   if (isDemoToken(getToken())) {
-    return { mentors: [], records: [] };
+    return { feedback: [] };
   }
-  const query = scope === 'mine' ? '?scope=mine' : '';
-  return apiClient<CabStateApi>(`/api/cab/state${query}`, { signal });
+  return apiClient<CabStateApi>('/api/cab/state', { signal });
 }
 
-/** POST /api/cab/{id}/debit */
-export async function debitCabRecord(recordId: number, signal?: AbortSignal): Promise<CabStateApi> {
-  return apiClient<CabStateApi>(`/api/cab/${recordId}/debit`, { method: 'POST', signal });
+/** PUT /api/cab/scans/{code}/feedback — mentee rates the CAB their mentor sent */
+export async function submitCabFeedback(scanCode: string, rating: number, comments: string): Promise<CabFeedbackApi> {
+  return apiClient<CabFeedbackApi>(`/api/cab/scans/${encodeURIComponent(scanCode)}/feedback`, {
+    method: 'PUT',
+    body: { rating, comments },
+  });
 }
 
-/** DELETE /api/cab/{id} — waive a pending CAB debit */
-export async function deleteCabRecord(recordId: number): Promise<CabStateApi> {
-  return apiClient<CabStateApi>(`/api/cab/${recordId}`, { method: 'DELETE' });
-}
-
-/** DELETE /api/cab/scans/{code}/request — decline a CAB request before upload */
-export async function deleteCabRequest(scanCode: string): Promise<CabStateApi> {
-  return apiClient<CabStateApi>(`/api/cab/scans/${encodeURIComponent(scanCode)}/request`, { method: 'DELETE' });
-}
-
-/** POST /api/cab/uploads/{id}/approve | reject — Admin only */
-export async function reviewCabUpload(audioId: number, approve: boolean): Promise<CabStateApi> {
-  return apiClient<CabStateApi>(`/api/cab/uploads/${audioId}/${approve ? 'approve' : 'reject'}`, { method: 'POST' });
+/** POST /api/cab/feedback/{id}/approve | reject — Admin only; approval credits the mentor */
+export async function reviewCabFeedback(feedbackId: number, approve: boolean): Promise<CabStateApi> {
+  return apiClient<CabStateApi>(`/api/cab/feedback/${feedbackId}/${approve ? 'approve' : 'reject'}`, { method: 'POST' });
 }

@@ -49,6 +49,7 @@ export function HomeDashboard({ nav, onOpenMobileMenu, onOpenProfile, onNavigate
     <div className="home-dashboard">
       <DashboardKpis
         kpis={data?.kpis ?? null}
+        companyWide={data?.company_wide ?? false}
         nav={nav}
         loading={loading}
         error={error}
