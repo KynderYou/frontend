@@ -1,5 +1,6 @@
 import type { AdminMemberApi, TraineeApi } from '../../api/types';
 import { colors } from '../../styles/theme';
+import { TrashButton } from '../common/TrashButton';
 
 const theme = colors.light;
 
@@ -88,13 +89,7 @@ export function AdminMembersTable({
                       </button>
                     </td>
                     <td data-label="Delete">
-                      <button
-                        type="button"
-                        className="scans-action-btn scans-action-danger"
-                        onClick={() => onDeleteTrainee(trainee)}
-                      >
-                        Delete
-                      </button>
+                      <TrashButton label="Delete trainee" onClick={() => onDeleteTrainee(trainee)} />
                     </td>
                   </tr>
                 );
@@ -124,9 +119,7 @@ export function AdminMembersTable({
                     </button>
                   </td>
                   <td data-label="Delete">
-                    <button type="button" className="scans-action-btn scans-action-danger" onClick={() => onDelete(member)}>
-                      Delete
-                    </button>
+                    <TrashButton label="Delete account" onClick={() => onDelete(member)} />
                   </td>
                 </tr>
               );

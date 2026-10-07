@@ -1,14 +1,23 @@
 import type { AdminMembershipFormState, MentorOption } from './adminProfileForm';
-import { parseBillingDigits, subscriptionTierOptions, tierBilling } from './adminProfileForm';
+import { subscriptionTierOptions, tierBilling } from './adminProfileForm';
+import { BillingSlabField } from './BillingSlabField';
 
 type AdminMembershipBillingFieldsProps = {
   form: AdminMembershipFormState;
   mentors: MentorOption[];
   onChange: (next: AdminMembershipFormState) => void;
   traineeMode?: boolean;
+  mentorRequired?: boolean;
 };
 
-export function AdminMembershipBillingFields({ form, mentors, onChange, traineeMode = false }: AdminMembershipBillingFieldsProps) {
+export function AdminMembershipBillingFields({
+  form,
+  mentors,
+  onChange,
+  traineeMode = false,
+  mentorRequired = false,
+}: AdminMembershipBillingFieldsProps) {
+  const needsMentor = traineeMode || mentorRequired;
   const update = <K extends keyof AdminMembershipFormState>(key: K, value: AdminMembershipFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -31,14 +40,15 @@ export function AdminMembershipBillingFields({ form, mentors, onChange, traineeM
       </p>
       <div className="admin-create-grid">
         <label className="form-field">
-          <span className="form-label">Mentored by</span>
+          <span className="form-label">Mentored by{needsMentor ? ' *' : ''}</span>
           <div className="form-select-wrap">
             <select
               className="form-input form-select"
               value={form.mentoredById}
               onChange={(e) => update('mentoredById', e.target.value)}
+              required={needsMentor}
             >
-              <option value="">{traineeMode ? 'Select mentor' : 'None'}</option>
+              <option value="">{needsMentor ? 'Select mentor' : 'None'}</option>
               {mentors.map((mentor) => (
                 <option key={mentor.id} value={mentor.id}>
                   {mentor.name} · {mentor.role}
@@ -63,25 +73,7 @@ export function AdminMembershipBillingFields({ form, mentors, onChange, traineeM
             </select>
           </div>
         </label>
-        <label className="form-field">
-          <span className="form-label">Billing %</span>
-          <input
-            className="form-input"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={form.billing}
-            onChange={(e) => {
-              const digits = parseBillingDigits(e.target.value);
-              if (digits && Number(digits) > 100) {
-                update('billing', '100');
-                return;
-              }
-              update('billing', digits);
-            }}
-            placeholder="30"
-          />
-        </label>
+        <BillingSlabField value={form.billing} onChange={(digits) => update('billing', digits)} />
         <label className="form-field">
           <span className="form-label">Date of joining</span>
           <input className="form-input" type="date" value={form.doj} onChange={(e) => update('doj', e.target.value)} />

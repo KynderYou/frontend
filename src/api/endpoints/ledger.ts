@@ -33,11 +33,18 @@ const emptyLedger: LedgerData = {
 };
 
 /** GET /api/ledger/me */
-export async function getMyLedger(signal?: AbortSignal): Promise<LedgerData> {
+export async function getMyLedger(
+  signal?: AbortSignal,
+  range: { start?: string; end?: string } = {},
+): Promise<LedgerData> {
   if (isDemoToken(getToken())) {
     return emptyLedger;
   }
-  return apiClient<LedgerData>('/api/ledger/me', { signal });
+  const params = new URLSearchParams();
+  if (range.start) params.set('start', range.start);
+  if (range.end) params.set('end', range.end);
+  const query = params.toString();
+  return apiClient<LedgerData>(`/api/ledger/me${query ? `?${query}` : ''}`, { signal });
 }
 
 /** POST /api/ledger/company/funds — Admin adds money to the shared company ledger */
@@ -46,6 +53,16 @@ export async function addCompanyFunds(amount: string): Promise<LedgerData> {
     throw new Error('Adding funds is not available in demo mode');
   }
   return apiClient<LedgerData>('/api/ledger/company/funds', { method: 'POST', body: { amount } });
+}
+
+export type CompanyEntryKind = 'receipt' | 'expense';
+
+/** POST /api/ledger/company/entries — Admin records a receipt or expense on the company ledger */
+export async function addCompanyEntry(kind: CompanyEntryKind, title: string, amount: string): Promise<LedgerData> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Adding entries is not available in demo mode');
+  }
+  return apiClient<LedgerData>('/api/ledger/company/entries', { method: 'POST', body: { kind, title, amount } });
 }
 
 /** POST /api/ledger/topup */

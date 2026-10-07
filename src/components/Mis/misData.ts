@@ -342,6 +342,5 @@ export function formatMoney(value: number): string {
 export function formatCompactMoney(value: number): string {
   if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
   if (value >= 100000) return `₹${(value / 100000).toFixed(2)} L`;
-  if (value >= 1000) return `₹${Math.round(value / 1000)}K`;
-  return `₹${value}`;
+  return formatMoney(value);
 }

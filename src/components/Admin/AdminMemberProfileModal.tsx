@@ -6,6 +6,7 @@ import { useToast } from '../common/ToastProvider';
 import { AdminMembershipBillingFields } from './AdminMembershipBillingFields';
 import { AdminVisibilityAdminFields } from './AdminVisibilityAdminFields';
 import {
+  billingSlabError,
   editMembershipFormToPayload,
   memberToEditForm,
   roleOptions,
@@ -79,6 +80,15 @@ export function AdminMemberProfileModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.role === 'MLA' && !form.mentoredById) {
+      setError('Select a mentor for this MLA.');
+      return;
+    }
+    const billingError = billingSlabError(form.billing);
+    if (billingError) {
+      setError(billingError);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -180,8 +190,9 @@ export function AdminMemberProfileModal({
             </div>
             <AdminMembershipBillingFields
               form={form}
-              mentors={mentors}
+              mentors={form.role === 'MLA' ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors}
               onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+              mentorRequired={form.role === 'MLA'}
             />
             <AdminVisibilityAdminFields form={form} onChange={(next) => setForm((current) => ({ ...current, ...next }))} />
           </div>

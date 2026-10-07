@@ -14,11 +14,14 @@ import { EmptyState } from '../common/EmptyState';
 import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { TrashButton } from '../common/TrashButton';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
-import { EditScanModal, CLIENT_TYPE_FAMILY, CLIENT_TYPE_INDIVIDUAL } from './EditScanModal';
+import { EditScanModal } from './EditScanModal';
+import { ScanDetailsFields } from './ScanDetailsFields';
+import { CLIENT_TYPE_INDIVIDUAL, normalizeClientType, phoneRequiredFor, scanDetailsComplete } from './scanDetails';
 import { extractClientFromZip, revokeScanZipImages, categoryToClientType, findConsentFormImage, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
@@ -92,8 +95,11 @@ function exportBlockedReason(record: ScanRecord) {
   return 'Mark QC checked before exporting';
 }
 
-function displayValue(value: string, fallback = '—') {
-  return value.trim() ? value : fallback;
+function normalizeGender(value: string) {
+  const v = value.trim().toLowerCase();
+  if (v === 'm' || v === 'male') return 'Male';
+  if (v === 'f' || v === 'female') return 'Female';
+  return v ? 'Other' : '';
 }
 
 type ScansMlaPageProps = {
@@ -164,14 +170,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     };
   }, []);
 
-  const isFamilyClient =
-    clientForm.clientType.trim().toLowerCase().startsWith('family') ||
-    clientForm.clientType === CLIENT_TYPE_FAMILY;
-  const clientComplete =
-    clientForm.name.trim().length > 0 &&
-    clientForm.age.trim().length > 0 &&
-    clientForm.gender.trim().length > 0 &&
-    (!isFamilyClient || clientForm.phone.trim().length > 0);
+  const clientComplete = scanDetailsComplete(clientForm);
 
   const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
   const canPreviewUploadImages = extractedImages.length > 0 && !extracting;
@@ -247,8 +246,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         name: data.name,
         age: data.age,
         phone: data.phone,
-        gender: data.gender,
-        clientType: data.clientType || categoryToClientType(data.category) || CLIENT_TYPE_INDIVIDUAL,
+        gender: normalizeGender(data.gender),
+        clientType: normalizeClientType(data.clientType || categoryToClientType(data.category) || CLIENT_TYPE_INDIVIDUAL),
         referredBy: 'SELF',
         mrp: '₹2,000',
       });
@@ -336,9 +335,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       const created = await createMlaScan(file, {
         client_name: clientForm.name.trim(),
         age: clientForm.age.trim(),
-        phone: clientForm.phone.trim(),
+        phone: phoneRequiredFor(clientForm.clientType) ? clientForm.phone.trim() : '',
         gender: clientForm.gender,
-        client_type: clientForm.clientType.trim() || 'Individual',
+        client_type: clientForm.clientType.trim() || CLIENT_TYPE_INDIVIDUAL,
         referred_by: clientForm.referredBy,
         mrp: clientForm.mrp.trim() || '₹2,000',
       });
@@ -568,53 +567,19 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               <div>
                 <h3 className="scans-step-title">Client data</h3>
                 <p className="scans-step-hint">
-                  {extracting ? 'Extracting from zip…' : 'Auto-filled from zip · not editable'}
+                  {extracting ? 'Extracting from zip…' : 'Auto-filled from zip · check and correct before submitting'}
                 </p>
               </div>
             </div>
-            <div className="scans-client-fields">
-              <label className="form-field">
-                <span className="form-label">Scan Id</span>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={displayValue(clientForm.scanId, '')}
-                  placeholder="Assigned on upload · TYYYYMMDD001"
-                  readOnly
-                  disabled
-                />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Referred By</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.referredBy, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Name</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.name, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Client Type</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.clientType, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">Age</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.age, '')} placeholder="—" readOnly disabled />
-              </label>
-              {isFamilyClient ? (
-                <label className="form-field">
-                  <span className="form-label">Phno</span>
-                  <input className="form-input" type="text" value={displayValue(clientForm.phone, '')} placeholder="—" readOnly disabled />
-                </label>
-              ) : null}
-              <label className="form-field">
-                <span className="form-label">Gender</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.gender, '')} placeholder="—" readOnly disabled />
-              </label>
-              <label className="form-field">
-                <span className="form-label">MRP</span>
-                <input className="form-input" type="text" value={displayValue(clientForm.mrp, '')} placeholder="—" readOnly disabled />
-              </label>
-            </div>
+            <ScanDetailsFields
+              className="scans-client-fields"
+              scanId={clientForm.scanId}
+              scanIdPlaceholder="Assigned on upload · TYYYYMMDD001"
+              value={clientForm}
+              onChange={(details) => setClientForm((prev) => ({ ...prev, ...details }))}
+              traineeNames={traineeNames}
+              disabled={!file || extracting}
+            />
           </section>
         </div>
 
@@ -731,9 +696,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                       </button>
                     </td>
                     <td data-label="Delete">
-                      <button type="button" className="scans-action-btn scans-action-danger" onClick={() => handleDelete(row.id)}>
-                        Delete
-                      </button>
+                      <TrashButton label="Delete scan" onClick={() => handleDelete(row.id)} />
                     </td>
                   </tr>
                 );

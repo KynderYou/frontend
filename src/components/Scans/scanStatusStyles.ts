@@ -30,38 +30,30 @@ export function scanStatusStyles(status: string) {
   return { color: theme.primary, background: theme['primary-soft'] };
 }
 
-/** HO statuses that mean the MLA report is ready to download / upgrade. */
-export const REPORT_READY_STATUSES = [
-  'Uploaded',
-  'DDS Done',
-  'Ready to Download',
-  'Downloaded',
-] as const;
+/**
+ * My Reports statuses, mapped from the Process Scan pipeline:
+ * Preprocess/Process → Processing, Review/Download → Under Review, uploaded PDF → Ready to Download.
+ */
+export const REPORT_STATUS_READY = 'Ready to Download';
 
 export function isReportReady(status: string): boolean {
-  return (REPORT_READY_STATUSES as readonly string[]).includes(status);
+  return status === REPORT_STATUS_READY;
 }
 
-/** Hide internal HO label "DDS Done" from My Reports UI. */
 export function displayReportStatus(status: string): string {
-  if (status === 'DDS Done') return 'Uploaded';
   return status;
 }
 
-/** Filter chips for the Reports page — HO labels used at report stage. */
-export const REPORT_STATUS_FILTERS = [
-  'All',
-  'Processing',
-  'Uploaded',
-  'Ready to Download',
-  'Downloaded',
-] as const;
+export function reportStatusStyles(status: string) {
+  if (status === REPORT_STATUS_READY) return { color: theme.success, background: theme['success-bg'] };
+  if (status === 'Under Review') return { color: theme.primary, background: theme['primary-soft'] };
+  return { color: theme.warning, background: theme['warning-bg'] };
+}
+
+export const REPORT_STATUS_FILTERS = ['All', 'Processing', 'Under Review', REPORT_STATUS_READY] as const;
 
 export type ReportStatusFilter = (typeof REPORT_STATUS_FILTERS)[number];
 
-/** Match filter chips to stored statuses (DDS Done rolls into Uploaded). */
 export function matchesReportStatusFilter(status: string, filter: ReportStatusFilter): boolean {
-  if (filter === 'All') return true;
-  if (filter === 'Uploaded') return status === 'Uploaded' || status === 'DDS Done';
-  return status === filter;
+  return filter === 'All' || status === filter;
 }

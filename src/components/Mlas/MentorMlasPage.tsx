@@ -11,6 +11,7 @@ import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { mapMlaScans, mapMlasState } from './mlasApiMapper';
 import type { Mla, MlaScan, MlaScanStatus, MlaStatus } from './mlasData';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const LIST_PAGE_SIZE = 12;
@@ -35,13 +36,6 @@ function scanStatusStyles(status: MlaScanStatus) {
   return { color: theme.primary, background: theme['primary-soft'] };
 }
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 export function MentorMlasPage({ onOpenMobileMenu, onOpenProfile }: MentorMlasPageProps) {
   const [mentorName, setMentorName] = useState('');

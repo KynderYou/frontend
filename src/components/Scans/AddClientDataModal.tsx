@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { genderOptions } from './scanDetails';
 
 export type ClientData = {
   name: string;
@@ -20,7 +21,6 @@ const emptyForm: ClientData = {
   gender: '',
 };
 
-const genderOptions = ['Male', 'Female', 'Other'] as const;
 
 export function AddClientDataModal({ open, onClose, onSubmit }: AddClientDataModalProps) {
   const [form, setForm] = useState<ClientData>(emptyForm);

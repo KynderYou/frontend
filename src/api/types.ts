@@ -237,6 +237,7 @@ export type HoScanDetail = HoScan & {
 
 export type HoScanActionPayload = {
   action: string;
+  expected_section?: string;
   main_pattern?: string;
   sub_pattern?: string;
   finger?: string;
@@ -349,9 +350,12 @@ export type ReportRecordApi = {
   details: ReportDetailsApi;
   cab_feedback?: ReportCabFeedbackApi | null;
   owner_id: number;
+  owner_name?: string;
   cab_eligible?: boolean;
+  uploaded_for_trainee?: boolean;
   report_file_url: string | null;
   flagged_x?: boolean;
+  cab_requested_at?: string | null;
 };
 
 export type MentorApi = {
@@ -477,6 +481,8 @@ export type LedgerEntryRow = {
   amount_value: number;
   initials: string;
   pastel: string;
+  kind?: string;
+  is_credit?: boolean;
 };
 
 export type LedgerMonthBar = {
@@ -490,11 +496,14 @@ export type LedgerKpis = {
   billing_last_30_days: number;
   receipts_display: string;
   billing_display: string;
+  total_topups?: number;
+  topups_display?: string;
 };
 
 export type LedgerData = {
   kpis: LedgerKpis;
   receipts: LedgerEntryRow[];
+  topups?: LedgerEntryRow[];
   billing: LedgerEntryRow[];
   expenses_by_month: LedgerMonthBar[];
   billing_window_days: number;
@@ -507,7 +516,7 @@ export type LedgerData = {
 
 export type CompanyLedgerEntryApi = {
   id: number;
-  kind: 'opening' | 'funds' | 'cab_payout' | string;
+  kind: 'opening' | 'funds' | 'cab_payout' | 'report_billing' | 'manual_receipt' | 'manual_expense' | 'topup' | string;
   title: string;
   date: string;
   amount: string;

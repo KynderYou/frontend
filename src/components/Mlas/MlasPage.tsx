@@ -9,6 +9,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapMlaScans, mapMlasState, mlaCountFor } from './mlasApiMapper';
 import { type Mentor, type Mla, type MlaScan, type MlaScanStatus, type MlaStatus } from './mlasData';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const PAGE_SIZE = 5;
@@ -23,13 +24,6 @@ function statusStyles(status: MlaStatus) {
   return { color: theme['text-muted'], background: theme['bg-muted'] };
 }
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 export function MlasPage({ onOpenMobileMenu, onOpenProfile }: MlasPageProps) {
   const [mentors, setMentors] = useState<Mentor[]>([]);

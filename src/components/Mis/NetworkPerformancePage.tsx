@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getMisNetwork, getMisScans } from '../../api';
-import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
+import { colors, metricColors, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton, SkeletonKpiGrid, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
@@ -18,6 +18,7 @@ import {
   type NetworkScan,
   type NetworkYear,
 } from './misData';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const TEAM_DB_PAGE_SIZE = 15;
@@ -198,7 +199,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       <div className="mis-kpi-row">
         <KpiCard label="Scans this year" value={yearData.yearTotals.scans.toLocaleString('en-IN')} hint={`${selectedYear} network total`} tone="blue" />
         <KpiCard label="Reviews & testimonials" value={yearData.yearTotals.reviews.toLocaleString('en-IN')} hint={`Received in ${selectedYear}`} tone="green" />
-        <KpiCard label="Network billing" value={formatCompactMoney(yearData.yearTotals.billing)} hint={`${selectedYear} total`} tone="purple" />
+        <KpiCard label="Network billing" value={formatCompactMoney(yearData.yearTotals.billing)} hint={`${selectedYear} · scan report debits`} tone="purple" />
         <KpiCard
           label="Low performers"
           value={String(yearData.lowPerformers.length)}
@@ -235,7 +236,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
 
         <MonthlyBarChart
           title="Monthly billing"
-          subtitle={`Billing raised each month in ${selectedYear}`}
+          subtitle={`Scan report billing debited each month in ${selectedYear}`}
           data={yearData.billingByMonth}
           activeMonth={billingMonth}
           onSelectMonth={setBillingMonth}
@@ -257,48 +258,28 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
             </p>
           ) : (
             <ul className="mis-insight-list">
-              {yearData.lowPerformers.map((row) => (
-                <li key={row.id}>
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: '50%',
-                      background: metricColors.amber.bg,
-                      color: metricColors.amber.text,
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {initials(row.name)}
-                  </span>
-                  <span style={{ minWidth: 0, flex: 1 }}>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>
-                      {row.name}
+              {yearData.lowPerformers.map((row) => {
+                const idle = row.scansQuarter === 0;
+                const detail = [row.name, row.region, `${row.scansYear} ${row.scansYear === 1 ? 'scan' : 'scans'} in ${selectedYear}`]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <li key={row.id} className={`ledger-company-row ${idle ? 'tone-red' : 'tone-amber'}`}>
+                    <span className="ledger-company-icon mis-insight-initials" aria-hidden="true">
+                      {initials(row.name)}
                     </span>
-                    <span style={{ display: 'block', fontSize: 12, color: theme['text-muted'], marginTop: 2 }}>
-                      {row.region} · {row.scansYear} scans in {selectedYear}
+                    <div className="ledger-company-text">
+                      <span className="ledger-company-sector">{idle ? 'No scans last quarter' : 'Low activity'}</span>
+                      <span className="ledger-company-desc" title={detail}>
+                        {detail}
+                      </span>
+                    </div>
+                    <span className="ledger-company-amount mis-insight-count">
+                      {row.scansQuarter} {row.scansQuarter === 1 ? 'scan' : 'scans'}
                     </span>
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: metricColors.amber.text,
-                      background: metricColors.amber.bg,
-                      borderRadius: radius.pill,
-                      padding: '4px 10px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {row.scansQuarter} scans
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -504,10 +485,3 @@ function MisOverlay({
   );
 }
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}

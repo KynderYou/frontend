@@ -1,6 +1,6 @@
 import { isApiError } from '../../api/errors';
 import type { TraineeApi, TraineePayload } from '../../api/types';
-import { parseBillingDigits, tierBilling, type SubscriptionTier } from '../Admin/adminProfileForm';
+import { billingSlabError, parseBillingDigits, tierBilling, type SubscriptionTier } from '../Admin/adminProfileForm';
 
 export type TraineeFormState = {
   name: string;
@@ -56,6 +56,8 @@ export function validateTraineeForm(form: TraineeFormState): string | null {
   const email = form.email.trim();
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid email or leave it blank.';
   if (!form.mentorId) return 'Select the mentor this trainee works under.';
+  const billingError = billingSlabError(form.billing);
+  if (billingError) return billingError;
   if (form.doj && form.expiryDate && form.expiryDate < form.doj) return 'Expiry date must be after date of joining.';
   return null;
 }

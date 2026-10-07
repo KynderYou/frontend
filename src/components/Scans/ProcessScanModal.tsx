@@ -24,7 +24,7 @@ export type ScanFingerPayload = {
   lfo: number;
 };
 
-export type ProcessScanMode = 'preprocess' | 'process' | 'review' | 'verify';
+export type ProcessScanMode = 'preprocess' | 'process' | 'review';
 
 export type ProcessScanRecord = {
   scanId: string;
@@ -122,7 +122,6 @@ const modeTitles: Record<ProcessScanMode, string> = {
   preprocess: 'Preprocess',
   process: 'Processing',
   review: 'Flag Review',
-  verify: 'Verify',
 };
 
 function PlaceholderFingerprint({
@@ -225,6 +224,17 @@ function FingerprintPanel({
   const fingerBadge = panelFingerForSide(side, activeFinger);
   const activeImage = findFingerViewImage(images ?? [], fingerBadge, activeView, imageIndex);
   const slot = Number.parseInt(fingerBadge.slice(1), 10) || 1;
+  const rrcLabel = (
+    <span key="rrc" className="process-scan-corner-label" title="Radial Ridge Count">
+      RRC{showCornerValues ? `: ${rrc || '0'}` : ''}
+    </span>
+  );
+  const urcLabel = (
+    <span key="urc" className="process-scan-corner-label" title="Ulnar Ridge Count">
+      URC{showCornerValues ? `: ${urc || '0'}` : ''}
+    </span>
+  );
+  const cornerLabels = side === 'right' ? [urcLabel, rrcLabel] : [rrcLabel, urcLabel];
 
   return (
     <div className={`process-scan-panel process-scan-panel-${side}`}>
@@ -256,12 +266,7 @@ function FingerprintPanel({
         </div>
 
         <div className="process-scan-panel-overlay process-scan-panel-overlay-bottom">
-          <span className="process-scan-corner-label" title="Radial Ridge Count">
-            RRC{showCornerValues ? `: ${rrc || '0'}` : ''}
-          </span>
-          <span className="process-scan-corner-label" title="Ulnar Ridge Count">
-            URC{showCornerValues ? `: ${urc || '0'}` : ''}
-          </span>
+          {cornerLabels}
         </div>
       </div>
     </div>
@@ -350,7 +355,7 @@ export function ProcessScanModal({
   const isPreprocess = mode === 'preprocess';
   const isProcess = mode === 'process';
   const isReview = mode === 'review';
-  const isVerifyReadOnly = mode === 'verify' || isReview;
+  const isVerifyReadOnly = isReview;
   const showPatternFields = isPreprocess || isProcess || isVerifyReadOnly;
   const showRidgeFields = isProcess;
   const showCornerValues = isProcess || isVerifyReadOnly;
@@ -811,31 +816,6 @@ export function ProcessScanModal({
                 }}
               >
                 Confirm Flag X
-              </button>
-            </>
-          ) : null}
-
-          {mode === 'verify' ? (
-            <>
-              <button
-                type="button"
-                className="scans-action-btn scans-action-danger"
-                onClick={() => {
-                  onReject?.(buildPayload());
-                  onClose();
-                }}
-              >
-                Rejected
-              </button>
-              <button
-                type="button"
-                className="scans-action-btn scans-action-export"
-                onClick={() => {
-                  onComplete?.(buildPayload());
-                  onClose();
-                }}
-              >
-                Completed
               </button>
             </>
           ) : null}

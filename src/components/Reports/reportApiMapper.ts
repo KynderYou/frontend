@@ -37,9 +37,12 @@ export function reportToRecord(report: ReportRecordApi): ReportRecord {
     details: mapDetails(report.details),
     cabFeedback: mapCabFeedback(report.cab_feedback),
     ownerId: report.owner_id,
+    ownerName: report.owner_name,
     cabEligible: Boolean(report.cab_eligible),
+    uploadedForTrainee: Boolean(report.uploaded_for_trainee),
     reportFileUrl: report.report_file_url,
     flaggedX: Boolean(report.flagged_x),
+    cabRequestedAt: report.cab_requested_at ?? undefined,
   };
 }
 

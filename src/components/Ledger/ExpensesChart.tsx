@@ -36,14 +36,14 @@ export function ExpensesChart({ data, year }: ExpensesChartProps) {
         }}
       >
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>
-          Expenses
+          Monthly expenses
         </h2>
         <span style={{ fontSize: 13, fontWeight: 500, color: theme['text-secondary'] }}>{year}</span>
       </div>
 
       {!hasData ? (
         <p style={{ margin: 'auto 0', textAlign: 'center', color: theme['text-muted'], fontSize: 13 }}>
-          No billing recorded for {year} yet.
+          No expenses recorded for {year} yet.
         </p>
       ) : (
         <div style={{ position: 'relative', flex: 1, minHeight: CHART_H + 48, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>

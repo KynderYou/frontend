@@ -12,6 +12,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapMlaScans } from '../Mlas/mlasApiMapper';
 import type { MlaScan, MlaScanStatus } from '../Mlas/mlasData';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const PAGE_SIZE = 10;
@@ -23,13 +24,6 @@ type MentorsPageProps = {
   onOpenProfile?: () => void;
 };
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 function statusStyles(status: string) {
   if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };

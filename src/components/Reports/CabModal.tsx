@@ -78,7 +78,8 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
               CAB feedback
             </h2>
             <p className="modal-subtitle">
-              Scan {record.scanId} · {record.details.name || 'Client'} — rate the counselling audio byte you received.
+              Scan {record.scanId} · {record.details.name || 'Client'} —{' '}
+              {isOwner ? 'rate the counselling audio byte you received.' : "the mentee's rating of the counselling audio byte."}
             </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>

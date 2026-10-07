@@ -10,6 +10,7 @@ import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const TOPUP_LIST_PAGE_SIZE = 12;
@@ -21,13 +22,6 @@ type AdminTopUpsPageProps = {
   onNavigate?: (view: import('../Layout/navItems').AppView, target?: string) => void;
 };
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 export function AdminTopUpsPage({
   onOpenMobileMenu,

@@ -61,6 +61,15 @@ export function parseBillingDigits(value: string): string {
   return value.replace(/\D/g, '').slice(0, 3);
 }
 
+/** Billing slabs are exactly 40%, exactly 30%, or a typed value below 30%. */
+export function billingSlabError(value: string): string | null {
+  const digits = parseBillingDigits(value);
+  if (!digits) return 'Enter the billing % (40%, 30%, or a value below 30%).';
+  const percent = Number(digits);
+  if (percent === 40 || percent === 30 || percent < 30) return null;
+  return 'Billing % must be 40%, 30%, or below 30%.';
+}
+
 export function billingDigitsForForm(value: string | null | undefined, fallback: string): string {
   const digits = parseBillingDigits(value ?? '');
   return digits || fallback;

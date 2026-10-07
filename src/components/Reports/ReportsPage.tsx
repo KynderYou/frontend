@@ -6,6 +6,7 @@ import {
   getMe,
   getMyLedger,
   getMyReports,
+  requestCabFeedback,
   submitCabFeedback,
   upgradeReport,
 } from '../../api';
@@ -14,6 +15,7 @@ import { EmptyState } from '../common/EmptyState';
 import { SkeletonReportsStats, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { TrashButton } from '../common/TrashButton';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -23,8 +25,11 @@ import { downloadReportPdf } from './downloadReportPdf';
 import { applyReportUpdate, reportListToRecords } from './reportApiMapper';
 import { type ReportRecord } from './reportTypes';
 import { isTopPackage, packageForPlan, type ReportPlan } from './reportPackages';
-import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_STATUS_FILTERS, scanStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
+import { useCursorTooltip } from '../../hooks/useCursorTooltip';
+import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_STATUS_FILTERS, reportStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
 import { UpgradeReportModal } from './UpgradeReportModal';
+import { InfoTip } from '../common/InfoTip';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const REPORTS_PAGE_SIZE = 12;
@@ -38,19 +43,16 @@ const avatarPalette = [
 ] as const;
 
 const statusFilters = REPORT_STATUS_FILTERS;
+const FLAG_X_TIP = 'Flag X · complex scan';
 type StatusFilter = ReportStatusFilter;
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+
+const MLA_VIEW_ONLY = "View only: this is your MLA's scan";
 
 function reportMetaLine(row: ReportRecord, ready: boolean): string {
   const size = row.size && row.size !== '—' ? row.size : '';
   if (!ready) {
-    return row.generatedAt ? `Processing since ${row.generatedAt}` : 'Processing';
+    return row.generatedAt ? `${row.status} since ${row.generatedAt}` : row.status;
   }
   return [size, row.generatedAt, row.plan].filter(Boolean).join(' · ');
 }
@@ -81,6 +83,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [loadError, setLoadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [layout, setLayout] = useState<'cards' | 'table'>('table');
+  const flagTip = useCursorTooltip();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [upgradingRecord, setUpgradingRecord] = useState<ReportRecord | null>(null);
@@ -91,12 +94,15 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   /** Mentors / trainees / MLAs need ledger balance for report actions; Admin/HO does not. */
   const [walletRequired, setWalletRequired] = useState(false);
   const [memberId, setMemberId] = useState<number | null>(null);
+  const [isMentor, setIsMentor] = useState(false);
+  const [requestingCab, setRequestingCab] = useState<ReportRecord['id'] | null>(null);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const [member, reports] = await Promise.all([getMe(signal), getMyReports(signal)]);
       setMemberId(member.mid);
+      setIsMentor(member.role === 'Mentor');
       const needsWallet = member.role === 'Mentor' || member.role === 'Trainee' || member.role === 'MLA';
       setWalletRequired(needsWallet);
       if (needsWallet) {
@@ -175,8 +181,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const canUseActions = !walletChecked || walletOk;
   const walletBlockTitle = 'Top up your ledger to use report actions';
 
-  const downloadTitle = () => {
+  const downloadTitle = (ready: boolean) => {
     if (walletBlocked) return walletBlockTitle;
+    if (!ready) return 'The report can be downloaded once it is Ready to Download';
     return 'Download report PDF';
   };
 
@@ -186,15 +193,75 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     return 'Upgrade to a higher GBP package';
   };
 
+  /** Mentors also see their MLAs' scans, but only for CAB; the backend refuses other actions on them. */
+  const isMlaRow = (row: ReportRecord) => isMentor && memberId != null && row.ownerId !== memberId;
+
+  const uploaderLabel = (row: ReportRecord) => {
+    const who = row.ownerId === memberId ? 'you' : row.ownerName || 'Unknown';
+    const role = row.ownerId !== memberId && row.cabEligible ? ' (MLA)' : '';
+    const forTrainee = row.uploadedForTrainee && row.details.referredBy ? ` for ${row.details.referredBy}` : '';
+    return `Uploaded by ${who}${role}${forTrainee}`;
+  };
+
+  /** Mentor asking their MLA to rate the CAB: only while there is no feedback yet, or it was rejected. */
+  const canRequestCab = (row: ReportRecord) =>
+    isMentor &&
+    row.ownerId !== memberId &&
+    !row.uploadedForTrainee &&
+    Boolean(row.cabEligible) &&
+    (!row.cabFeedback || row.cabFeedback.status === 'Rejected');
+
+  const cabDisabled = (row: ReportRecord) =>
+    Boolean(row.uploadedForTrainee) || (row.ownerId === memberId && !row.cabEligible) || requestingCab === row.id;
+
+  const handleRequestCab = async (record: ReportRecord) => {
+    setRequestingCab(record.id);
+    try {
+      const res = await requestCabFeedback(record.scanId);
+      setRecords((prev) => prev.map((row) => (row.id === record.id ? { ...row, cabRequestedAt: res.requested_at } : row)));
+      showSuccess(`Asked the MLA to rate the CAB for scan ${record.scanId}.`);
+    } catch (err) {
+      showError(apiErrorDetail(err, 'Could not request feedback. Please try again.'));
+    } finally {
+      setRequestingCab(null);
+    }
+  };
+
+  const onCabClick = (row: ReportRecord) => {
+    if (canRequestCab(row)) void handleRequestCab(row);
+    else setCabRecord(row);
+  };
+
   const cabTitle = (row: ReportRecord) => {
-    if (!row.cabEligible) return 'CAB feedback is only for MLA scans';
+    if (isOwnNonMlaScan(row)) return 'Your own scan · CAB feedback is only for scans your MLAs upload';
+    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a trainee — no CAB feedback';
+    if (canRequestCab(row)) {
+      return row.cabRequestedAt
+        ? `Requested ${row.cabRequestedAt} · click to remind the MLA again (once a day)`
+        : 'Ask the MLA to rate the CAB you sent';
+    }
     if (row.cabFeedback) return `CAB feedback · ${row.cabFeedback.status}`;
+    if (row.ownerId !== memberId) return 'View CAB feedback from the mentee';
     return 'Rate the CAB your mentor sent';
   };
 
+  const isOwnNonMlaScan = (row: ReportRecord) => row.ownerId === memberId && !row.cabEligible;
+
   const cabLabel = (row: ReportRecord) => {
-    if (!row.cabEligible) return 'CAB · MLA only';
+    if (isOwnNonMlaScan(row)) return 'Own scan';
+    if (row.uploadedForTrainee) return 'Uploaded by trainee';
+    if (canRequestCab(row)) {
+      if (requestingCab === row.id) return 'Requesting…';
+      if (row.cabRequestedAt) return 'Requested ✓';
+      return row.cabFeedback?.status === 'Rejected' ? 'Request again' : 'Request feedback';
+    }
     const status = row.cabFeedback?.status;
+    if (row.ownerId !== memberId) {
+      if (status === 'Approved') return 'Approved ✓';
+      if (status === 'Pending') return 'Awaiting approval';
+      if (status === 'Rejected') return 'Rejected';
+      return 'No feedback yet';
+    }
     if (status === 'Approved') return 'Feedback ✓';
     if (status === 'Pending') return 'Feedback sent';
     if (status === 'Rejected') return 'Resubmit';
@@ -262,14 +329,18 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   };
 
   const renderCard = (row: ReportRecord, index: number) => {
-    const chip = scanStatusStyles(row.status);
+    const chip = reportStatusStyles(row.status);
     const ready = isReportReady(row.status);
     const topPlan = isTopPackage(row.plan);
     const plan = packageForPlan(row.plan);
     const avatar = avatarPalette[index % avatarPalette.length];
 
     return (
-      <article key={row.id} className={row.flaggedX ? 'reports-card reports-row-flagged' : 'reports-card'}>
+      <article
+        key={row.id}
+        className={row.flaggedX ? 'reports-card row-flagged' : 'reports-card'}
+        {...flagTip.bind(row.flaggedX ? FLAG_X_TIP : null)}
+      >
         <header className="reports-card-top">
           <span className="reports-card-avatar" style={avatar} aria-hidden="true">
             {initials(row.details.name)}
@@ -281,6 +352,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
               {row.details.gender ? ` · ${row.details.gender}` : ''}
               {row.details.age ? ` · ${row.details.age} yrs` : ''}
             </span>
+            <span className="reports-card-meta reports-uploader">{uploaderLabel(row)}</span>
           </div>
           <span className="scans-status-chip" style={chip}>
             {displayReportStatus(row.status)}
@@ -315,8 +387,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
           <button
             type="button"
             className="reports-card-download"
-            disabled={!canUseActions}
-            title={downloadTitle()}
+            disabled={isMlaRow(row) || !canUseActions || !ready}
+            title={isMlaRow(row) ? MLA_VIEW_ONLY : downloadTitle(ready)}
             onClick={() => handleDownload(row)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -344,8 +416,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <button
               type="button"
               className="reports-tool-btn reports-tool-upgrade"
-              disabled={topPlan || !canUseActions}
-              title={upgradeTitle(topPlan)}
+              disabled={isMlaRow(row) || topPlan || !canUseActions}
+              title={isMlaRow(row) ? MLA_VIEW_ONLY : upgradeTitle(topPlan)}
               onClick={() => setUpgradingRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -358,9 +430,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <button
               type="button"
               className="reports-tool-btn reports-tool-cab"
-              disabled={!row.cabEligible}
+              disabled={cabDisabled(row)}
               title={cabTitle(row)}
-              onClick={() => setCabRecord(row)}
+              onClick={() => onCabClick(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 14v-3a9 9 0 0 1 18 0v3" />
@@ -371,15 +443,17 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <button
               type="button"
               className="reports-tool-btn reports-tool-delete"
-              title="Delete scan"
+              title={isMlaRow(row) ? MLA_VIEW_ONLY : 'Delete scan'}
+              disabled={isMlaRow(row)}
               onClick={() => setDeletingRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
                 <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
               </svg>
-              <span className="reports-tool-label">Delete</span>
             </button>
           </div>
         </footer>
@@ -401,24 +475,37 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <th className="col-center">Download</th>
             <th className="col-center">AI Report</th>
             <th className="col-center">Upgrade</th>
-            <th className="col-center">CAB</th>
+            <th className="col-center">
+              CAB
+              <InfoTip label="About CAB feedback">
+                <p>
+                  <strong>CAB – Counselling Audio Byte.</strong> If you need help with a report, you can request a
+                  counselling audio byte from your mentor. Every Flag X scan must be counselled with an audio byte.
+                </p>
+                <p>
+                  Once you receive the audio byte on WhatsApp or another channel, rate it here. Your mentor is credited
+                  after H.O approves your feedback.
+                </p>
+              </InfoTip>
+            </th>
             <th className="col-center">Delete Scan</th>
           </tr>
         </thead>
         <tbody>
           {listPagination.pageItems.map((row, index) => {
-            const chip = scanStatusStyles(row.status);
+            const chip = reportStatusStyles(row.status);
             const ready = isReportReady(row.status);
             const topPlan = isTopPackage(row.plan);
             return (
               <tr
                 key={row.id}
-                className={row.flaggedX ? 'reports-row-flagged' : undefined}
-                title={row.flaggedX ? 'Flag X: complex scan' : undefined}
+                className={row.flaggedX ? 'row-flagged' : undefined}
+                {...flagTip.bind(row.flaggedX ? FLAG_X_TIP : null)}
               >
                 <td data-label="Sno">{rowOffset + index + 1}</td>
                 <td data-label="Scan Id">
                   <span className="scans-table-file-static">{row.scanId}</span>
+                  <span className="scans-table-meta reports-uploader">{uploaderLabel(row)}</span>
                 </td>
                 <td data-label="Name">{row.details.name || '—'}</td>
                 <td data-label="Gender">{row.details.gender || '—'}</td>
@@ -437,8 +524,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn scans-action-export"
-                    disabled={!canUseActions}
-                    title={downloadTitle()}
+                    disabled={isMlaRow(row) || !canUseActions || !ready}
+                    title={isMlaRow(row) ? MLA_VIEW_ONLY : downloadTitle(ready)}
                     onClick={() => handleDownload(row)}
                   >
                     Download
@@ -458,8 +545,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn reports-action-upgrade"
-                    disabled={topPlan || !canUseActions}
-                    title={upgradeTitle(topPlan)}
+                    disabled={isMlaRow(row) || topPlan || !canUseActions}
+                    title={isMlaRow(row) ? MLA_VIEW_ONLY : upgradeTitle(topPlan)}
                     onClick={() => setUpgradingRecord(row)}
                   >
                     {topPlan ? 'GBPB Plus' : 'Upgrade'}
@@ -469,21 +556,19 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn reports-action-cab"
-                    disabled={!row.cabEligible}
+                    disabled={cabDisabled(row)}
                     title={cabTitle(row)}
-                    onClick={() => setCabRecord(row)}
+                    onClick={() => onCabClick(row)}
                   >
                     {cabLabel(row)}
                   </button>
                 </td>
                 <td data-label="Delete Scan">
-                  <button
-                    type="button"
-                    className="scans-action-btn scans-action-danger"
+                  <TrashButton
+                    label={isMlaRow(row) ? MLA_VIEW_ONLY : 'Delete scan'}
+                    disabled={isMlaRow(row)}
                     onClick={() => setDeletingRecord(row)}
-                  >
-                    Delete
-                  </button>
+                  />
                 </td>
               </tr>
             );
@@ -709,6 +794,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
         onClose={() => setDeletingRecord(null)}
         onConfirm={handleDelete}
       />
+      {flagTip.tooltip}
     </section>
   );
 }

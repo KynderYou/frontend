@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { colors } from '../../styles/theme';
 import type { ScanDetails } from './scanTypes';
-import { REPORT_PACKAGES } from '../Reports/reportPackages';
+import { ScanDetailsFields } from './ScanDetailsFields';
+import { CLIENT_TYPE_INDIVIDUAL, normalizeClientType, scanDetailsComplete } from './scanDetails';
 
 const theme = colors.light;
 
@@ -15,50 +16,11 @@ type EditScanModalProps = {
   onSave: (details: ScanDetails) => void;
 };
 
-export const CLIENT_TYPE_INDIVIDUAL = 'Individual';
-export const CLIENT_TYPE_FAMILY = 'Family (phone required)';
-
-const clientTypeOptions = [CLIENT_TYPE_INDIVIDUAL, CLIENT_TYPE_FAMILY] as const;
-const BASE_REFERRED_BY = ['SELF', 'MLA', 'HO', 'Referral'] as const;
-const genderOptions = ['Male', 'Female', 'Other'] as const;
-
-function normalizeClientType(value: string): string {
-  const raw = value.trim();
-  if (!raw) return CLIENT_TYPE_INDIVIDUAL;
-  const lower = raw.toLowerCase();
-  if (lower === 'individual' || lower === 'personal' || lower === 'private') {
-    return CLIENT_TYPE_INDIVIDUAL;
-  }
-  if (
-    lower.startsWith('family') ||
-    lower === 'institution' ||
-    lower === 'bulk' ||
-    lower === 'business' ||
-    lower === 'corporate' ||
-    lower === 'company'
-  ) {
-    return CLIENT_TYPE_FAMILY;
-  }
-  if (clientTypeOptions.includes(raw as (typeof clientTypeOptions)[number])) return raw;
-  return CLIENT_TYPE_INDIVIDUAL;
-}
-
-function phoneRequiredFor(clientType: string): boolean {
-  return normalizeClientType(clientType) === CLIENT_TYPE_FAMILY;
-}
-
 export function EditScanModal({ open, scanId, initial, traineeNames = [], onClose, onSave }: EditScanModalProps) {
   const [form, setForm] = useState<ScanDetails>(() => ({
     ...initial,
     clientType: normalizeClientType(initial.clientType),
   }));
-
-  const baseOptions = BASE_REFERRED_BY as readonly string[];
-  const traineeOptions = traineeNames.filter((name) => name && !baseOptions.includes(name));
-  const otherCurrent =
-    form.referredBy && !baseOptions.includes(form.referredBy) && !traineeOptions.includes(form.referredBy)
-      ? form.referredBy
-      : null;
 
   useEffect(() => {
     if (!open) return;
@@ -84,30 +46,7 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
 
   if (!open) return null;
 
-  const update = (key: keyof ScanDetails) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const value = e.target.value;
-    setForm((f) => {
-      if (key === 'clientType') {
-        const nextType = normalizeClientType(value);
-        return {
-          ...f,
-          clientType: nextType,
-          phone: nextType === CLIENT_TYPE_INDIVIDUAL ? '' : f.phone,
-        };
-      }
-      return { ...f, [key]: value };
-    });
-  };
-
-  const needsPhone = phoneRequiredFor(form.clientType);
-  const canSave =
-    form.name.trim().length > 0 &&
-    form.age.trim().length > 0 &&
-    form.gender.trim().length > 0 &&
-    form.mrp.trim().length > 0 &&
-    (!needsPhone || form.phone.trim().length > 0);
+  const canSave = scanDetailsComplete(form);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,109 +97,7 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
 
         <form onSubmit={handleSave}>
           <div className="modal-body">
-            <div className="form-grid">
-              <label className="form-field">
-                <span className="form-label">Scan Id</span>
-                <input className="form-input" type="text" value={scanId} readOnly disabled />
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Referred By</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={form.referredBy} onChange={update('referredBy')}>
-                    {baseOptions.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                    {traineeOptions.length > 0 ? (
-                      <optgroup label="My trainees">
-                        {traineeOptions.map((name) => (
-                          <option key={`trainee-${name}`} value={name}>
-                            {name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : null}
-                    {otherCurrent ? <option value={otherCurrent}>{otherCurrent}</option> : null}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Name</span>
-                <input className="form-input" type="text" value={form.name} onChange={update('name')} />
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Client Type</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={form.clientType} onChange={update('clientType')}>
-                    {clientTypeOptions.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Age</span>
-                <input className="form-input" type="number" min={1} max={120} value={form.age} onChange={update('age')} />
-              </label>
-
-              {needsPhone ? (
-                <label className="form-field">
-                  <span className="form-label">Phno</span>
-                  <input className="form-input" type="tel" value={form.phone} onChange={update('phone')} required />
-                </label>
-              ) : null}
-
-              <label className="form-field">
-                <span className="form-label">Gender</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={form.gender} onChange={update('gender')}>
-                    <option value="" disabled>
-                      Select gender
-                    </option>
-                    {genderOptions.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </label>
-
-              <label className="form-field">
-                <span className="form-label">Report package</span>
-                <div className="form-select-wrap">
-                  <select className="form-input form-select" value={form.mrp} onChange={update('mrp')}>
-                    <option value="" disabled>
-                      Choose package
-                    </option>
-                    {REPORT_PACKAGES.map((pkg) => (
-                      <option key={pkg.id} value={pkg.mrp}>
-                        {pkg.id} · {pkg.mrp} · {pkg.pages} pages
-                      </option>
-                    ))}
-                  </select>
-                  <svg className="form-select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </label>
-            </div>
+            <ScanDetailsFields scanId={scanId} value={form} onChange={setForm} traineeNames={traineeNames} />
           </div>
 
           <div className="modal-footer">

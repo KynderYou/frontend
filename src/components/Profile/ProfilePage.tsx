@@ -62,6 +62,14 @@ function asStatus(value: string): MemberStatus {
   return 'Active';
 }
 
+/** Trainee-role logins are MLAs. */
+function roleBadgeFor(role: string): { label: string; color: string; bg: string } {
+  if (role === 'Admin') return { label: 'Admin', color: metricColors.purple.text, bg: metricColors.purple.bg };
+  if (role === 'Mentor') return { label: 'Mentor', color: metricColors.blue.text, bg: metricColors.blue.bg };
+  if (role === 'Trainee' || role === 'MLA') return { label: 'MLA', color: metricColors.green.text, bg: metricColors.green.bg };
+  return { label: role, color: theme['text-secondary'], bg: theme['bg-muted'] };
+}
+
 function asTier(value: string): SubscriptionTier {
   if (value === 'Gold' || value === 'Diamond' || value === 'Platinum' || value === 'Ultima') return value;
   return 'Gold';
@@ -425,6 +433,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
 
   const currentTier = asTier(profile.mas_type);
   const tier = subscriptionTiers[currentTier];
+  const roleBadge = roleBadgeFor(profile.role);
   const currentStatus = asStatus(profile.status);
   const statusTone = statusTones[currentStatus];
 
@@ -719,6 +728,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
               <Pill label={currentStatus} color={statusTone.color} bg={statusTone.bg} dot pulse />
               <Pill label={currentTier} color={tier.color} bg={tier.bg} emoji={tier.emoji} />
+              <Pill label={roleBadge.label} color={roleBadge.color} bg={roleBadge.bg} />
             </div>
           </div>
 

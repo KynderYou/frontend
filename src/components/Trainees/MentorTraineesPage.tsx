@@ -11,6 +11,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapTraineeScans, mapTraineesState } from './traineesApiMapper';
 import type { Trainee, TraineeScan, TraineeScanStatus, TraineeStatus } from './traineesData';
+import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const LIST_PAGE_SIZE = 12;
@@ -35,13 +36,6 @@ function scanStatusStyles(status: TraineeScanStatus) {
   return { color: theme.primary, background: theme['primary-soft'] };
 }
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTraineesPageProps) {
   const [mentorName, setMentorName] = useState('');

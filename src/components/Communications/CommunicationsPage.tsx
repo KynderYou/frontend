@@ -20,6 +20,7 @@ import {
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonTableCard } from '../common/Skeleton';
 import { useToast } from '../common/ToastProvider';
+import { TrashButton } from '../common/TrashButton';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import {
@@ -666,14 +667,7 @@ export function CommunicationsPage({
                         {group.memberIds.length} member{group.memberIds.length === 1 ? '' : 's'}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="btn-pill-secondary comm-groups-delete"
-                      onClick={() => handleDeleteGroup(group.id)}
-                      disabled={submitting}
-                    >
-                      Delete
-                    </button>
+                    <TrashButton label="Delete group" onClick={() => handleDeleteGroup(group.id)} disabled={submitting} />
                   </li>
                 ))}
               </ul>

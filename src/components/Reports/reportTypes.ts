@@ -25,10 +25,15 @@ export type ReportRecord = {
   details: ScanDetails;
   cabFeedback?: ReportCabFeedback;
   ownerId: number;
+  ownerName?: string;
   /** Only MLA-owned scans get CAB feedback. */
   cabEligible: boolean;
+  /** Mentor uploaded it for a trainee (no account), so there is no CAB feedback. */
+  uploadedForTrainee?: boolean;
   reportFileUrl?: string | null;
   flaggedX?: boolean;
+  /** When the mentor last asked the MLA to rate the CAB. */
+  cabRequestedAt?: string;
 };
 
 export function formatDuration(totalSec: number) {

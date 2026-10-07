@@ -22,6 +22,7 @@ import { AdminCreateMemberCard } from './AdminCreateMemberCard';
 import { AdminMemberProfileModal } from './AdminMemberProfileModal';
 import { AdminMembersTable, type AdminAccountRow } from './AdminMembersTable';
 import {
+  billingSlabError,
   emptyAccountForm,
   parseBillingDigits,
   emptyMembershipForm,
@@ -121,6 +122,11 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
       setError('Select the mentor this trainee works under.');
       return;
     }
+    const traineeBillingError = billingSlabError(membershipForm.billing);
+    if (traineeBillingError) {
+      setError(traineeBillingError);
+      return;
+    }
     if (membershipForm.doj && membershipForm.expiryDate && membershipForm.expiryDate < membershipForm.doj) {
       setError('Expiry date must be after date of joining.');
       return;
@@ -186,6 +192,15 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
     }
     if (password.length < 8) {
       setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (role === 'MLA' && !membershipForm.mentoredById) {
+      setError('Select a mentor for this MLA.');
+      return;
+    }
+    const billingError = billingSlabError(membershipForm.billing);
+    if (billingError) {
+      setError(billingError);
       return;
     }
 

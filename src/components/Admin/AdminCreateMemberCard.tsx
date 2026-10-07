@@ -33,7 +33,8 @@ export function AdminCreateMemberCard({
   onSubmit,
 }: AdminCreateMemberCardProps) {
   const isTrainee = accountForm.role === 'Trainee';
-  const mentorChoices = isTrainee ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors;
+  const isMla = accountForm.role === 'MLA';
+  const mentorChoices = isTrainee || isMla ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors;
 
   return (
     <div className="dash-card" style={{ marginBottom: 16 }}>
@@ -52,6 +53,7 @@ export function AdminCreateMemberCard({
           mentors={mentorChoices}
           onChange={onMembershipChange}
           traineeMode={isTrainee}
+          mentorRequired={isMla}
         />
         {isTrainee ? (
           <div className="admin-form-section">

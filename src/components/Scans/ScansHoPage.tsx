@@ -9,10 +9,12 @@ import {
   uploadHoScanReport,
 } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
+import { useCursorTooltip } from '../../hooks/useCursorTooltip';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
+import { TrashButton } from '../common/TrashButton';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
@@ -43,7 +45,6 @@ const sectionLabels: Record<HoSectionId, string> = {
   preprocess: 'Preprocess',
   process: 'Process',
   review: 'Review',
-  verify: 'Verify',
   download: 'Download',
   report: 'Upload',
 };
@@ -55,15 +56,11 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
   },
   process: {
     title: 'Process',
-    subtitle: 'Mark scans as completed or move them for review. Flag X scans go to Review.',
+    subtitle: 'Mark scans as completed or move them for review. Completed scans go to Download; Flag X scans go to Review.',
   },
   review: {
     title: 'Flag Review',
     subtitle: 'Confirm Flag X on complex scans, then they move to Download. Send back to Process to fix counts.',
-  },
-  verify: {
-    title: 'Verify',
-    subtitle: 'Final verification before reports move ahead.',
   },
   download: {
     title: 'Download',
@@ -71,7 +68,7 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
   },
   report: {
     title: 'Report Upload',
-    subtitle: 'Upload reports, debit mentee, or delete scans with confirmation.',
+    subtitle: 'Upload report PDFs, pay report billing from the company ledger, or delete scans.',
   },
 };
 
@@ -175,8 +172,9 @@ function HoDebitScanModal({
 
         <div className="modal-body">
           <p className="reports-delete-warning">
-            This will debit <strong>{debitAmount}</strong> from <strong>{record.scanBy}</strong> using{' '}
-            <strong>{billingLabel}</strong> of the report MRP <strong>{record.cost}</strong>.
+            This will debit <strong>{debitAmount}</strong> from the company ledger and credit it to{' '}
+            <strong>{record.scanBy}</strong> using <strong>{billingLabel}</strong> of the report MRP{' '}
+            <strong>{record.cost}</strong>.
           </p>
         </div>
 
@@ -289,6 +287,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   const reportTargetRef = useRef<HoScanRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [debitTarget, setDebitTarget] = useState<HoScanRecord | null>(null);
+  const flagTip = useCursorTooltip();
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
   const [panelImages, setPanelImages] = useState<ScanImage[] | null>(null);
   const [panelFingers, setPanelFingers] = useState<ScanFingerPayload[] | null>(null);
@@ -377,14 +376,13 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
 
   const canOpenFingerprint =
     activeSection === 'preprocess' ||
-    (isAdmin && (activeSection === 'process' || activeSection === 'review' || activeSection === 'verify'));
+    (isAdmin && (activeSection === 'process' || activeSection === 'review'));
 
   const grouped = useMemo(
     () => ({
       preprocess: records.filter((record) => record.section === 'preprocess'),
       process: records.filter((record) => record.section === 'process'),
       review: records.filter((record) => record.section === 'review'),
-      verify: records.filter((record) => record.section === 'verify'),
       download: records.filter((record) => record.section === 'download'),
       report: records.filter((record) => record.section === 'report'),
     }),
@@ -400,9 +398,9 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
     if (acting) return;
     setActing(true);
     try {
-      const result = await hoScanAction(row.numericId, { action, ...fields });
+      const result = await hoScanAction(row.numericId, { action, expected_section: row.section, ...fields });
       const defaultMessage = `Scan ${row.scanId} updated.`;
-      if (result === null) {
+      if (result === null || action === 'debit') {
         setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
         showSuccess(typeof message === 'string' ? message : `Scan ${row.scanId} deleted from report upload.`);
       } else {
@@ -410,8 +408,10 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
         setRecords((prev) => prev.map((item) => (item.numericId === row.numericId ? mapped[0] : item)));
         showSuccess(typeof message === 'function' ? message(mapped[0]) : message ?? defaultMessage);
       }
-    } catch {
-      showError('Action failed. Please try again.');
+    } catch (err) {
+      const detail = isApiError(err) ? (err.body as { detail?: unknown } | null)?.detail : null;
+      showError(typeof detail === 'string' && detail ? detail : 'Action failed. Please try again.');
+      if (isApiError(err) && err.status === 409) void loadScans();
     } finally {
       setActing(false);
     }
@@ -465,7 +465,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   const showProcessedBy = activeSection !== 'preprocess' && activeSection !== 'process';
   const showPreprocessedBy = activeSection === 'process';
 
-  const showFlagColumn = isAdmin && (activeSection === 'verify' || activeSection === 'review');
+  const showFlagColumn = isAdmin && activeSection === 'review';
 
   const panelProcessRecord = useMemo(
     () => (panelTarget ? toProcessRecord(panelTarget, panelFingers ?? undefined) : null),
@@ -490,7 +490,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             Process Scan
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Review exported scans across preprocess, process, verify, download, and report upload queues.
+            Review exported scans across preprocess, process, review, download, and report upload queues.
           </p>
         </div>
 
@@ -577,7 +577,8 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                   return (
                     <tr
                       key={row.id}
-                      className={canOpenFingerprint ? 'ho-scans-row-clickable' : undefined}
+                      className={[canOpenFingerprint ? 'ho-scans-row-clickable' : '', row.flaggedX ? 'row-flagged' : ''].filter(Boolean).join(' ') || undefined}
+                      {...flagTip.bind(row.flaggedX ? 'Flag X · complex scan' : null)}
                       onClick={
                         canOpenFingerprint
                           ? () => openFingerprintPanel(row, activeSection as ProcessScanMode)
@@ -667,34 +668,20 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                             >
                               {row.hasReportFile ? 'Replace PDF' : 'Upload PDF'}
                             </button>
-                            <button
-                              type="button"
-                              className="scans-action-btn"
-                              style={{ marginLeft: 6 }}
-                              title="Download the Excel sheet again"
-                              onClick={() =>
-                                void downloadHoScanExcel(row.numericId, row.scanId).catch(() =>
-                                  showError(`Could not download the Excel sheet for ${row.scanId}.`),
-                                )
-                              }
-                            >
-                              XL
-                            </button>
                           </td>
                           <td data-label="Debit" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               className="scans-action-btn"
-                              disabled={acting || row.reportBilled || !row.reportDebitAmount}
+                              disabled={acting || row.reportBilled || !row.reportDebitAmount || !row.hasReportFile}
+                              title={row.hasReportFile ? undefined : 'Upload the report PDF before debiting'}
                               onClick={() => setDebitTarget(row)}
                             >
                               {row.reportDebitAmount ? `Debit ${row.reportDebitAmount}` : 'Debit'}
                             </button>
                           </td>
                           <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
-                            <button type="button" className="scans-action-btn scans-action-danger" disabled={acting} onClick={() => setDeleteTarget(row)}>
-                              Delete scan
-                            </button>
+                            <TrashButton label="Delete scan" disabled={acting} onClick={() => setDeleteTarget(row)} />
                           </td>
                         </>
                       ) : null}
@@ -739,9 +726,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             row,
             'reject',
             actionPayloadFromProcess(record),
-            panelMode === 'verify'
-              ? `Scan ${record.scanId} rejected in verify.`
-              : `Scan ${record.scanId} rejected in preprocess.`
+            `Scan ${record.scanId} rejected in preprocess.`
           );
         }}
         onComplete={(record) => {
@@ -751,12 +736,10 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             row,
             'complete',
             actionPayloadFromProcess(record),
-            panelMode === 'verify'
-              ? `Scan ${record.scanId} verified.`
-              : (updated) =>
-                  updated.section === 'review'
-                    ? `Scan ${record.scanId} is Flag X · moved to Review to confirm the flag.`
-                    : `Scan ${record.scanId} completed · moved to Verify.`
+            (updated) =>
+              updated.section === 'review'
+                ? `Scan ${record.scanId} is Flag X · moved to Review to confirm the flag.`
+                : `Scan ${record.scanId} completed · moved to Download.`
           );
         }}
         onReview={(record) => {
@@ -784,7 +767,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             record,
             'debit',
             undefined,
-            `${amount} debited from ${record.scanBy} at ${billing} of MRP for scan ${record.scanId}.`,
+            `${amount} debited from the company ledger and credited to ${record.scanBy} (${billing} of MRP) for scan ${record.scanId}.`,
           );
         }}
       />
@@ -805,6 +788,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
         style={{ display: 'none' }}
         onChange={(e) => void handleReportFile(e)}
       />
+      {flagTip.tooltip}
     </section>
   );
 }

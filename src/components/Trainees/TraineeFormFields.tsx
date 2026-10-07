@@ -1,4 +1,5 @@
-import { parseBillingDigits, subscriptionTierOptions, tierBilling } from '../Admin/adminProfileForm';
+import { subscriptionTierOptions, tierBilling } from '../Admin/adminProfileForm';
+import { BillingSlabField } from '../Admin/BillingSlabField';
 import type { TraineeFormState } from './traineeForm';
 
 export type TraineeMentorOption = { id: string; name: string };
@@ -95,21 +96,7 @@ export function TraineeFormFields({ form, mentors, onChange }: TraineeFormFields
               </select>
             </div>
           </label>
-          <label className="form-field">
-            <span className="form-label">Billing %</span>
-            <input
-              className="form-input"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={form.billing}
-              onChange={(e) => {
-                const digits = parseBillingDigits(e.target.value);
-                update('billing', digits && Number(digits) > 100 ? '100' : digits);
-              }}
-              placeholder="30"
-            />
-          </label>
+          <BillingSlabField value={form.billing} onChange={(digits) => update('billing', digits)} />
           <label className="form-field">
             <span className="form-label">Date of joining</span>
             <input className="form-input" type="date" value={form.doj} onChange={(e) => update('doj', e.target.value)} />
