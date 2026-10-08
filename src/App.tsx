@@ -26,6 +26,7 @@ import { CommunicationsPage } from './components/Communications/CommunicationsPa
 import { MisScansPage } from './components/Mis/MisScansPage';
 import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
 import { MisCabPage } from './components/Mis/MisCabPage';
+import { ReviewsPage } from './components/Reviews/ReviewsPage';
 import { ToastProvider } from './components/common/ToastProvider';
 import { NotificationsPage } from './components/Notifications/NotificationsPage';
 import { NotificationProvider } from './components/Notifications/NotificationContext';
@@ -396,6 +397,11 @@ function App() {
               />
             ) : view === 'mis-network' ? (
               <NetworkPerformancePage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
+            ) : view === 'mis-reviews' ? (
+              <ReviewsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />

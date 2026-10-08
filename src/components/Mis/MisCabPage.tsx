@@ -3,6 +3,7 @@ import { ApiError, getCabState, getMe, reviewCabFeedback } from '../../api';
 import type { CabStateApi } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { ProtectedAudio } from '../common/ProtectedAudio';
 import { SkeletonCabPage } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
@@ -291,7 +292,8 @@ export function MisCabPage({
                         <Stars rating={row.rating} />
                       </td>
                       <td data-label="Feedback">
-                        <span className="mis-cab-comments">{row.comments || '—'}</span>
+                        <span className="mis-cab-comments">{row.comments || (row.audioUrl ? '' : '—')}</span>
+                        {row.audioUrl ? <ProtectedAudio path={row.audioUrl} className="mis-cab-audio" /> : null}
                       </td>
                       <td data-label="Credit" className="col-center">
                         {row.creditAmount}

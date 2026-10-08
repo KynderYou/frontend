@@ -3,6 +3,8 @@
  * Replace with API/Postgres reads once the MIS endpoints exist.
  */
 
+import type { NetworkScope } from '../../api/types';
+
 export const MONTH_LABELS = [
   'Jan',
   'Feb',
@@ -275,6 +277,7 @@ function buildPerformanceRows(
 
 export type NetworkYearSnapshot = {
   year: NetworkYear;
+  scope: NetworkScope;
   monthsSoFar: number;
   networkScans: NetworkScan[];
   scansByMonth: MonthPoint[];
@@ -305,6 +308,7 @@ export function getNetworkYearSnapshot(year: NetworkYear): NetworkYearSnapshot {
 
   return {
     year,
+    scope: 'network',
     monthsSoFar,
     networkScans: yearScans,
     scansByMonth,

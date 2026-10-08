@@ -1,4 +1,4 @@
-import type { ReportRecordApi } from '../../api/types';
+import type { ReportCabFeedbackApi, ReportRecordApi } from '../../api/types';
 import { normalizeReportPlan } from './reportPackages';
 import type { ReportCabFeedback, ReportRecord } from './reportTypes';
 
@@ -14,11 +14,12 @@ function mapDetails(details: ReportRecordApi['details']) {
   };
 }
 
-function mapCabFeedback(feedback: ReportRecordApi['cab_feedback']): ReportCabFeedback | undefined {
+export function mapCabFeedback(feedback: ReportCabFeedbackApi | null | undefined): ReportCabFeedback | undefined {
   if (!feedback) return undefined;
   return {
     rating: feedback.rating,
     comments: feedback.comments,
+    audioUrl: feedback.audio_url ?? null,
     status: feedback.status,
     submittedAt: feedback.submitted_at,
   };

@@ -12,6 +12,7 @@ import {
   LuMessageSquare,
   LuActivity,
   LuSearch,
+  LuMessageSquareQuote,
 } from 'react-icons/lu';
 import type { MemberNav } from '../../api/types';
 
@@ -49,6 +50,7 @@ export const navItems = [
   { id: 'mis-communications', label: 'Communications', Icon: LuMessageSquare, section: 'MIS' },
   { id: 'mis-network', label: 'Network Performance', Icon: LuActivity, section: 'MIS' },
   { id: 'mis-scans', label: 'Scans', Icon: LuSearch, section: 'MIS' },
+  { id: 'mis-reviews', label: 'Reviews', Icon: LuMessageSquareQuote, section: 'MIS' },
   {
     id: 'admin-members',
     label: 'Member Accounts',

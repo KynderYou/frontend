@@ -335,6 +335,7 @@ export type ReportDetailsApi = {
 export type ReportCabFeedbackApi = {
   rating: number;
   comments: string;
+  audio_url?: string | null;
   status: CabFeedbackStatus;
   submitted_at: string;
 };
@@ -498,6 +499,8 @@ export type LedgerKpis = {
   billing_display: string;
   total_topups?: number;
   topups_display?: string;
+  topup_balance?: number;
+  topup_balance_display?: string;
 };
 
 export type LedgerData = {
@@ -538,6 +541,7 @@ export type CabFeedbackApi = {
   mrp: string;
   rating: number;
   comments: string;
+  audio_url?: string | null;
   status: CabFeedbackStatus;
   credit_amount: string;
   submitted_at: string;
@@ -572,8 +576,11 @@ export type MisPerformanceRowApi = {
   billing: number;
 };
 
+export type NetworkScope = 'network' | 'team' | 'self';
+
 export type MisNetworkStateApi = {
   year: number;
+  scope?: NetworkScope;
   months_so_far: number;
   default_month: number;
   last_quarter_label: string;
@@ -707,4 +714,23 @@ export type UpdateAdminMembershipResultApi = {
 export type UpdateAdminVisibilityResultApi = {
   message: string;
   member: AdminMemberApi;
+};
+
+export type ReviewKind = 'google' | 'instagram' | 'audio' | 'other';
+
+export type ReviewApi = {
+  id: number;
+  kind: ReviewKind;
+  kind_label: string;
+  platform: string;
+  link: string | null;
+  file_url: string | null;
+  file_mime: string | null;
+  client_name: string;
+  caption: string;
+  posted_by_id: number;
+  posted_by_name: string;
+  posted_by_role: string;
+  posted_at: string;
+  can_delete: boolean;
 };

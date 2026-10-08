@@ -767,7 +767,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             record,
             'debit',
             undefined,
-            `${amount} debited from the company ledger and credited to ${record.scanBy} (${billing} of MRP) for scan ${record.scanId}.`,
+            `${amount} (${billing} of MRP) debited from the company ledger and from ${record.scanBy}'s balance for scan ${record.scanId}.`,
           );
         }}
       />

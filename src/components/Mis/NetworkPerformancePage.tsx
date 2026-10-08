@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getMisNetwork, getMisScans } from '../../api';
+import type { NetworkScope } from '../../api/types';
 import { colors, metricColors, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton, SkeletonKpiGrid, SkeletonTableCard } from '../common/Skeleton';
@@ -24,6 +25,12 @@ const theme = colors.light;
 const TEAM_DB_PAGE_SIZE = 15;
 const DRILLDOWN_PAGE_SIZE = 12;
 
+const SCOPE_COPY: Record<NetworkScope, { subtitle: string; scansHint: string; billingLabel: string }> = {
+  network: { subtitle: 'How the entire network is performing', scansHint: 'network total', billingLabel: 'Network billing' },
+  team: { subtitle: 'How you and your MLAs & trainees are performing', scansHint: 'team total', billingLabel: 'Team billing' },
+  self: { subtitle: 'How you are performing', scansHint: 'your scans', billingLabel: 'Your billing' },
+};
+
 type NetworkPerformancePageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
@@ -33,6 +40,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
   const [selectedYear, setSelectedYear] = useState<NetworkYear>(NETWORK_YEARS[0]);
   const [yearData, setYearData] = useState(() => mapMisNetwork({
     year: NETWORK_YEARS[0],
+    scope: 'self',
     months_so_far: 0,
     default_month: 0,
     last_quarter_label: '',
@@ -142,6 +150,10 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
     );
   }
 
+  const copy = SCOPE_COPY[yearData.scope];
+  const isSelf = yearData.scope === 'self';
+  const ownQuarterScans = yearData.performanceRows[0]?.scansQuarter ?? 0;
+
   return (
     <section className="page-section mis-page">
       <div className="page-header">
@@ -160,7 +172,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
             Network Performance
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            How the entire network is performing across {selectedYear}
+            {copy.subtitle} across {selectedYear}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -183,29 +195,40 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <button
-            type="button"
-            className="btn-pill-primary"
-            style={{ height: 36, fontSize: 13, padding: '8px 16px' }}
-            onClick={() => setTeamDbOpen(true)}
-          >
-            Team DB
-          </button>
+          {!isSelf ? (
+            <button
+              type="button"
+              className="btn-pill-primary"
+              style={{ height: 36, fontSize: 13, padding: '8px 16px' }}
+              onClick={() => setTeamDbOpen(true)}
+            >
+              Team DB
+            </button>
+          ) : null}
           <NotificationButton />
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
 
       <div className="mis-kpi-row">
-        <KpiCard label="Scans this year" value={yearData.yearTotals.scans.toLocaleString('en-IN')} hint={`${selectedYear} network total`} tone="blue" />
-        <KpiCard label="Reviews & testimonials" value={yearData.yearTotals.reviews.toLocaleString('en-IN')} hint={`Received in ${selectedYear}`} tone="green" />
-        <KpiCard label="Network billing" value={formatCompactMoney(yearData.yearTotals.billing)} hint={`${selectedYear} · scan report debits`} tone="purple" />
-        <KpiCard
-          label="Low performers"
-          value={String(yearData.lowPerformers.length)}
-          hint={`Under ${LOW_PERFORMER_THRESHOLD} scans last quarter`}
-          tone="amber"
-        />
+        <KpiCard label="Scans this year" value={yearData.yearTotals.scans.toLocaleString('en-IN')} hint={`${selectedYear} ${copy.scansHint}`} tone="blue" />
+        <KpiCard label="Reviews & testimonials" value={yearData.yearTotals.reviews.toLocaleString('en-IN')} hint={`Posted in ${selectedYear}`} tone="green" />
+        <KpiCard label={copy.billingLabel} value={formatCompactMoney(yearData.yearTotals.billing)} hint={`${selectedYear} · scan report debits`} tone="purple" />
+        {isSelf ? (
+          <KpiCard
+            label="Scans last quarter"
+            value={String(ownQuarterScans)}
+            hint={`Target ${LOW_PERFORMER_THRESHOLD} per quarter`}
+            tone="amber"
+          />
+        ) : (
+          <KpiCard
+            label="Low performers"
+            value={String(yearData.lowPerformers.length)}
+            hint={`Under ${LOW_PERFORMER_THRESHOLD} scans last quarter`}
+            tone="amber"
+          />
+        )}
       </div>
 
       <div className="mis-summary-grid">
@@ -226,12 +249,12 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
 
         <MonthlyBarChart
           title="Reviews & testimonials"
-          subtitle={`Reviews and testimonials received in ${selectedYear}`}
+          subtitle={`Reviews and testimonials posted in ${selectedYear}`}
           data={yearData.reviewsByMonth}
           activeMonth={reviewMonth}
           onSelectMonth={setReviewMonth}
           formatValue={(v) => v.toLocaleString('en-IN')}
-          unit="received"
+          unit="posted"
         />
 
         <MonthlyBarChart
@@ -248,13 +271,14 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Quick insights</h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>
-              Members under {LOW_PERFORMER_THRESHOLD} scans in the last quarter ({yearData.lastQuarterLabel})
+              {isSelf ? 'Your scans' : `Members under ${LOW_PERFORMER_THRESHOLD} scans`} in the last quarter (
+              {yearData.lastQuarterLabel})
             </p>
           </div>
 
           {yearData.lowPerformers.length === 0 ? (
             <p style={{ margin: `${spacing[5]} 0 0`, fontSize: 13, color: theme['text-muted'] }}>
-              Every member cleared {LOW_PERFORMER_THRESHOLD} scans last quarter.
+              {isSelf ? 'You' : 'Every member'} cleared {LOW_PERFORMER_THRESHOLD} scans last quarter.
             </p>
           ) : (
             <ul className="mis-insight-list">
@@ -283,14 +307,16 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
             </ul>
           )}
 
-          <button
-            type="button"
-            className="btn-pill-secondary"
-            style={{ marginTop: spacing[5], height: 36, fontSize: 13, padding: '8px 16px', alignSelf: 'flex-start' }}
-            onClick={() => setTeamDbOpen(true)}
-          >
-            Open Team DB
-          </button>
+          {!isSelf ? (
+            <button
+              type="button"
+              className="btn-pill-secondary"
+              style={{ marginTop: spacing[5], height: 36, fontSize: 13, padding: '8px 16px', alignSelf: 'flex-start' }}
+              onClick={() => setTeamDbOpen(true)}
+            >
+              Open Team DB
+            </button>
+          ) : null}
         </div>
       </div>
 

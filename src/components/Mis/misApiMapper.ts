@@ -46,6 +46,7 @@ export function mapMisNetwork(state: MisNetworkStateApi): NetworkYearSnapshot {
 
   return {
     year: state.year as NetworkYear,
+    scope: state.scope ?? 'network',
     monthsSoFar: state.months_so_far,
     networkScans: [],
     scansByMonth: mapPoints(state.scans_by_month),

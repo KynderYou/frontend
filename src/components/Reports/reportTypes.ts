@@ -8,6 +8,7 @@ export type CabFeedbackStatus = 'Pending' | 'Approved' | 'Rejected';
 export type ReportCabFeedback = {
   rating: number;
   comments: string;
+  audioUrl: string | null;
   status: CabFeedbackStatus;
   submittedAt: string;
 };

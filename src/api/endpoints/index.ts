@@ -15,5 +15,6 @@ export * from './mis';
 export * from './mlas';
 export * from './profile';
 export * from './reports';
+export * from './reviews';
 export * from './scans';
 export * from './trainees';

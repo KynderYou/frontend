@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import type { CabFeedbackInput } from '../../api/endpoints/cab';
+import { ProtectedAudio } from '../common/ProtectedAudio';
 import type { CabFeedbackStatus, ReportRecord } from './reportTypes';
 
 type CabModalProps = {
@@ -7,8 +9,15 @@ type CabModalProps = {
   /** Only the scan owner (the mentee) can rate the CAB. */
   isOwner: boolean;
   onClose: () => void;
-  onSubmit: (record: ReportRecord, rating: number, comments: string) => Promise<boolean>;
+  onSubmit: (record: ReportRecord, input: CabFeedbackInput) => Promise<boolean>;
 };
+
+const AUDIO_ACCEPT = 'audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav';
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+
+function fileSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 const STATUS_COPY: Record<CabFeedbackStatus, { title: string; body: string }> = {
   Pending: {
@@ -28,6 +37,8 @@ const STATUS_COPY: Record<CabFeedbackStatus, { title: string; body: string }> = 
 export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalProps) {
   const [rating, setRating] = useState(record?.cabFeedback?.rating ?? 0);
   const [comments, setComments] = useState(record?.cabFeedback?.comments ?? '');
+  const [audio, setAudio] = useState<File | null>(null);
+  const [removeAudio, setRemoveAudio] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -48,11 +59,13 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
   const feedback = record.cabFeedback;
   const editable = isOwner && record.cabEligible && feedback?.status !== 'Approved';
   const status = feedback ? STATUS_COPY[feedback.status] : null;
+  const savedAudio = !removeAudio ? (feedback?.audioUrl ?? null) : null;
+  const audioTooLarge = audio != null && audio.size > MAX_AUDIO_BYTES;
 
   const submit = async () => {
-    if (!rating || submitting) return;
+    if (!rating || submitting || audioTooLarge) return;
     setSubmitting(true);
-    const ok = await onSubmit(record, rating, comments);
+    const ok = await onSubmit(record, { rating, comments, audio, removeAudio: removeAudio && !audio });
     setSubmitting(false);
     if (ok) onClose();
   };
@@ -136,6 +149,46 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
                 readOnly={!editable}
                 onChange={(e) => setComments(e.target.value)}
               />
+
+              {editable || savedAudio ? <span className="reports-cab-form-label">Voice note</span> : null}
+              {savedAudio && !audio ? (
+                <div className="reports-cab-audio">
+                  <ProtectedAudio path={savedAudio} />
+                  {editable ? (
+                    <button type="button" className="reports-cab-audio-remove" onClick={() => setRemoveAudio(true)}>
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              {audio ? (
+                <div className="reports-cab-audio is-picked">
+                  <span className="reports-cab-audio-name" title={audio.name}>
+                    {audio.name} · {fileSize(audio.size)}
+                  </span>
+                  <button type="button" className="reports-cab-audio-remove" onClick={() => setAudio(null)}>
+                    Remove
+                  </button>
+                </div>
+              ) : null}
+              {editable && !audio ? (
+                <label className="reports-cab-audio-pick">
+                  <input
+                    type="file"
+                    accept={AUDIO_ACCEPT}
+                    onChange={(e) => {
+                      setAudio(e.target.files?.[0] ?? null);
+                      e.target.value = '';
+                    }}
+                  />
+                  {savedAudio ? 'Replace voice note' : '+ Add a voice note (optional)'}
+                </label>
+              ) : null}
+              {editable ? (
+                <span className={`reports-cab-audio-hint${audioTooLarge ? ' is-error' : ''}`}>
+                  {audioTooLarge ? 'This file is over 25 MB.' : 'MP3, M4A, AAC, OGG, Opus or WAV · up to 25 MB'}
+                </span>
+              ) : null}
             </div>
           )}
         </div>
@@ -145,7 +198,7 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
             Close
           </button>
           {editable ? (
-            <button type="button" className="btn-pill-primary" disabled={!rating || submitting} onClick={() => void submit()}>
+            <button type="button" className="btn-pill-primary" disabled={!rating || submitting || audioTooLarge} onClick={() => void submit()}>
               {submitting ? 'Submitting…' : feedback ? 'Update feedback' : 'Submit feedback'}
             </button>
           ) : null}

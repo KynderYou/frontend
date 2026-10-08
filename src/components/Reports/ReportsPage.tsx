@@ -22,7 +22,8 @@ import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabModal } from './CabModal';
 import { DeleteScanModal } from './DeleteScanModal';
 import { downloadReportPdf } from './downloadReportPdf';
-import { applyReportUpdate, reportListToRecords } from './reportApiMapper';
+import type { CabFeedbackInput } from '../../api/endpoints/cab';
+import { applyReportUpdate, mapCabFeedback, reportListToRecords } from './reportApiMapper';
 import { type ReportRecord } from './reportTypes';
 import { isTopPackage, packageForPlan, type ReportPlan } from './reportPackages';
 import { useCursorTooltip } from '../../hooks/useCursorTooltip';
@@ -89,7 +90,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [upgradingRecord, setUpgradingRecord] = useState<ReportRecord | null>(null);
   const [cabRecord, setCabRecord] = useState<ReportRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
-  const [walletOk, setWalletOk] = useState(true);
+  /** Ledger balance for field members; null for Admin/HO, who have no wallet. */
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletChecked, setWalletChecked] = useState(false);
   /** Mentors / trainees / MLAs need ledger balance for report actions; Admin/HO does not. */
   const [walletRequired, setWalletRequired] = useState(false);
@@ -107,10 +109,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
       setWalletRequired(needsWallet);
       if (needsWallet) {
         const ledger = await getMyLedger(signal);
-        const balance = ledger.available_balance ?? 0;
-        setWalletOk(balance > 0);
+        setWalletBalance(ledger.available_balance ?? 0);
       } else {
-        setWalletOk(true);
+        setWalletBalance(null);
       }
       setWalletChecked(true);
       setRecords(reportListToRecords(reports));
@@ -177,12 +178,15 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     [records]
   );
 
-  const walletBlocked = walletChecked && !walletOk;
-  const canUseActions = !walletChecked || walletOk;
+  const walletBlocked = walletChecked && walletBalance !== null && walletBalance <= 0;
+  const canUseActions = !walletBlocked;
   const walletBlockTitle = 'Top up your ledger to use report actions';
+  /** Report billing can take the balance below zero; the final report unlocks once a top-up clears it. */
+  const reportDues = walletBalance !== null && walletBalance < 0 ? -walletBalance : 0;
+  const duesTitle = `Report billing of ₹${reportDues.toLocaleString('en-IN')} is due · top up to download`;
 
   const downloadTitle = (ready: boolean) => {
-    if (walletBlocked) return walletBlockTitle;
+    if (reportDues > 0) return duesTitle;
     if (!ready) return 'The report can be downloaded once it is Ready to Download';
     return 'Download report PDF';
   };
@@ -269,8 +273,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   };
 
   const handleDownload = async (record: ReportRecord) => {
-    if (walletBlocked) {
-      showError(walletBlockTitle);
+    if (reportDues > 0) {
+      showError(duesTitle);
       return;
     }
     try {
@@ -296,15 +300,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     }
   };
 
-  const handleCabFeedback = async (record: ReportRecord, rating: number, comments: string) => {
+  const handleCabFeedback = async (record: ReportRecord, input: CabFeedbackInput) => {
     try {
-      const saved = await submitCabFeedback(record.scanId, rating, comments);
-      const cabFeedback = {
-        rating: saved.rating,
-        comments: saved.comments,
-        status: saved.status,
-        submittedAt: saved.submitted_at,
-      };
+      const cabFeedback = mapCabFeedback(await submitCabFeedback(record.scanId, input));
       setRecords((prev) => prev.map((row) => (row.id === record.id ? { ...row, cabFeedback } : row)));
       showSuccess(`Feedback for scan ${record.scanId} sent to H.O for approval.`);
       return true;
@@ -387,7 +385,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
           <button
             type="button"
             className="reports-card-download"
-            disabled={isMlaRow(row) || !canUseActions || !ready}
+            disabled={isMlaRow(row) || reportDues > 0 || !ready}
             title={isMlaRow(row) ? MLA_VIEW_ONLY : downloadTitle(ready)}
             onClick={() => handleDownload(row)}
           >
@@ -524,7 +522,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn scans-action-export"
-                    disabled={isMlaRow(row) || !canUseActions || !ready}
+                    disabled={isMlaRow(row) || reportDues > 0 || !ready}
                     title={isMlaRow(row) ? MLA_VIEW_ONLY : downloadTitle(ready)}
                     onClick={() => handleDownload(row)}
                   >

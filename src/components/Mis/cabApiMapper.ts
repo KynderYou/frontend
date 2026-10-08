@@ -15,6 +15,7 @@ export function mapCabState(state: CabStateApi): { feedback: CabFeedback[]; comp
       mrp: row.mrp,
       rating: row.rating,
       comments: row.comments,
+      audioUrl: row.audio_url ?? null,
       status: row.status,
       creditAmount: row.credit_amount,
       submittedAt: row.submitted_at,

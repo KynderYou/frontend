@@ -12,6 +12,7 @@ export type CabFeedback = {
   mrp: string;
   rating: number;
   comments: string;
+  audioUrl: string | null;
   status: CabFeedbackStatus;
   creditAmount: string;
   submittedAt: string;

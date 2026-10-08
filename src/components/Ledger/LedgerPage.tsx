@@ -16,6 +16,7 @@ import { AddFundsModal } from './AddFundsModal';
 import { LedgerPeriodFilter } from './LedgerPeriodFilter';
 import { ledgerRange, ledgerRangeLabel, type LedgerPeriod, type LedgerRange } from './ledgerPeriod';
 import { SkeletonLedgerBody, SkeletonSubtitle } from '../common/Skeleton';
+import { useCurrentMember } from '../Auth/MemberContext';
 
 const theme = colors.light;
 const LEDGER_TX_PAGE_SIZE = 10;
@@ -30,13 +31,15 @@ type KpiDef = {
   color: MetricColor;
   icon: React.ReactNode;
   memberOnly?: boolean;
+  /** MLAs earn no CAB credits, so they only track top-ups and billing. */
+  hiddenForMla?: boolean;
 };
 
 const kpis: KpiDef[] = [
   {
     id: 'topups',
-    label: 'Total Top-ups',
-    getHint: (rangeLabel) => `${rangeLabel} · funds you added`,
+    label: 'Top-up balance',
+    getHint: (rangeLabel) => `${rangeLabel} · top-ups minus billing`,
     color: 'blue',
     memberOnly: true,
     icon: (
@@ -49,8 +52,9 @@ const kpis: KpiDef[] = [
   {
     id: 'receipts',
     label: 'Total Receipts',
-    getHint: (rangeLabel, companyWide) => `${rangeLabel} · ${companyWide ? 'all company credits' : 'report & CAB credits'}`,
+    getHint: (rangeLabel, companyWide) => `${rangeLabel} · ${companyWide ? 'all company credits' : 'CAB credits'}`,
     color: 'green',
+    hiddenForMla: true,
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3v12" />
@@ -61,7 +65,7 @@ const kpis: KpiDef[] = [
   },
   {
     id: 'billing',
-    label: 'Total Expenses',
+    label: 'Total Billing',
     getHint: (rangeLabel, companyWide) => (companyWide ? `${rangeLabel} · incl. CAB payouts` : rangeLabel),
     color: 'purple',
     icon: (
@@ -74,14 +78,21 @@ const kpis: KpiDef[] = [
   },
 ];
 
-const TAB_TITLES: Record<LedgerTab, string> = { topups: 'Top-ups', receipts: 'Receipts', billing: 'Expenses' };
+const TAB_TITLES: Record<LedgerTab, string> = { topups: 'Top-ups', receipts: 'Receipts', billing: 'Billing' };
 
 type LedgerPageProps = {
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
 };
 
-type CompanySector = { label: string; tone: string; icon: React.ReactNode; fallbackDetail?: string };
+type CompanySector = {
+  label: string;
+  tone: string;
+  icon: React.ReactNode;
+  fallbackDetail?: string;
+  /** Debits shown in green: report billing is the expected charge for a finished report. */
+  greenDebit?: boolean;
+};
 
 const SECTOR_ICON_PROPS = {
   width: 15,
@@ -168,7 +179,7 @@ const COMPANY_SECTORS: Record<string, CompanySector> = {
 
 const SECTORS: Record<string, CompanySector> = {
   ...COMPANY_SECTORS,
-  report_credit: COMPANY_SECTORS.report_billing,
+  report_debit: { ...COMPANY_SECTORS.report_billing, tone: 'green', greenDebit: true },
   cab_credit: COMPANY_SECTORS.cab_payout,
   receipt: COMPANY_SECTORS.manual_receipt,
   billing: { ...COMPANY_SECTORS.manual_expense, label: 'Billing' },
@@ -196,7 +207,7 @@ function SectorRow({ kind, title, amount, isCredit, createdBy }: SectorRowProps)
           {description}
         </span>
       </div>
-      <span className={`ledger-company-amount ${isCredit ? 'is-credit' : 'is-debit'}`}>
+      <span className={`ledger-company-amount ${isCredit || sector.greenDebit ? 'is-credit' : 'is-debit'}`}>
         {isCredit ? '+' : '−'}
         {amount}
       </span>
@@ -226,7 +237,9 @@ function groupByDate<T extends { date: string }>(entries: T[]): { date: string; 
 
 export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps) {
   const { showSuccess, showError } = useToast();
-  const [activeTab, setActiveTab] = useState<LedgerTab>('receipts');
+  const member = useCurrentMember();
+  const isMla = member?.role === 'Trainee' || member?.role === 'MLA';
+  const [selectedTab, setActiveTab] = useState<LedgerTab>('receipts');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
@@ -277,16 +290,17 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     billing: data?.billing ?? [],
   };
   const totalsByTab: Record<LedgerTab, number> = {
-    topups: data?.kpis.total_topups ?? 0,
+    topups: data?.kpis.topup_balance ?? 0,
     receipts: data?.kpis.total_receipts ?? 0,
     billing: data?.kpis.billing_last_30_days ?? 0,
   };
   const displayByTab: Record<LedgerTab, string> = {
-    topups: data?.kpis.topups_display ?? '₹0',
+    topups: data?.kpis.topup_balance_display ?? '₹0',
     receipts: data?.kpis.receipts_display ?? '₹0',
     billing: data?.kpis.billing_display ?? '₹0',
   };
-  const visibleKpis = kpis.filter((kpi) => !(kpi.memberOnly && companyWide));
+  const visibleKpis = kpis.filter((kpi) => !(kpi.memberOnly && companyWide) && !(kpi.hiddenForMla && isMla));
+  const activeTab = visibleKpis.some((kpi) => kpi.id === selectedTab) ? selectedTab : visibleKpis[0].id;
   const companyEntries = data?.company_entries ?? [];
   const companyPagination = useClientPagination(companyEntries, COMPANY_LEDGER_PAGE_SIZE, 'company');
 
@@ -386,9 +400,9 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
             {initialLoading ? (
               <SkeletonSubtitle />
             ) : companyWide ? (
-              'Company-wide receipts and expenses across all members.'
+              'Company-wide receipts and billing across all members.'
             ) : (
-              'Track receipts and expenses across your network.'
+              'Track receipts and billing across your network.'
             )}
           </p>
         </div>
@@ -663,10 +677,10 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                           : activeTab === 'receipts'
                             ? companyWide
                               ? 'No company receipt entries recorded yet.'
-                              : 'Report billing and CAB credits you earn appear here.'
+                              : 'CAB credits you earn appear here.'
                             : companyWide
-                              ? 'No company expenses recorded yet.'
-                              : 'No expenses recorded yet.'
+                              ? 'No company billing recorded yet.'
+                              : 'No billing recorded yet.'
                     }
                   />
                 ) : (

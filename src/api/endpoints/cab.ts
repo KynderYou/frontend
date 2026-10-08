@@ -1,4 +1,4 @@
-import { apiClient } from '../client';
+import { apiClient, apiUpload } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
 import type { CabFeedbackApi, CabStateApi } from '../types';
@@ -11,12 +11,22 @@ export async function getCabState(signal?: AbortSignal): Promise<CabStateApi> {
   return apiClient<CabStateApi>('/api/cab/state', { signal });
 }
 
-/** PUT /api/cab/scans/{code}/feedback — mentee rates the CAB their mentor sent */
-export async function submitCabFeedback(scanCode: string, rating: number, comments: string): Promise<CabFeedbackApi> {
-  return apiClient<CabFeedbackApi>(`/api/cab/scans/${encodeURIComponent(scanCode)}/feedback`, {
-    method: 'PUT',
-    body: { rating, comments },
-  });
+export type CabFeedbackInput = {
+  rating: number;
+  comments: string;
+  /** New voice note; replaces any earlier one. */
+  audio?: File | null;
+  removeAudio?: boolean;
+};
+
+/** PUT /api/cab/scans/{code}/feedback — mentee rates the CAB their mentor sent, optionally with a voice note */
+export async function submitCabFeedback(scanCode: string, input: CabFeedbackInput): Promise<CabFeedbackApi> {
+  const form = new FormData();
+  form.append('rating', String(input.rating));
+  form.append('comments', input.comments);
+  form.append('remove_audio', input.removeAudio ? 'true' : 'false');
+  if (input.audio) form.append('audio', input.audio);
+  return apiUpload<CabFeedbackApi>(`/api/cab/scans/${encodeURIComponent(scanCode)}/feedback`, form, { method: 'PUT' });
 }
 
 /** POST /api/cab/scans/{code}/request — mentor asks their MLA to rate the CAB (once per scan per day) */
