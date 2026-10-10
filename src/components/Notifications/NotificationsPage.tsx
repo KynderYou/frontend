@@ -16,7 +16,7 @@ type NotificationsPageProps = {
 };
 
 export function NotificationsPage({ onBack, onNavigate, onOpenMobileMenu, onOpenProfile }: NotificationsPageProps) {
-  const { items, unreadCount, loading, loadError, handleAction } = useNotifications();
+  const { items, unreadCount, loading, loadError, handleAction, markRead, markAllRead } = useNotifications();
 
   return (
     <section className="page-section notifications-page">
@@ -47,6 +47,11 @@ export function NotificationsPage({ onBack, onNavigate, onOpenMobileMenu, onOpen
           </div>
         </div>
         <div className="page-header-actions">
+          {unreadCount > 0 ? (
+            <button type="button" className="btn-pill-secondary notification-mark-all-page" onClick={() => void markAllRead()}>
+              Mark all read
+            </button>
+          ) : null}
           <button type="button" className="btn-icon mobile-menu-btn" aria-label="Open menu" onClick={onOpenMobileMenu}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M4 7h16M4 12h16M4 17h16" />
@@ -60,7 +65,13 @@ export function NotificationsPage({ onBack, onNavigate, onOpenMobileMenu, onOpen
       {loadError ? (
         <EmptyState title={loadError} description="Check your connection and try again." />
       ) : (
-        <NotificationList items={items} onAction={handleAction} variant="page" loading={loading} />
+        <NotificationList
+          items={items}
+          onAction={handleAction}
+          onMarkRead={(item) => void markRead(item)}
+          variant="page"
+          loading={loading}
+        />
       )}
     </section>
   );

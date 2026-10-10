@@ -3,7 +3,7 @@ import { apiClient, apiDownload, apiUpload } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
 import { isApiError } from '../errors';
-import type { HoScan, HoScanActionPayload, HoScanDetail, MlaScan, MlaScanUpdatePayload } from '../types';
+import type { HoScan, HoScanActionPayload, HoScanDetail, MlaScan, MlaScanUpdatePayload, RecycleBinScan } from '../types';
 
 /** GET /api/scans/me */
 export async function getMyMlaScans(signal?: AbortSignal): Promise<MlaScan[]> {
@@ -133,6 +133,30 @@ export async function downloadHoScanExcel(scanId: number, scanCode: string): Pro
     throw new Error('Download not available in demo mode');
   }
   await apiDownload(`/api/scans/ho/${scanId}/excel`, `${scanCode}.xlsx`);
+}
+
+/** GET /api/scans/ho/recycle-bin — debited scans that still hold fingerprint images (Admin) */
+export async function getRecycleBin(signal?: AbortSignal): Promise<RecycleBinScan[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<RecycleBinScan[]>('/api/scans/ho/recycle-bin', { signal });
+}
+
+/** GET /api/scans/ho/recycle-bin/{id} — includes fingerprint image URLs */
+export async function getRecycleBinScan(scanId: number, signal?: AbortSignal): Promise<HoScanDetail> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Scan detail not available in demo mode');
+  }
+  return apiClient<HoScanDetail>(`/api/scans/ho/recycle-bin/${scanId}`, { signal });
+}
+
+/** DELETE /api/scans/ho/recycle-bin/{id}/images — permanently removes the ZIP and fingerprint images */
+export async function purgeRecycleBinImages(scanId: number): Promise<void> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Not available in demo mode');
+  }
+  await apiClient<void>(`/api/scans/ho/recycle-bin/${scanId}/images`, { method: 'DELETE' });
 }
 
 /** POST /api/scans/ho/{id}/report — attach the report PDF (Admin) */

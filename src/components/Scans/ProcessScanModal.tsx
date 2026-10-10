@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LuTriangleAlert } from 'react-icons/lu';
 import {
   ALL_FINGERS,
   MAIN_FINGERPRINT_PATTERNS,
@@ -65,8 +66,60 @@ type ProcessScanModalProps = {
   onComplete?: (payload: ProcessScanPayload) => void;
   onReview?: (payload: ProcessScanPayload) => void;
   onConfirmFlag?: (payload: ProcessScanPayload) => void;
-  onSendBack?: (payload: ProcessScanPayload) => void;
+  onRejectReview?: (payload: ProcessScanPayload, reason: string) => void;
 };
+
+type PendingConfirm = { kind: 'reject' } | { kind: 'flag'; proceed: () => void };
+
+const RIDGE_MIN = 2;
+const RIDGE_MAX = 40;
+
+/** Mirrors the backend range check: whole number from 2 to 40. */
+function isValidRidge(value: string): boolean {
+  if (!/^\d{1,2}$/.test(value)) return false;
+  const count = Number(value);
+  return count >= RIDGE_MIN && count <= RIDGE_MAX;
+}
+
+function ridgeDigits(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 2);
+}
+
+function RidgeInput({
+  label,
+  ariaLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const invalid = value !== '' && !isValidRidge(value);
+  return (
+    <label className={`form-field${isValidRidge(value) ? ' is-ridge-filled' : ''}`}>
+      <span className="form-label">{label}</span>
+      <input
+        className={`form-input${invalid ? ' is-invalid' : ''}`}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={2}
+        placeholder={`${RIDGE_MIN}–${RIDGE_MAX}`}
+        value={value}
+        onChange={(e) => onChange(ridgeDigits(e.target.value))}
+        aria-label={ariaLabel}
+        aria-invalid={invalid || undefined}
+      />
+      {invalid ? (
+        <span className="form-field-error">
+          {RIDGE_MIN}–{RIDGE_MAX} only
+        </span>
+      ) : null}
+    </label>
+  );
+}
 
 /** Mirrors the backend Flag X rule: (URC + 3) < RRC. */
 function isFlaggedRidge(urc: string, rrc: string): boolean {
@@ -186,16 +239,117 @@ function FingerprintPreview({
     return <p className="process-scan-image-loading">Loading fingerprint…</p>;
   }
   if (image) {
-    return (
+    return <ZoomableFingerprint key={`${image.name}-${view}`} image={image} />;
+  }
+  return <PlaceholderFingerprint slot={slot} view={view} />;
+}
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 6;
+const ZOOM_STEP = 0.5;
+const DOUBLE_CLICK_ZOOM = 2.5;
+
+function clampZoom(value: number) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(value * 100) / 100));
+}
+
+/** Fingerprint image with in-place zoom (buttons, wheel, double-click) and drag-to-pan. */
+function ZoomableFingerprint({ image }: { image: ScanImage }) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const zoomRef = useRef(MIN_ZOOM);
+  const [zoom, setZoom] = useState(MIN_ZOOM);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  const clampOffset = useCallback((x: number, y: number, z: number) => {
+    const frame = frameRef.current;
+    if (!frame || z <= MIN_ZOOM) return { x: 0, y: 0 };
+    const maxX = ((z - 1) * frame.clientWidth) / 2;
+    const maxY = ((z - 1) * frame.clientHeight) / 2;
+    return { x: Math.min(maxX, Math.max(-maxX, x)), y: Math.min(maxY, Math.max(-maxY, y)) };
+  }, []);
+
+  const applyZoom = useCallback(
+    (next: number) => {
+      const z = clampZoom(next);
+      zoomRef.current = z;
+      setZoom(z);
+      setOffset((prev) => clampOffset(prev.x, prev.y, z));
+    },
+    [clampOffset],
+  );
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      applyZoom(zoomRef.current * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+    };
+    frame.addEventListener('wheel', onWheel, { passive: false });
+    return () => frame.removeEventListener('wheel', onWheel);
+  }, [applyZoom]);
+
+  const zoomed = zoom > MIN_ZOOM;
+
+  return (
+    <div
+      ref={frameRef}
+      className={`process-scan-zoom-frame${zoomed ? ' is-zoomed' : ''}`}
+      onDoubleClick={() => applyZoom(zoomed ? MIN_ZOOM : DOUBLE_CLICK_ZOOM)}
+      onPointerDown={(e) => {
+        if (!zoomed || e.button !== 0) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+      }}
+      onPointerMove={(e) => {
+        const drag = dragRef.current;
+        if (!drag) return;
+        setOffset(clampOffset(drag.ox + e.clientX - drag.x, drag.oy + e.clientY - drag.y, zoom));
+      }}
+      onPointerUp={() => {
+        dragRef.current = null;
+      }}
+      onPointerCancel={() => {
+        dragRef.current = null;
+      }}
+    >
       <img
-        key={`${image.name}-${view}`}
         src={image.url}
         alt={image.label}
         className="process-scan-fingerprint-img"
+        draggable={false}
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
       />
-    );
-  }
-  return <PlaceholderFingerprint slot={slot} view={view} />;
+      <div
+        className="process-scan-zoom-controls"
+        onDoubleClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          aria-label="Zoom out"
+          title="Zoom out"
+          disabled={zoom <= MIN_ZOOM}
+          onClick={() => applyZoom(zoom - ZOOM_STEP)}
+        >
+          −
+        </button>
+        <button type="button" className="process-scan-zoom-level" title="Reset zoom" onClick={() => applyZoom(MIN_ZOOM)}>
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          title="Zoom in"
+          disabled={zoom >= MAX_ZOOM}
+          onClick={() => applyZoom(zoom + ZOOM_STEP)}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function FingerprintPanel({
@@ -285,8 +439,10 @@ export function ProcessScanModal({
   onComplete,
   onReview,
   onConfirmFlag,
-  onSendBack,
+  onRejectReview,
 }: ProcessScanModalProps) {
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [finger, setFinger] = useState('L1');
   const [leftView, setLeftView] = useState<FingerViewTab>('C');
   const [rightView, setRightView] = useState<FingerViewTab>('C');
@@ -300,7 +456,9 @@ export function ProcessScanModal({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (pendingConfirm) setPendingConfirm(null);
+      else onClose();
     };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
@@ -308,15 +466,15 @@ export function ProcessScanModal({
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, pendingConfirm]);
 
   const scanKey = record?.scanId ?? null;
 
   useEffect(() => {
     if (!open || !record || !scanKey) return;
     const seeded = initialFingerMap(record);
-    // Preprocess stores ridge defaults as 0 — clear those in Process so green only appears after URC/RRC are entered.
-    if (mode === 'process') {
+    // Preprocess stores ridge defaults as 0 — clear those so green only appears after real URC/RRC are entered.
+    if (mode !== 'preprocess') {
       for (const fingerId of Object.keys(seeded)) {
         const entry = seeded[fingerId];
         if (entry.urc === '0' && entry.rrc === '0') {
@@ -355,13 +513,9 @@ export function ProcessScanModal({
   const isPreprocess = mode === 'preprocess';
   const isProcess = mode === 'process';
   const isReview = mode === 'review';
-  const isVerifyReadOnly = isReview;
-  const showPatternFields = isPreprocess || isProcess || isVerifyReadOnly;
-  const showRidgeFields = isProcess;
-  const showCornerValues = isProcess || isVerifyReadOnly;
-  const showFlagBanner = isVerifyReadOnly && record.flaggedX;
-  const showFlaggedFingers = isProcess || isVerifyReadOnly;
-  const showQcFingers = isPreprocess || isProcess || isVerifyReadOnly;
+  const showRidgeFields = isProcess || isReview;
+  const showCornerValues = showRidgeFields;
+  const showFlaggedFingers = showRidgeFields;
 
   const currentFingerEntry = (): FingerEntry => ({
     main: mainPattern,
@@ -383,7 +537,7 @@ export function ProcessScanModal({
 
   const ridgeCountsFilled = (entry?: FingerEntry | null) => {
     if (!entry) return false;
-    return entry.urc.trim() !== '' && entry.rrc.trim() !== '';
+    return isValidRidge(entry.urc) && isValidRidge(entry.rrc);
   };
 
   /** Process step: patterns + URC + RRC (same green chip as preprocess after Next). */
@@ -401,19 +555,22 @@ export function ProcessScanModal({
     return Boolean(entry && isFlaggedRidge(entry.urc, entry.rrc));
   };
   const flaggedFingers = ALL_FINGERS.filter((fingerId) => fingerFlagged(fingerId));
+  const showFlagBanner = isReview && flaggedFingers.length > 0;
 
   const allFingersComplete = isPreprocess
     ? ALL_FINGERS.every((fingerId) => fingerPatternComplete(fingerId))
     : ALL_FINGERS.every((fingerId) => fingerProcessComplete(fingerId));
 
   const currentRidgesFilled = ridgeCountsFilled(currentFingerEntry());
-  const canGoNext =
-    Boolean(mainPattern && subPattern) &&
-    (!isProcess || currentRidgesFilled) &&
-    finger !== 'R5';
-
   const fingerIndex = (fingerId: string) =>
     ALL_FINGERS.indexOf(fingerId as (typeof ALL_FINGERS)[number]);
+
+  const nextFinger = ALL_FINGERS[fingerIndex(finger) + 1];
+
+  const canGoNext =
+    Boolean(mainPattern && subPattern) &&
+    (!showRidgeFields || currentRidgesFilled) &&
+    Boolean(nextFinger);
 
   const selectFinger = (nextFinger: string) => {
     const updated: Record<string, FingerEntry> = {
@@ -436,6 +593,30 @@ export function ProcessScanModal({
     if (idx < 0 || idx >= ALL_FINGERS.length - 1) return;
     selectFinger(ALL_FINGERS[idx + 1]);
   };
+
+  const withFlagCheck = (proceed: () => void) => {
+    if (flaggedFingers.length > 0) setPendingConfirm({ kind: 'flag', proceed });
+    else proceed();
+  };
+
+  const closeButton = (
+    <button type="button" className="btn-pill-secondary" onClick={onClose}>
+      Close
+    </button>
+  );
+
+  const nextFingerButton = (
+    <div className="process-scan-next-cell">
+      <button
+        type="button"
+        className="btn-pill-primary process-scan-next-btn"
+        disabled={!canGoNext}
+        onClick={handleNextFinger}
+      >
+        {nextFinger ? `Next · ${nextFinger}` : 'Next'}
+      </button>
+    </div>
+  );
 
   const buildPayload = (): ProcessScanPayload => {
     const entries = mergedFingerEntries();
@@ -509,98 +690,81 @@ export function ProcessScanModal({
 
             {isReview ? (
               <p className="process-scan-view-hint">
-                Confirm the Flag X · flagged fingers are highlighted · send back to Process if the counts are wrong
-              </p>
-            ) : isVerifyReadOnly ? (
-              <p className="process-scan-view-hint">
-                Review saved preprocess and process data — fields cannot be edited during verification
+                Flagged fingers are highlighted · correct patterns or URC/RRC ({RIDGE_MIN}–{RIDGE_MAX}) if needed, then
+                confirm · or send back to Process
               </p>
             ) : isPreprocess ? (
               <p className="process-scan-view-hint">
                 Select each finger below · fill main/sub pattern · use Next to move through all 10 fingers
               </p>
-            ) : isProcess ? (
-              <p className="process-scan-view-hint">
-                Patterns from preprocess are shown per finger — edit if needed · enter URC and RRC for each finger
-              </p>
             ) : (
               <p className="process-scan-view-hint">
-                Review saved preprocess and process data — fields cannot be edited during verification
+                Patterns from preprocess are shown per finger — edit if needed · enter URC and RRC ({RIDGE_MIN}–
+                {RIDGE_MAX}) for each finger
               </p>
             )}
 
             {showFlagBanner ? (
-              <div className="process-scan-flag-banner" role="status">
-                <strong>Flag X — Complex scan</strong>
-                <span>This scan must be followed with CAB before counselling. Do not proceed without CAB support.</span>
-                {flaggedFingers.length > 0 ? (
-                  <span>Flagged fingers (RRC more than URC + 3): {flaggedFingers.join(', ')}</span>
-                ) : null}
+              <div
+                className="process-scan-flag-banner"
+                role="status"
+                title={`Flagged fingers (RRC more than URC + 3): ${flaggedFingers.join(', ')}`}
+              >
+                <LuTriangleAlert size={16} aria-hidden="true" />
+                <strong>Alert - DDS</strong>
               </div>
             ) : null}
 
-            {showPatternFields ? (
-              <>
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">Main Pattern</p>
-                  {isVerifyReadOnly ? (
-                    <p className="process-scan-pattern-value">{mainPattern || '—'}</p>
-                  ) : (
-                    <label className="form-field">
-                      <div className="form-select-wrap">
-                        <select
-                          className="form-select"
-                          value={mainPattern}
-                          onChange={(e) => setMainPattern(e.target.value)}
-                        >
-                          <option value="">Select</option>
-                          {MAIN_FINGERPRINT_PATTERNS.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="form-select-chevron" aria-hidden="true">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="m6 9 6 6 6-6" />
-                          </svg>
-                        </span>
-                      </div>
-                    </label>
-                  )}
+            <div className="process-scan-pattern-block">
+              <p className="process-scan-section-label">Main Pattern</p>
+              <label className="form-field">
+                <div className="form-select-wrap">
+                  <select
+                    className="form-select"
+                    value={mainPattern}
+                    onChange={(e) => setMainPattern(e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    {MAIN_FINGERPRINT_PATTERNS.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="form-select-chevron" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
                 </div>
+              </label>
+            </div>
 
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">Sub Pattern</p>
-                  {isVerifyReadOnly ? (
-                    <p className="process-scan-pattern-value">{subPattern || '—'}</p>
-                  ) : (
-                    <label className="form-field">
-                      <div className="form-select-wrap">
-                        <select
-                          className="form-select"
-                          value={subPattern}
-                          onChange={(e) => setSubPattern(e.target.value)}
-                          disabled={!mainPattern}
-                        >
-                          <option value="">Select</option>
-                          {subPatternOptions.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="form-select-chevron" aria-hidden="true">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="m6 9 6 6 6-6" />
-                          </svg>
-                        </span>
-                      </div>
-                    </label>
-                  )}
+            <div className="process-scan-pattern-block">
+              <p className="process-scan-section-label">Sub Pattern</p>
+              <label className="form-field">
+                <div className="form-select-wrap">
+                  <select
+                    className="form-select"
+                    value={subPattern}
+                    onChange={(e) => setSubPattern(e.target.value)}
+                    disabled={!mainPattern}
+                  >
+                    <option value="">Select</option>
+                    {subPatternOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="form-select-chevron" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
                 </div>
-              </>
-            ) : null}
+              </label>
+            </div>
 
             {isPreprocess ? (
               <div className="process-scan-ridge-grid process-scan-ridge-grid-readonly">
@@ -612,52 +776,18 @@ export function ProcessScanModal({
                   <p className="process-scan-section-label">RRC</p>
                   <p className="process-scan-pattern-value">0</p>
                 </div>
+                {nextFingerButton}
               </div>
             ) : null}
 
             {showRidgeFields ? (
               <div className="process-scan-ridge-grid">
-                <label className={`form-field${urc.trim() !== '' ? ' is-ridge-filled' : ''}`}>
-                  <span className="form-label">URC</span>
-                  <input
-                    className="form-input"
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={urc}
-                    onChange={(e) => setUrc(e.target.value)}
-                    aria-label="Ulnar Ridge Count"
-                  />
-                </label>
-                <label className={`form-field${rrc.trim() !== '' ? ' is-ridge-filled' : ''}`}>
-                  <span className="form-label">RRC</span>
-                  <input
-                    className="form-input"
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={rrc}
-                    onChange={(e) => setRrc(e.target.value)}
-                    aria-label="Radial Ridge Count"
-                  />
-                </label>
+                <RidgeInput label="URC" ariaLabel="Ulnar Ridge Count" value={urc} onChange={setUrc} />
+                <RidgeInput label="RRC" ariaLabel="Radial Ridge Count" value={rrc} onChange={setRrc} />
+                {nextFingerButton}
               </div>
             ) : null}
 
-            {showQcFingers ? (
-              <>
-                {isPreprocess || isProcess ? (
-                  <button
-                    type="button"
-                    className="scans-action-btn process-scan-next-btn"
-                    disabled={!canGoNext}
-                    onClick={handleNextFinger}
-                  >
-                    Next · {fingerIndex(finger) >= 0 ? ALL_FINGERS[fingerIndex(finger) + 1] ?? 'Done' : 'Next'}
-                  </button>
-                ) : null}
                 <div className="process-scan-qc">
                 <p className="process-scan-section-label">
                   QC - Finger Prints · {finger}
@@ -707,21 +837,6 @@ export function ProcessScanModal({
                   ))}
                 </div>
                 </div>
-              </>
-            ) : null}
-
-            {isVerifyReadOnly ? (
-              <div className="process-scan-ridge-grid process-scan-ridge-grid-readonly">
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">URC</p>
-                  <p className="process-scan-pattern-value">{urc}</p>
-                </div>
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">RRC</p>
-                  <p className="process-scan-pattern-value">{rrc}</p>
-                </div>
-              </div>
-            ) : null}
           </div>
 
           <FingerprintPanel
@@ -739,9 +854,7 @@ export function ProcessScanModal({
         </div>
 
         <div className="modal-footer process-scan-footer">
-          <button type="button" className="btn-pill-secondary" onClick={onClose}>
-            Close
-          </button>
+          {mode === 'preprocess' ? closeButton : null}
 
           {mode === 'preprocess' ? (
             <>
@@ -785,13 +898,16 @@ export function ProcessScanModal({
                 type="button"
                 className="scans-action-btn scans-action-export"
                 disabled={!allFingersComplete}
-                onClick={() => {
-                  onComplete?.(buildPayload());
-                  onClose();
-                }}
+                onClick={() =>
+                  withFlagCheck(() => {
+                    onComplete?.(buildPayload());
+                    onClose();
+                  })
+                }
               >
-                Completed
+                Done
               </button>
+              {closeButton}
             </>
           ) : null}
 
@@ -799,28 +915,122 @@ export function ProcessScanModal({
             <>
               <button
                 type="button"
-                className="scans-action-btn"
-                onClick={() => {
-                  onSendBack?.(buildPayload());
-                  onClose();
-                }}
+                className="scans-action-btn scans-action-export"
+                disabled={!allFingersComplete}
+                title={allFingersComplete ? undefined : `Every finger needs a pattern and URC/RRC between ${RIDGE_MIN} and ${RIDGE_MAX}`}
+                onClick={() =>
+                  withFlagCheck(() => {
+                    onConfirmFlag?.(buildPayload());
+                    onClose();
+                  })
+                }
               >
-                Send back to Process
+                Move to Download
               </button>
               <button
                 type="button"
-                className="scans-action-btn scans-action-export"
+                className="scans-action-btn scans-action-danger"
                 onClick={() => {
-                  onConfirmFlag?.(buildPayload());
-                  onClose();
+                  setRejectReason('');
+                  setPendingConfirm({ kind: 'reject' });
                 }}
               >
-                Confirm Flag X
+                Reject
               </button>
+              {closeButton}
             </>
           ) : null}
         </div>
       </div>
+
+      {pendingConfirm ? (
+        <div
+          className="modal-overlay process-scan-confirm-overlay"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setPendingConfirm(null);
+          }}
+        >
+          <div
+            className="modal-panel reports-delete-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="process-scan-confirm-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2 id="process-scan-confirm-title" className="modal-title">
+                  {pendingConfirm.kind === 'reject' ? 'Reject this scan?' : 'Flag X numbers entered'}
+                </h2>
+                <p className="modal-subtitle">
+                  Scan {record.scanId} · {record.name}
+                </p>
+              </div>
+            </div>
+            <div className="modal-body">
+              {pendingConfirm.kind === 'reject' ? (
+                <>
+                  <p className="reports-delete-warning">
+                    The scan leaves Process Scan completely and goes back to the uploader as “Rejected by H.O”. They
+                    must fix it in Upload Scan, mark QC and export it again. Patterns and counts entered here are
+                    discarded.
+                  </p>
+                  <label className="form-field process-scan-reject-reason">
+                    <span className="form-label">Reason (sent to the uploader)</span>
+                    <textarea
+                      className="form-input"
+                      rows={3}
+                      maxLength={500}
+                      placeholder="e.g. Prints are blurred, please rescan"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <p className="reports-delete-warning">
+                  RRC is more than URC + 3 on <strong>{flaggedFingers.join(', ')}</strong>.{' '}
+                  {isReview
+                    ? 'Moving to Download confirms Flag X: this client must have CAB support before counselling.'
+                    : 'This scan will be marked Flag X and go to Review for H.O confirmation.'}{' '}
+                  Check the numbers before continuing.
+                </p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-pill-secondary" onClick={() => setPendingConfirm(null)}>
+                Go back
+              </button>
+              {pendingConfirm.kind === 'reject' ? (
+                <button
+                  type="button"
+                  className="btn-pill-primary reports-delete-confirm"
+                  onClick={() => {
+                    setPendingConfirm(null);
+                    onRejectReview?.(buildPayload(), rejectReason.trim());
+                    onClose();
+                  }}
+                >
+                  Reject scan
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-pill-primary"
+                  onClick={() => {
+                    const { proceed } = pendingConfirm;
+                    setPendingConfirm(null);
+                    proceed();
+                  }}
+                >
+                  {isReview ? 'Confirm Flag X' : 'Yes, numbers are correct'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

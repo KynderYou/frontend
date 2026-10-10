@@ -8,6 +8,7 @@ import { groupNotificationsByDate } from './notificationUtils';
 type NotificationListProps = {
   items: NotificationItem[];
   onAction: (item: NotificationItem) => void;
+  onMarkRead: (item: NotificationItem) => void;
   variant?: 'panel' | 'page';
   loading?: boolean;
   emptyTitle?: string;
@@ -17,6 +18,7 @@ type NotificationListProps = {
 export function NotificationList({
   items,
   onAction,
+  onMarkRead,
   variant = 'panel',
   loading = false,
   emptyTitle = 'No notifications yet',
@@ -59,6 +61,7 @@ export function NotificationList({
           label={section.label}
           items={section.items}
           onAction={onAction}
+          onMarkRead={onMarkRead}
           variant={variant}
         />
       ))}

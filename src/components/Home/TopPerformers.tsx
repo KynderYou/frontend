@@ -68,8 +68,6 @@ export function TopPerformers({ performers, loading }: TopPerformersProps) {
           {performers.map((person) => {
             const pastel = AVATAR_PASTELS[(person.rank - 1) % AVATAR_PASTELS.length];
             const avatar = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(person.name)}&backgroundColor=transparent`;
-            const detail = person.region ? `Nest · ${person.region}` : 'Nest · —';
-
             return (
               <div key={person.member_id} className="performer-row">
                 <span
@@ -112,7 +110,6 @@ export function TopPerformers({ performers, loading }: TopPerformersProps) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'] }}>{person.name}</div>
-                  <div style={{ fontSize: 12, color: theme['text-muted'], marginTop: 1 }}>{detail}</div>
                 </div>
                 <div
                   style={{

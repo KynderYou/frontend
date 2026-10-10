@@ -5,11 +5,12 @@ export type NotificationDateGroupProps = {
   label: string;
   items: NotificationItem[];
   onAction: (item: NotificationItem) => void;
+  onMarkRead: (item: NotificationItem) => void;
   variant?: 'panel' | 'page';
 };
 
 /** One date-labelled block of notifications (e.g. "Recent" or "24 Aug 2026"). */
-export function NotificationDateGroup({ label, items, onAction, variant = 'panel' }: NotificationDateGroupProps) {
+export function NotificationDateGroup({ label, items, onAction, onMarkRead, variant = 'panel' }: NotificationDateGroupProps) {
   if (items.length === 0) return null;
 
   const content = (
@@ -17,7 +18,7 @@ export function NotificationDateGroup({ label, items, onAction, variant = 'panel
       <div className="notification-date-label">{label}</div>
       <div className="notification-date-items">
         {items.map((item) => (
-          <NotificationRow key={item.id} item={item} onAction={onAction} />
+          <NotificationRow key={item.id} item={item} onAction={onAction} onMarkRead={onMarkRead} />
         ))}
       </div>
     </>

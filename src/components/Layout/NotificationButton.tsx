@@ -13,7 +13,7 @@ type NotificationButtonProps = {
 export function NotificationButton({ onNavigate }: NotificationButtonProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { items, unreadCount, loading, load, handleAction } = useNotifications();
+  const { items, unreadCount, loading, load, handleAction, markRead, markAllRead } = useNotifications();
 
   useEffect(() => {
     if (!open) return;
@@ -93,15 +93,28 @@ export function NotificationButton({ onNavigate }: NotificationButtonProps) {
         <div className="dash-card notification-panel">
           <div className="notification-panel-header">
             <strong className="notification-panel-title">Notifications</strong>
-            {items.length > 0 && (
-              <button type="button" className="scans-action-btn" onClick={handleViewMore}>
-                View more
-              </button>
-            )}
+            <div className="notification-panel-actions">
+              {unreadCount > 0 && (
+                <button type="button" className="notification-mark-all" onClick={() => void markAllRead()}>
+                  Mark all read
+                </button>
+              )}
+              {items.length > 0 && (
+                <button type="button" className="scans-action-btn" onClick={handleViewMore}>
+                  View more
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="notification-panel-body">
-            <NotificationList items={items} onAction={onRowAction} variant="panel" loading={loading} />
+            <NotificationList
+              items={items}
+              onAction={onRowAction}
+              onMarkRead={(item) => void markRead(item)}
+              variant="panel"
+              loading={loading}
+            />
           </div>
         </div>
       )}

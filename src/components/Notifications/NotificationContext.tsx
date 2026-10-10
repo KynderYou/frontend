@@ -10,6 +10,8 @@ type NotificationFeed = {
   loadError: string;
   load: (signal?: AbortSignal) => Promise<void>;
   handleAction: (item: NotificationItem) => Promise<void>;
+  markRead: (item: NotificationItem) => Promise<void>;
+  markAllRead: () => Promise<void>;
 };
 
 const NotificationContext = createContext<NotificationFeed | null>(null);

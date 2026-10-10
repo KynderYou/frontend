@@ -205,6 +205,7 @@ export type HoScan = {
   report_type: string;
   cost: string;
   images: number;
+  phone?: string;
   processed_by: string;
   preprocessed_by: string | null;
   main_pattern: string | null;
@@ -235,6 +236,12 @@ export type HoScanDetail = HoScan & {
   fingers?: ScanFinger[];
 };
 
+export type RecycleBinScan = HoScan & {
+  client_type: string;
+  referred_by: string;
+  billed_at: string | null;
+};
+
 export type HoScanActionPayload = {
   action: string;
   expected_section?: string;
@@ -245,6 +252,7 @@ export type HoScanActionPayload = {
   rrc?: number;
   lfo?: number;
   fingers?: ScanFinger[];
+  reason?: string;
 };
 
 export type CommMemberApi = {

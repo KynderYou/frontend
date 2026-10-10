@@ -10,6 +10,7 @@ export type HoScanRecord = {
   name: string;
   gender?: string;
   age?: string;
+  phone?: string;
   scanBy: string;
   reportType: string;
   cost: string;
@@ -39,6 +40,7 @@ export function hoScanToRecord(scan: HoScan): HoScanRecord {
     name: scan.name,
     gender: scan.gender || undefined,
     age: scan.age || undefined,
+    phone: scan.phone || undefined,
     scanBy: scan.scan_by,
     reportType: scan.report_type,
     cost: scan.cost,

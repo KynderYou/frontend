@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getNotifications, markNotificationRead } from '../../api';
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from '../../api';
 import type { NotificationItem } from '../../api/notificationTypes';
 import type { AppView } from '../Layout/navItems';
 import { navigateFromNotification } from './notificationUtils';
@@ -45,21 +45,34 @@ export function useNotificationFeed({ pollMs, onNavigate }: UseNotificationFeedO
     };
   }, [load, pollMs]);
 
+  const markRead = useCallback(async (item: NotificationItem) => {
+    if (item.read) return;
+    try {
+      await markNotificationRead(item.id);
+      setItems((current) => current.map((row) => (row.id === item.id ? { ...row, read: true } : row)));
+      setUnreadCount((count) => Math.max(0, count - 1));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    try {
+      await markAllNotificationsRead();
+      setItems((current) => current.map((row) => (row.read ? row : { ...row, read: true })));
+      setUnreadCount(0);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const handleAction = useCallback(
     async (item: NotificationItem) => {
-      if (!item.read) {
-        try {
-          await markNotificationRead(item.id);
-          setItems((current) => current.map((row) => (row.id === item.id ? { ...row, read: true } : row)));
-          setUnreadCount((count) => Math.max(0, count - 1));
-        } catch {
-          /* ignore */
-        }
-      }
+      await markRead(item);
       navigateFromNotification(item.action_view, item.action_target, onNavigate);
     },
-    [onNavigate],
+    [markRead, onNavigate],
   );
 
-  return { items, unreadCount, loading, loadError, load, handleAction };
+  return { items, unreadCount, loading, loadError, load, handleAction, markRead, markAllRead };
 }

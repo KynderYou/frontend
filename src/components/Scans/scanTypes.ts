@@ -14,7 +14,10 @@ export type ScanDetails = {
   mrp: string;
 };
 
+export const STATUS_REJECTED_BY_HO = 'Rejected by H.O';
+
 export type ScanRecordStatus =
+  | typeof STATUS_REJECTED_BY_HO
   | 'Imported'
   | 'Consent form verified'
   | 'QC checked'

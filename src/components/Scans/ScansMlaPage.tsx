@@ -26,6 +26,7 @@ import { extractClientFromZip, revokeScanZipImages, categoryToClientType, findCo
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
 import {
+  STATUS_REJECTED_BY_HO,
   type ScanDetails,
   type ScanRecord,
   type ScanRecordStatus,
@@ -70,6 +71,7 @@ function statusStyles(status: ScanRecordStatus | string) {
     return { color: theme.primary, background: theme['primary-soft'] };
   }
   if (status === 'Processing') return { color: theme.warning, background: theme['warning-bg'] };
+  if (status === STATUS_REJECTED_BY_HO) return { color: theme.error, background: theme['error-bg'] };
   return { color: theme['text-secondary'], background: theme['bg-muted'] };
 }
 
@@ -82,7 +84,8 @@ function canMarkQc(record: ScanRecord) {
     !record.exported &&
     (record.status === 'Consent form verified' ||
       record.status === 'Imported' ||
-      record.status === 'Saved')
+      record.status === 'Saved' ||
+      record.status === STATUS_REJECTED_BY_HO)
   );
 }
 
@@ -93,13 +96,6 @@ function exportBlockedReason(record: ScanRecord) {
   }
   if (!record.detailsSaved) return 'Complete scan details, then mark QC checked before exporting';
   return 'Mark QC checked before exporting';
-}
-
-function normalizeGender(value: string) {
-  const v = value.trim().toLowerCase();
-  if (v === 'm' || v === 'male') return 'Male';
-  if (v === 'f' || v === 'female') return 'Female';
-  return v ? 'Other' : '';
 }
 
 type ScansMlaPageProps = {
@@ -173,6 +169,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const clientComplete = scanDetailsComplete(clientForm);
 
   const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
+  const zipMessage = extracting ? null : (error ?? extractNotice);
+  const zipVerdict: 'ok' | 'fail' | null = zipMessage ? (extractOk && !error ? 'ok' : 'fail') : null;
   const canPreviewUploadImages = extractedImages.length > 0 && !extracting;
 
   const openUploadImagePreview = () => {
@@ -242,14 +240,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       });
 
       setClientForm({
+        ...emptyClientForm,
         scanId: data.scanId,
-        name: data.name,
-        age: data.age,
         phone: data.phone,
-        gender: normalizeGender(data.gender),
         clientType: normalizeClientType(data.clientType || categoryToClientType(data.category) || CLIENT_TYPE_INDIVIDUAL),
         referredBy: 'SELF',
-        mrp: '₹2,000',
       });
 
       if (!consentCheck.image) {
@@ -478,7 +473,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           <div>
             <h2 className="scans-card-title">Upload scans</h2>
             <p className="scans-card-sub">
-              Choose a zip package — client details are extracted automatically and shown as read-only.
+              Choose a zip package, then enter the client details before submitting.
             </p>
           </div>
           <span className="scans-card-meta">.zip only</span>
@@ -494,16 +489,22 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
             </div>
             <button
               type="button"
-              className={`scans-dropzone${file ? ' has-file' : ''}`}
+              className={`scans-dropzone${file ? ' has-file' : ''}${zipVerdict ? ` is-${zipVerdict}` : ''}`}
               onClick={() => inputRef.current?.click()}
             >
-              <span className="scans-dropzone-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 16V4" />
-                  <path d="m6 10 6-6 6 6" />
-                  <path d="M4 20h16" />
-                </svg>
-              </span>
+              {zipVerdict ? (
+                <span className="scans-dropzone-verdict" role="img" aria-label={zipVerdict === 'ok' ? 'Valid package' : 'Invalid package'}>
+                  {zipVerdict === 'ok' ? '👍' : '👎'}
+                </span>
+              ) : (
+                <span className="scans-dropzone-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 16V4" />
+                    <path d="m6 10 6-6 6 6" />
+                    <path d="M4 20h16" />
+                  </svg>
+                </span>
+              )}
               <span className="scans-dropzone-label">
                 {extracting ? 'Reading zip…' : file ? file.name : 'Choose zip file'}
               </span>
@@ -514,6 +515,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                     ? formatBytes(file.size)
                     : 'Click to browse · .zip only'}
               </span>
+              {zipMessage ? (
+                <span className={`scans-dropzone-message is-${zipVerdict}`} role="status" aria-live="polite">
+                  {zipMessage}
+                </span>
+              ) : null}
               {file && (
                 <span
                   role="button"
@@ -567,7 +573,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               <div>
                 <h3 className="scans-step-title">Client data</h3>
                 <p className="scans-step-hint">
-                  {extracting ? 'Extracting from zip…' : 'Auto-filled from zip · check and correct before submitting'}
+                  {extracting ? 'Reading zip…' : 'Enter name, age, gender and report package'}
                 </p>
               </div>
             </div>
@@ -596,11 +602,6 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
             {submitting ? 'Uploading…' : 'Submit scan'}
           </button>
         </div>
-
-        {extractNotice && !error && (
-          <p className={extractOk ? 'scans-upload-notice' : 'scans-upload-error'}>{extractNotice}</p>
-        )}
-        {error && <p className="scans-upload-error">{error}</p>}
       </div>
 
       <div ref={tableRef} className="dash-card scans-table-card" style={{ width: '100%' }}>

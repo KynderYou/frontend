@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LuTrash2 } from 'react-icons/lu';
 import {
   downloadHoScanExcel,
   getHoScanDetail,
   getHoScans,
+  getRecycleBin,
   hoScanAction,
   isApiError,
   resolveHoScanImages,
@@ -14,13 +16,14 @@ import { EmptyState } from '../common/EmptyState';
 import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
-import { TrashButton } from '../common/TrashButton';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { HoRecycleBinModal } from './HoRecycleBinModal';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
 import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload, type ScanFingerPayload } from './ProcessScanModal';
 import { scanStatusStyles } from './scanStatusStyles';
+import type { HoScanActionPayload } from '../../api/types';
 import type { ScanImage } from './scanTypes';
 
 const theme = colors.light;
@@ -68,7 +71,7 @@ const sectionMeta: Record<HoSectionId, { title: string; subtitle: string }> = {
   },
   report: {
     title: 'Report Upload',
-    subtitle: 'Upload report PDFs, pay report billing from the company ledger, or delete scans.',
+    subtitle: 'Re-download the Excel sheet, upload report PDFs, then debit report billing from the company ledger.',
   },
 };
 
@@ -104,7 +107,7 @@ function toProcessRecord(row: HoScanRecord, initialFingers?: ReturnType<typeof m
     name: row.name,
     gender: row.gender,
     age: row.age,
-    phone: row.processedBy,
+    phone: row.phone,
     defaultPattern: row.mainPattern,
     defaultSubPattern: row.subPattern,
     defaultFinger: row.finger,
@@ -199,83 +202,6 @@ function HoDebitScanModal({
   );
 }
 
-function HoDeleteScanModal({
-  open,
-  record,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  record: HoScanRecord | null;
-  onClose: () => void;
-  onConfirm: (record: HoScanRecord) => void;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
-
-  if (!open || !record) return null;
-
-  return (
-    <div
-      className="modal-overlay"
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="modal-panel reports-delete-modal" role="dialog" aria-modal="true" aria-labelledby="ho-delete-scan-title" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <h2 id="ho-delete-scan-title" className="modal-title">
-              Delete scan?
-            </h2>
-            <p className="modal-subtitle">
-              Scan {record.scanId} · {record.name}
-            </p>
-          </div>
-          <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="modal-body">
-          <p className="reports-delete-warning">
-            This will permanently remove the scan from the report queue. This action cannot be undone.
-          </p>
-        </div>
-
-        <div className="modal-footer">
-          <button type="button" className="btn-pill-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn-pill-primary reports-delete-confirm"
-            onClick={() => {
-              onConfirm(record);
-              onClose();
-            }}
-          >
-            Delete scan
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }: ScansHoPageProps) {
   const { showSuccess, showError } = useToast();
   const [activeSection, setActiveSection] = useState<HoSectionId>('preprocess');
@@ -285,8 +211,10 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   const [acting, setActing] = useState(false);
   const reportInputRef = useRef<HTMLInputElement>(null);
   const reportTargetRef = useRef<HoScanRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<HoScanRecord | null>(null);
   const [debitTarget, setDebitTarget] = useState<HoScanRecord | null>(null);
+  const [binOpen, setBinOpen] = useState(false);
+  const [binCount, setBinCount] = useState(0);
+  const closeBin = useCallback(() => setBinOpen(false), []);
   const flagTip = useCursorTooltip();
   const [panelTarget, setPanelTarget] = useState<HoScanRecord | null>(null);
   const [panelImages, setPanelImages] = useState<ScanImage[] | null>(null);
@@ -318,6 +246,25 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
     loadScans(controller.signal);
     return () => controller.abort();
   }, [loadScans]);
+
+  const refreshBinCount = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!isAdmin) return;
+      try {
+        const bin = await getRecycleBin(signal);
+        setBinCount(bin.length);
+      } catch {
+        // The badge is informational; the bin itself reports load errors when opened.
+      }
+    },
+    [isAdmin],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshBinCount(controller.signal);
+    return () => controller.abort();
+  }, [refreshBinCount]);
 
   const openFingerprintPanel = (row: HoScanRecord, mode: ProcessScanMode) => {
     setPanelMode(mode);
@@ -392,26 +339,38 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   const runAction = async (
     row: HoScanRecord,
     action: string,
-    fields?: ReturnType<typeof actionPayloadFromProcess>,
-    message?: string | ((updated: HoScanRecord) => string),
-  ) => {
-    if (acting) return;
+    fields?: Omit<HoScanActionPayload, 'action' | 'expected_section'>,
+    message?: string,
+  ): Promise<boolean> => {
+    if (acting) return false;
     setActing(true);
     try {
       const result = await hoScanAction(row.numericId, { action, expected_section: row.section, ...fields });
-      const defaultMessage = `Scan ${row.scanId} updated.`;
-      if (result === null || action === 'debit') {
+      const label = row.name ? `${row.scanId} (${row.name})` : row.scanId;
+      if (result === null) {
         setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
-        showSuccess(typeof message === 'string' ? message : `Scan ${row.scanId} deleted from report upload.`);
+        showSuccess(message ?? `Scan ${label} deleted from report upload.`);
+      } else if (action === 'debit') {
+        setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
+        showSuccess(`${label} moved to Reports.${message ? ` ${message}` : ''}`);
+      } else if (!(result.section in sectionLabels)) {
+        setRecords((prev) => prev.filter((item) => item.numericId !== row.numericId));
+        showSuccess(`${label} rejected · sent back to ${row.scanBy} to fix and resubmit.`);
       } else {
         const mapped = hoScanListToRecords([result]);
         setRecords((prev) => prev.map((item) => (item.numericId === row.numericId ? mapped[0] : item)));
-        showSuccess(typeof message === 'function' ? message(mapped[0]) : message ?? defaultMessage);
+        if (mapped[0].section !== row.section) {
+          showSuccess(`${label} moved to ${sectionLabels[mapped[0].section]}.`);
+        } else {
+          showSuccess(message ?? `Scan ${label} updated.`);
+        }
       }
+      return true;
     } catch (err) {
       const detail = isApiError(err) ? (err.body as { detail?: unknown } | null)?.detail : null;
       showError(typeof detail === 'string' && detail ? detail : 'Action failed. Please try again.');
       if (isApiError(err) && err.status === 409) void loadScans();
+      return false;
     } finally {
       setActing(false);
     }
@@ -454,7 +413,11 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
       showError(`Could not download the Excel sheet for ${row.scanId}.`);
       return;
     }
-    await runAction(row, 'download', undefined, `${row.scanId}.xlsx downloaded · moved to Upload.`);
+    if (row.section === 'download') {
+      await runAction(row, 'download');
+    } else {
+      showSuccess(`${row.scanId}.xlsx downloaded.`);
+    }
   };
 
   const rows = grouped[activeSection];
@@ -561,12 +524,13 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                   {showProcessedBy ? <th>Processed By</th> : null}
                   {showFlagColumn ? <th className="col-center">Flag</th> : null}
                   <th className="col-center">Status</th>
-                  {activeSection === 'download' ? <th className="col-center">Download</th> : null}
+                  {activeSection === 'download' || activeSection === 'report' ? (
+                    <th className="col-center">Download</th>
+                  ) : null}
                   {activeSection === 'report' ? (
                     <>
                       <th className="col-center">Upload</th>
                       <th className="col-center">Debit</th>
-                      <th className="col-center">Delete Scan</th>
                     </>
                   ) : null}
                 </tr>
@@ -643,7 +607,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                         </span>
                       </td>
 
-                      {activeSection === 'download' ? (
+                      {activeSection === 'download' || activeSection === 'report' ? (
                         <td data-label="Download" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
@@ -680,9 +644,6 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
                               {row.reportDebitAmount ? `Debit ${row.reportDebitAmount}` : 'Debit'}
                             </button>
                           </td>
-                          <td data-label="Delete Scan" onClick={(e) => e.stopPropagation()}>
-                            <TrashButton label="Delete scan" disabled={acting} onClick={() => setDeleteTarget(row)} />
-                          </td>
                         </>
                       ) : null}
                     </tr>
@@ -710,14 +671,7 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
         onClose={() => setPanelTarget(null)}
         onAccept={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) {
-            void runAction(
-              row,
-              'accept',
-              actionPayloadFromProcess(record),
-              `Scan ${record.scanId} accepted · ${record.mainPattern || 'pattern'} / ${record.subPattern || 'sub'}.`
-            );
-          }
+          if (row) void runAction(row, 'accept', actionPayloadFromProcess(record));
         }}
         onReject={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
@@ -732,27 +686,19 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
         onComplete={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
           if (!row) return;
-          void runAction(
-            row,
-            'complete',
-            actionPayloadFromProcess(record),
-            (updated) =>
-              updated.section === 'review'
-                ? `Scan ${record.scanId} is Flag X · moved to Review to confirm the flag.`
-                : `Scan ${record.scanId} completed · moved to Download.`
-          );
+          void runAction(row, 'complete', actionPayloadFromProcess(record));
         }}
         onReview={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} moved to review.`);
+          if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} marked To be reviewed · it stays in Process until someone clicks Done.`);
         }}
         onConfirmFlag={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) void runAction(row, 'confirm_flag', undefined, `Flag X confirmed for ${record.scanId} · moved to Download.`);
+          if (row) void runAction(row, 'confirm_flag', actionPayloadFromProcess(record));
         }}
-        onSendBack={(record) => {
+        onRejectReview={(record, reason) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) void runAction(row, 'send_back', undefined, `Scan ${record.scanId} sent back to Process.`);
+          if (row) void runAction(row, 'reject', { reason: reason || undefined });
         }}
       />
 
@@ -767,19 +713,28 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             record,
             'debit',
             undefined,
-            `${amount} (${billing} of MRP) debited from the company ledger and from ${record.scanBy}'s balance for scan ${record.scanId}.`,
-          );
+            `${amount} (${billing} of MRP) debited from the company ledger and from ${record.scanBy}'s balance.`,
+          ).then((ok) => {
+            if (ok) void refreshBinCount();
+          });
         }}
       />
 
-      <HoDeleteScanModal
-        open={Boolean(deleteTarget)}
-        record={deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={(record) => {
-          void runAction(record, 'delete');
-        }}
-      />
+      {isAdmin ? (
+        <>
+          <button
+            type="button"
+            className="ho-recycle-fab"
+            aria-label={`Recycle bin${binCount ? ` (${binCount})` : ''}`}
+            title="Recycle bin"
+            onClick={() => setBinOpen(true)}
+          >
+            <LuTrash2 size={22} aria-hidden="true" />
+            {binCount ? <span className="ho-recycle-fab-badge">{binCount > 99 ? '99+' : binCount}</span> : null}
+          </button>
+          <HoRecycleBinModal open={binOpen} onClose={closeBin} onCountChange={setBinCount} />
+        </>
+      ) : null}
 
       <input
         ref={reportInputRef}
