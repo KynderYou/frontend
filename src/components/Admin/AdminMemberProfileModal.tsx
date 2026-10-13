@@ -9,6 +9,7 @@ import {
   billingSlabError,
   editMembershipFormToPayload,
   memberToEditForm,
+  roleNeedsMentor,
   roleOptions,
   visibilityFormToPayload,
   type AdminEditFormState,
@@ -80,8 +81,8 @@ export function AdminMemberProfileModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.role === 'MLA' && !form.mentoredById) {
-      setError('Select a mentor for this MLA.');
+    if (roleNeedsMentor(form.role) && !form.mentoredById) {
+      setError(`Select a mentor for this ${form.role}.`);
       return;
     }
     const billingError = billingSlabError(form.billing);
@@ -190,9 +191,9 @@ export function AdminMemberProfileModal({
             </div>
             <AdminMembershipBillingFields
               form={form}
-              mentors={form.role === 'MLA' ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors}
+              mentors={roleNeedsMentor(form.role) ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors}
               onChange={(next) => setForm((current) => ({ ...current, ...next }))}
-              mentorRequired={form.role === 'MLA'}
+              mentorRequired={roleNeedsMentor(form.role)}
             />
             <AdminVisibilityAdminFields form={form} onChange={(next) => setForm((current) => ({ ...current, ...next }))} />
           </div>

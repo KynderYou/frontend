@@ -1,16 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  createAdminMember,
-  createTrainee,
-  deleteAdminMember,
-  deleteTrainee,
-  getAdminMembers,
-  getAdminMentors,
-  getTraineesState,
-} from '../../api';
-import type { AdminMemberApi, TraineeApi } from '../../api/types';
-import { EditTraineeModal } from '../Trainees/EditTraineeModal';
-import { traineeErrorMessage } from '../Trainees/traineeForm';
+import { useCallback, useEffect, useState } from 'react';
+import { createAdminMember, deleteAdminMember, getAdminMembers, getAdminMentors } from '../../api';
+import type { AdminMemberApi } from '../../api/types';
 import { colors, spacing, typography } from '../../styles/theme';
 import { Skeleton, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
@@ -20,14 +10,14 @@ import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { useToast } from '../common/ToastProvider';
 import { AdminCreateMemberCard } from './AdminCreateMemberCard';
 import { AdminMemberProfileModal } from './AdminMemberProfileModal';
-import { AdminMembersTable, type AdminAccountRow } from './AdminMembersTable';
+import { AdminMembersTable } from './AdminMembersTable';
 import {
   billingSlabError,
   emptyAccountForm,
-  parseBillingDigits,
   emptyMembershipForm,
   emptyVisibilityForm,
   membershipFormToPayload,
+  roleNeedsMentor,
   visibilityFormToPayload,
   type AdminAccountFormState,
   type AdminMembershipFormState,
@@ -52,8 +42,6 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
   const [membershipForm, setMembershipForm] = useState<AdminMembershipFormState>(emptyMembershipForm);
   const [visibilityForm, setVisibilityForm] = useState<AdminVisibilityFormState>(emptyVisibilityForm);
   const [editMember, setEditMember] = useState<AdminMemberApi | null>(null);
-  const [trainees, setTrainees] = useState<TraineeApi[]>([]);
-  const [editTrainee, setEditTrainee] = useState<TraineeApi | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -62,13 +50,8 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
   const loadPage = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [membersState, mentorsState, traineesState] = await Promise.all([
-        getAdminMembers(signal),
-        getAdminMentors(signal),
-        getTraineesState(signal),
-      ]);
+      const [membersState, mentorsState] = await Promise.all([getAdminMembers(signal), getAdminMentors(signal)]);
       setMembers(membersState.members);
-      setTrainees(traineesState.trainees);
       setMentors(
         mentorsState.mentors.map((mentor) => ({
           id: String(mentor.id),
@@ -90,14 +73,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
     return () => controller.abort();
   }, [loadPage]);
 
-  const rows = useMemo<AdminAccountRow[]>(
-    () => [
-      ...members.map((member) => ({ kind: 'member' as const, key: `m-${member.id}`, member })),
-      ...trainees.map((trainee) => ({ kind: 'trainee' as const, key: `t-${trainee.id}`, trainee })),
-    ],
-    [members, trainees],
-  );
-  const membersPagination = useClientPagination(rows, MEMBERS_PAGE_SIZE, rows.length);
+  const membersPagination = useClientPagination(members, MEMBERS_PAGE_SIZE, members.length);
 
   const resetCreateForms = () => {
     setAccountForm(emptyAccountForm);
@@ -105,77 +81,8 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
     setVisibilityForm(emptyVisibilityForm);
   };
 
-  const handleCreateTrainee = async () => {
-    const name = accountForm.name.trim();
-    const email = accountForm.email.trim().toLowerCase();
-    const phone = accountForm.phone.trim();
-
-    if (!name || !phone) {
-      setError('Enter the trainee name and phone number.');
-      return;
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Enter a valid email or leave it blank.');
-      return;
-    }
-    if (!membershipForm.mentoredById) {
-      setError('Select the mentor this trainee works under.');
-      return;
-    }
-    const traineeBillingError = billingSlabError(membershipForm.billing);
-    if (traineeBillingError) {
-      setError(traineeBillingError);
-      return;
-    }
-    if (membershipForm.doj && membershipForm.expiryDate && membershipForm.expiryDate < membershipForm.doj) {
-      setError('Expiry date must be after date of joining.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const result = await createTrainee({
-        name,
-        phone,
-        email: email || undefined,
-        mentor_id: Number(membershipForm.mentoredById),
-        subscription: membershipForm.masType,
-        billing_percent: Number(parseBillingDigits(membershipForm.billing) || 0),
-        doj: membershipForm.doj || undefined,
-        expiry_date: membershipForm.expiryDate || undefined,
-        remarks: visibilityForm.remarks.trim() || undefined,
-        status: 'Active',
-      });
-      setTrainees((current) => [result.trainee, ...current]);
-      setError(null);
-      resetCreateForms();
-      showSuccess(`${result.trainee.name} saved as a trainee (no login created).`);
-    } catch (err) {
-      const message = traineeErrorMessage(err, 'Unable to save trainee.');
-      setError(message);
-      showError(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteTrainee = async (trainee: TraineeApi) => {
-    if (!window.confirm(`Remove trainee ${trainee.name}? Their existing scans are kept.`)) return;
-    try {
-      const result = await deleteTrainee(trainee.id);
-      setTrainees((current) => current.filter((row) => row.id !== result.id));
-      showSuccess(result.message);
-    } catch (err) {
-      showError(traineeErrorMessage(err, `Unable to delete ${trainee.name}.`));
-    }
-  };
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (accountForm.role === 'Trainee') {
-      await handleCreateTrainee();
-      return;
-    }
     const name = accountForm.name.trim();
     const email = accountForm.email.trim().toLowerCase();
     const phone = accountForm.phone.trim();
@@ -194,8 +101,8 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
       setError('Password must be at least 8 characters.');
       return;
     }
-    if (role === 'MLA' && !membershipForm.mentoredById) {
-      setError('Select a mentor for this MLA.');
+    if (roleNeedsMentor(role) && !membershipForm.mentoredById) {
+      setError(`Select a mentor for this ${role}.`);
       return;
     }
     const billingError = billingSlabError(membershipForm.billing);
@@ -337,17 +244,6 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
         rowOffset={(membersPagination.page - 1) * membersPagination.pageSize}
         onEdit={setEditMember}
         onDelete={handleDelete}
-        onEditTrainee={setEditTrainee}
-        onDeleteTrainee={handleDeleteTrainee}
-      />
-      <EditTraineeModal
-        trainee={editTrainee}
-        mentors={mentors.map((mentor) => ({ id: mentor.id, name: mentor.name }))}
-        onClose={() => setEditTrainee(null)}
-        onSaved={(saved, message) => {
-          setTrainees((current) => current.map((row) => (row.id === saved.id ? saved : row)));
-          showSuccess(message);
-        }}
       />
       <TablePager
         page={membersPagination.page}

@@ -55,7 +55,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
       setTrainees(mapped.trainees);
       setLoadError('');
     } catch {
-      if (!signal?.aborted) setLoadError('Unable to load trainees.');
+      if (!signal?.aborted) setLoadError('Unable to load consultants.');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -87,7 +87,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
         <div className="page-header">
           <div className="page-title-block">
             <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
-              My Trainees
+              My Consultants
             </h1>
           </div>
         </div>
@@ -102,7 +102,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
         <div className="page-header">
           <div className="page-title-block">
             <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
-              My Trainees
+              My Consultants
             </h1>
           </div>
         </div>
@@ -126,12 +126,12 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
               color: theme['text-primary'],
             }}
           >
-            My Trainees
+            My Consultants
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {mentorName
-              ? `${mentorName} · your trainee list for Referred by (directory details, not login users)`
-              : 'Your trainee list for Referred by (directory details, not login users)'}
+              ? `${mentorName} · consultants who upload scans under you`
+              : 'Consultants who upload scans under you'}
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -160,7 +160,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
         >
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
-              Your trainees
+              Your consultants
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
               {filtered.length} result{filtered.length === 1 ? '' : 's'} · click a row to view scans
@@ -186,7 +186,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search trainees"
+                placeholder="Search consultants"
                 style={{
                   border: 'none',
                   outline: 'none',
@@ -225,7 +225,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
           <table className="mis-data-table trainees-data-table">
             <thead>
               <tr>
-                <th>Trainee</th>
+                <th>Consultant</th>
                 <th>DOJ</th>
                 <th className="col-center">Billing %</th>
                 <th className="col-center">Number of scans</th>
@@ -237,7 +237,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
             <tbody>
               {filtered.length === 0 ? (
                 <tr className="mis-data-empty">
-                  <td colSpan={7}>No trainees found.</td>
+                  <td colSpan={7}>No consultants found.</td>
                 </tr>
               ) : (
                 listPagination.pageItems.map((trainee) => (
@@ -315,7 +315,7 @@ function TraineeScansModal({
       scans={scans}
       loading={loadingScans}
       error={scanError}
-      emptyMessage="No scans referred by this trainee yet."
+      emptyMessage="No scans uploaded by this consultant yet."
       statusStyle={(status) => scanStatusStyles(status as TraineeScanStatus)}
     />
   );
@@ -338,7 +338,7 @@ function TraineeListRow({ trainee, onOpen }: { trainee: Trainee; onOpen: () => v
       aria-label={`View scans for ${trainee.name}`}
       style={{ cursor: 'pointer' }}
     >
-      <td data-label="Trainee">
+      <td data-label="Consultant">
         <div className="trainees-person">
           <span className="trainees-avatar" aria-hidden="true">
             {initials(trainee.name)}

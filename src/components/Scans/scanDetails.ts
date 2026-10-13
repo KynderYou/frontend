@@ -28,8 +28,13 @@ export function normalizeClientType(value: string): string {
   return CLIENT_TYPE_INDIVIDUAL;
 }
 
-export function phoneRequiredFor(clientType: string): boolean {
-  return normalizeClientType(clientType) === CLIENT_TYPE_FAMILY;
+/** MBA-branded members must record the client's phone on every scan. */
+export function brandingRequiresPhone(branding: string | null | undefined): boolean {
+  return (branding ?? '').trim().toUpperCase() === 'MBA';
+}
+
+export function phoneRequiredFor(clientType: string, memberRequiresPhone = false): boolean {
+  return memberRequiresPhone || normalizeClientType(clientType) === CLIENT_TYPE_FAMILY;
 }
 
 export const MIN_AGE = 1;
@@ -42,12 +47,12 @@ export function isValidAge(age: string): boolean {
   return n >= MIN_AGE && n <= MAX_AGE;
 }
 
-export function scanDetailsComplete(details: ScanDetails): boolean {
+export function scanDetailsComplete(details: ScanDetails, memberRequiresPhone = false): boolean {
   return (
     details.name.trim().length > 0 &&
     isValidAge(details.age) &&
     details.gender.trim().length > 0 &&
     details.mrp.trim().length > 0 &&
-    (!phoneRequiredFor(details.clientType) || details.phone.trim().length > 0)
+    (!phoneRequiredFor(details.clientType, memberRequiresPhone) || details.phone.trim().length > 0)
   );
 }

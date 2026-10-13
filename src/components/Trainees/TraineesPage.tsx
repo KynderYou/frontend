@@ -51,7 +51,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
       setTrainees(mapped.trainees);
       setLoadError('');
     } catch {
-      if (!signal?.aborted) setLoadError('Unable to load trainees.');
+      if (!signal?.aborted) setLoadError('Unable to load consultants.');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -118,7 +118,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
         <div className="page-header">
           <div className="page-title-block">
             <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
-              My Trainees
+              My Consultants
             </h1>
           </div>
         </div>
@@ -133,7 +133,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
         <div className="page-header">
           <div className="page-title-block">
             <h1 className="page-title" style={{ margin: 0, color: theme['text-primary'] }}>
-              My Trainees
+              My Consultants
             </h1>
           </div>
         </div>
@@ -158,7 +158,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                 color: theme['text-primary'],
               }}
             >
-              My Trainees
+              My Consultants
             </h1>
           </div>
           <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -166,7 +166,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
             <ProfileAvatarButton onClick={onOpenProfile} />
           </div>
         </div>
-        <EmptyState title="No mentors with trainees yet" description="When members mentor trainees, they will appear here." />
+        <EmptyState title="No mentors with consultants yet" description="When members mentor consultants, they will appear here." />
       </section>
     );
   }
@@ -186,10 +186,10 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               color: theme['text-primary'],
             }}
           >
-            My Trainees
+            My Consultants
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Search a mentor to see their trainees. Add trainees from Member Accounts → Create account.
+            Search a mentor to see their consultants. Add consultants from Member Accounts → Create account.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -317,7 +317,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
           >
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
-                {selectedMentor ? `${selectedMentor.name}'s trainees` : 'Trainees'}
+                {selectedMentor ? `${selectedMentor.name}'s consultants` : 'Consultants'}
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
                 {filtered.length} result{filtered.length === 1 ? '' : 's'}
@@ -346,7 +346,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
                     setQuery(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Search trainees"
+                  placeholder="Search consultants"
                   style={{
                     border: 'none',
                     outline: 'none',
@@ -388,7 +388,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
             <table className="mis-data-table trainees-data-table">
               <thead>
                 <tr>
-                  <th>Trainee</th>
+                  <th>Consultant</th>
                   <th>DOJ</th>
                   <th className="col-center">Billing %</th>
                   <th className="col-center">Number of scans</th>
@@ -400,7 +400,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr className="mis-data-empty">
-                    <td colSpan={7}>No trainees for this mentor.</td>
+                    <td colSpan={7}>No consultants for this mentor.</td>
                   </tr>
                 ) : (
                   pageRows.map((row) => <TraineeRow key={row.id} trainee={row} onOpen={() => setScansTrainee(row)} />)
@@ -425,7 +425,7 @@ export function TraineesPage({ onOpenMobileMenu, onOpenProfile }: TraineesPagePr
           >
             <span>
               {filtered.length === 0
-                ? '0 trainees'
+                ? '0 consultants'
                 : `${(safePage - 1) * PAGE_SIZE + 1} to ${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -501,7 +501,7 @@ function TraineeScansModal({ open, trainee, onClose }: { open: boolean; trainee:
       scans={scans}
       loading={loadingScans}
       error={scanError}
-      emptyMessage="No scans referred by this trainee yet."
+      emptyMessage="No scans uploaded by this consultant yet."
       statusStyle={(status) => scanStatusStyles(status as TraineeScanStatus)}
     />
   );
@@ -519,7 +519,7 @@ function TraineeRow({ trainee, onOpen }: { trainee: Trainee; onOpen: () => void 
       aria-label={`View scans for ${trainee.name}`}
       style={{ cursor: 'pointer' }}
     >
-      <td data-label="Trainee">
+      <td data-label="Consultant">
         <div className="trainees-person">
           <span className="trainees-avatar" aria-hidden="true">
             {initials(trainee.name)}

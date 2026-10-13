@@ -6,7 +6,7 @@ type AdminMembershipBillingFieldsProps = {
   form: AdminMembershipFormState;
   mentors: MentorOption[];
   onChange: (next: AdminMembershipFormState) => void;
-  traineeMode?: boolean;
+  consultantMode?: boolean;
   mentorRequired?: boolean;
 };
 
@@ -14,10 +14,10 @@ export function AdminMembershipBillingFields({
   form,
   mentors,
   onChange,
-  traineeMode = false,
+  consultantMode = false,
   mentorRequired = false,
 }: AdminMembershipBillingFieldsProps) {
-  const needsMentor = traineeMode || mentorRequired;
+  const needsMentor = consultantMode || mentorRequired;
   const update = <K extends keyof AdminMembershipFormState>(key: K, value: AdminMembershipFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -34,8 +34,8 @@ export function AdminMembershipBillingFields({
     <div className="admin-form-section">
       <h3 className="admin-form-section-title">Membership &amp; billing</h3>
       <p className="admin-form-section-sub">
-        {traineeMode
-          ? 'Trainee appears in this mentor’s Referred by list when uploading scans'
+        {consultantMode
+          ? 'Consultant scans go to this mentor for QC check and export, and are billed to the mentor'
           : 'Admin-only · member cannot edit these on profile'}
       </p>
       <div className="admin-create-grid">
@@ -87,7 +87,7 @@ export function AdminMembershipBillingFields({
             onChange={(e) => update('expiryDate', e.target.value)}
           />
         </label>
-        {!traineeMode ? (
+        {!consultantMode ? (
           <label className="form-field">
             <span className="form-label">Opening balance</span>
             <input

@@ -371,7 +371,7 @@ export function CommunicationsPage({
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {canPublish
               ? isMentor
-                ? 'Publish to your network only — trainees and MLAs you mentor.'
+                ? 'Publish to your network only — consultants and MLAs you mentor.'
                 : 'Broadcast notices, optional polls, and reply threads — not a live chat.'
               : 'View notices shared with you. Only Admin and Mentors can publish.'}
           </p>
@@ -796,7 +796,7 @@ function AudiencePanel({
       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Who receives this?</h2>
       {isMentor ? (
         <p style={{ margin: 0, fontSize: 13, color: theme['text-secondary'] }}>
-          Mentors can only reach trainees and MLAs in their own network.
+          Mentors can only reach consultants and MLAs in their own network.
         </p>
       ) : null}
       <div className="comm-audience-options">

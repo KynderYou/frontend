@@ -31,6 +31,7 @@ import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_S
 import { UpgradeReportModal } from './UpgradeReportModal';
 import { InfoTip } from '../common/InfoTip';
 import { initials } from '../../utils/initials';
+import { isTraineeLogin } from '../Auth/MemberContext';
 
 const theme = colors.light;
 const REPORTS_PAGE_SIZE = 12;
@@ -49,6 +50,7 @@ type StatusFilter = ReportStatusFilter;
 
 
 const MLA_VIEW_ONLY = "View only: this is your MLA's scan";
+const TRAINEE_VIEW_ONLY = 'View only: ask your mentor to download or change this report';
 
 function reportMetaLine(row: ReportRecord, ready: boolean): string {
   const size = row.size && row.size !== '—' ? row.size : '';
@@ -97,6 +99,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [walletRequired, setWalletRequired] = useState(false);
   const [memberId, setMemberId] = useState<number | null>(null);
   const [isMentor, setIsMentor] = useState(false);
+  const [isTrainee, setIsTrainee] = useState(false);
   const [requestingCab, setRequestingCab] = useState<ReportRecord['id'] | null>(null);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
@@ -105,7 +108,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
       const [member, reports] = await Promise.all([getMe(signal), getMyReports(signal)]);
       setMemberId(member.mid);
       setIsMentor(member.role === 'Mentor');
-      const needsWallet = member.role === 'Mentor' || member.role === 'Trainee' || member.role === 'MLA';
+      const trainee = isTraineeLogin(member);
+      setIsTrainee(trainee);
+      const needsWallet = !trainee && (member.role === 'Mentor' || member.role === 'Trainee' || member.role === 'MLA');
       setWalletRequired(needsWallet);
       if (needsWallet) {
         const ledger = await getMyLedger(signal);
@@ -199,8 +204,12 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
 
   /** Mentors also see their MLAs' scans, but only for CAB; the backend refuses other actions on them. */
   const isMlaRow = (row: ReportRecord) => isMentor && memberId != null && row.ownerId !== memberId;
+  /** Trainees only view their uploads; mentors only view their MLAs' scans. */
+  const isViewOnlyRow = (row: ReportRecord) => isTrainee || isMlaRow(row);
+  const viewOnlyTitle = isTrainee ? TRAINEE_VIEW_ONLY : MLA_VIEW_ONLY;
 
   const uploaderLabel = (row: ReportRecord) => {
+    if (isTrainee) return 'Uploaded by you';
     const who = row.ownerId === memberId ? 'you' : row.ownerName || 'Unknown';
     const role = row.ownerId !== memberId && row.cabEligible ? ' (MLA)' : '';
     const forTrainee = row.uploadedForTrainee && row.details.referredBy ? ` for ${row.details.referredBy}` : '';
@@ -238,7 +247,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
 
   const cabTitle = (row: ReportRecord) => {
     if (isOwnNonMlaScan(row)) return 'Your own scan · CAB feedback is only for scans your MLAs upload';
-    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a trainee — no CAB feedback';
+    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a consultant — no CAB feedback';
     if (canRequestCab(row)) {
       return row.cabRequestedAt
         ? `Requested ${row.cabRequestedAt} · click to remind the MLA again (once a day)`
@@ -253,7 +262,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
 
   const cabLabel = (row: ReportRecord) => {
     if (isOwnNonMlaScan(row)) return 'Own scan';
-    if (row.uploadedForTrainee) return 'Uploaded by trainee';
+    if (row.uploadedForTrainee) return 'Uploaded by consultant';
     if (canRequestCab(row)) {
       if (requestingCab === row.id) return 'Requesting…';
       if (row.cabRequestedAt) return 'Requested ✓';
@@ -385,8 +394,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
           <button
             type="button"
             className="reports-card-download"
-            disabled={isMlaRow(row) || reportDues > 0 || !ready}
-            title={isMlaRow(row) ? MLA_VIEW_ONLY : downloadTitle(ready)}
+            disabled={isViewOnlyRow(row) || reportDues > 0 || !ready}
+            title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(ready)}
             onClick={() => handleDownload(row)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -414,8 +423,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <button
               type="button"
               className="reports-tool-btn reports-tool-upgrade"
-              disabled={isMlaRow(row) || topPlan || !canUseActions}
-              title={isMlaRow(row) ? MLA_VIEW_ONLY : upgradeTitle(topPlan)}
+              disabled={isViewOnlyRow(row) || topPlan || !canUseActions}
+              title={isViewOnlyRow(row) ? viewOnlyTitle : upgradeTitle(topPlan)}
               onClick={() => setUpgradingRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -441,8 +450,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             <button
               type="button"
               className="reports-tool-btn reports-tool-delete"
-              title={isMlaRow(row) ? MLA_VIEW_ONLY : 'Delete scan'}
-              disabled={isMlaRow(row)}
+              title={isViewOnlyRow(row) ? viewOnlyTitle : 'Delete scan'}
+              disabled={isViewOnlyRow(row)}
               onClick={() => setDeletingRecord(row)}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -522,8 +531,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn scans-action-export"
-                    disabled={isMlaRow(row) || reportDues > 0 || !ready}
-                    title={isMlaRow(row) ? MLA_VIEW_ONLY : downloadTitle(ready)}
+                    disabled={isViewOnlyRow(row) || reportDues > 0 || !ready}
+                    title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(ready)}
                     onClick={() => handleDownload(row)}
                   >
                     Download
@@ -543,8 +552,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn reports-action-upgrade"
-                    disabled={isMlaRow(row) || topPlan || !canUseActions}
-                    title={isMlaRow(row) ? MLA_VIEW_ONLY : upgradeTitle(topPlan)}
+                    disabled={isViewOnlyRow(row) || topPlan || !canUseActions}
+                    title={isViewOnlyRow(row) ? viewOnlyTitle : upgradeTitle(topPlan)}
                     onClick={() => setUpgradingRecord(row)}
                   >
                     {topPlan ? 'GBPB Plus' : 'Upgrade'}
@@ -563,8 +572,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                 </td>
                 <td data-label="Delete Scan">
                   <TrashButton
-                    label={isMlaRow(row) ? MLA_VIEW_ONLY : 'Delete scan'}
-                    disabled={isMlaRow(row)}
+                    label={isViewOnlyRow(row) ? viewOnlyTitle : 'Delete scan'}
+                    disabled={isViewOnlyRow(row)}
                     onClick={() => setDeletingRecord(row)}
                   />
                 </td>

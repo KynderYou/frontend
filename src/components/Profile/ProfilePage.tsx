@@ -8,7 +8,7 @@ import {
 } from '../../api';
 import type { Certification, MemberProfile } from '../../api';
 import { buttonTokens, colors, metricColors, radius, severityTokens, spacing, typography } from '../../styles/theme';
-import { useMemberActions } from '../Auth/MemberContext';
+import { isTraineeLogin, useCurrentMember, useMemberActions } from '../Auth/MemberContext';
 import { EmptyState } from '../common/EmptyState';
 import { SkeletonProfileBody } from '../common/Skeleton';
 import { AvatarCropModal } from './AvatarCropModal';
@@ -62,10 +62,11 @@ function asStatus(value: string): MemberStatus {
   return 'Active';
 }
 
-/** Trainee-role logins are MLAs. */
-function roleBadgeFor(role: string): { label: string; color: string; bg: string } {
+/** Trainee-role logins are MLAs unless they are consultant accounts. */
+function roleBadgeFor(role: string, isTrainee: boolean): { label: string; color: string; bg: string } {
   if (role === 'Admin') return { label: 'Admin', color: metricColors.purple.text, bg: metricColors.purple.bg };
   if (role === 'Mentor') return { label: 'Mentor', color: metricColors.blue.text, bg: metricColors.blue.bg };
+  if (isTrainee) return { label: 'Consultant', color: metricColors.green.text, bg: metricColors.green.bg };
   if (role === 'Trainee' || role === 'MLA') return { label: 'MLA', color: metricColors.green.text, bg: metricColors.green.bg };
   return { label: role, color: theme['text-secondary'], bg: theme['bg-muted'] };
 }
@@ -274,6 +275,7 @@ function LitePopup({ open, title, children, onClose }: LitePopupProps) {
 
 export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
   const { patchMember } = useMemberActions();
+  const isTrainee = isTraineeLogin(useCurrentMember());
   const [editOpen, setEditOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -433,7 +435,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
 
   const currentTier = asTier(profile.mas_type);
   const tier = subscriptionTiers[currentTier];
-  const roleBadge = roleBadgeFor(profile.role);
+  const roleBadge = roleBadgeFor(profile.role, isTrainee);
   const currentStatus = asStatus(profile.status);
   const statusTone = statusTones[currentStatus];
 

@@ -39,6 +39,8 @@ export type ScanRecord = {
   detailsSaved: boolean;
   exported: boolean;
   images?: ScanImage[];
+  /** Trainee who uploaded on the mentor's behalf */
+  uploadedBy?: string;
 };
 
 export const defaultScanDetails = (): ScanDetails => ({

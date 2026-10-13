@@ -27,7 +27,7 @@ const DRILLDOWN_PAGE_SIZE = 12;
 
 const SCOPE_COPY: Record<NetworkScope, { subtitle: string; scansHint: string; billingLabel: string }> = {
   network: { subtitle: 'How the entire network is performing', scansHint: 'network total', billingLabel: 'Network billing' },
-  team: { subtitle: 'How you and your MLAs & trainees are performing', scansHint: 'team total', billingLabel: 'Team billing' },
+  team: { subtitle: 'How you and your MLAs & consultants are performing', scansHint: 'team total', billingLabel: 'Team billing' },
   self: { subtitle: 'How you are performing', scansHint: 'your scans', billingLabel: 'Your billing' },
 };
 

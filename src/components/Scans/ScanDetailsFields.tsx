@@ -29,6 +29,10 @@ type ScanDetailsFieldsProps = {
   traineeNames?: string[];
   disabled?: boolean;
   className?: string;
+  /** Phone is required regardless of client type (MBA-branded members). */
+  memberRequiresPhone?: boolean;
+  /** Trainee uploads are always referred by the trainee, so the field is hidden. */
+  hideReferredBy?: boolean;
 };
 
 export function ScanDetailsFields({
@@ -39,6 +43,8 @@ export function ScanDetailsFields({
   traineeNames = [],
   disabled = false,
   className = 'form-grid',
+  memberRequiresPhone = false,
+  hideReferredBy = false,
 }: ScanDetailsFieldsProps) {
   const baseOptions = BASE_REFERRED_BY as readonly string[];
   const traineeOptions = traineeNames.filter((name) => name && !baseOptions.includes(name));
@@ -46,14 +52,15 @@ export function ScanDetailsFields({
     value.referredBy && !baseOptions.includes(value.referredBy) && !traineeOptions.includes(value.referredBy)
       ? value.referredBy
       : null;
-  const needsPhone = phoneRequiredFor(value.clientType);
+  const needsPhone = phoneRequiredFor(value.clientType, memberRequiresPhone);
   const ageInvalid = value.age.trim().length > 0 && !isValidAge(value.age);
 
   const update = (key: keyof ScanDetails) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const next = e.target.value;
     if (key === 'clientType') {
       const clientType = normalizeClientType(next);
-      onChange({ ...value, clientType, phone: clientType === CLIENT_TYPE_INDIVIDUAL ? '' : value.phone });
+      const clearPhone = clientType === CLIENT_TYPE_INDIVIDUAL && !memberRequiresPhone;
+      onChange({ ...value, clientType, phone: clearPhone ? '' : value.phone });
       return;
     }
     if (key === 'age') {
@@ -140,6 +147,7 @@ export function ScanDetailsFields({
         </label>
       ) : null}
 
+      {hideReferredBy ? null : (
       <label className="form-field">
         <span className="form-label">Referred By</span>
         <div className="form-select-wrap">
@@ -150,7 +158,7 @@ export function ScanDetailsFields({
               </option>
             ))}
             {traineeOptions.length > 0 ? (
-              <optgroup label="My trainees">
+              <optgroup label="My consultants">
                 {traineeOptions.map((name) => (
                   <option key={`trainee-${name}`} value={name}>
                     {name}
@@ -163,6 +171,7 @@ export function ScanDetailsFields({
           <Chevron />
         </div>
       </label>
+      )}
 
       <label className="form-field">
         <span className="form-label">Report package</span>

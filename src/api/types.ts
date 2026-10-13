@@ -29,6 +29,9 @@ export type MemberNav = {
   mis_cab: boolean;
   scans_mla: boolean;
   scans_ho: boolean;
+  dashboard?: boolean;
+  ledger?: boolean;
+  mis?: boolean;
 };
 
 export type Member = {
@@ -40,6 +43,7 @@ export type Member = {
   nav: MemberNav;
   mentee_type?: string | null;
   avatar_url?: string | null;
+  branding?: string;
 };
 
 /** Full profile from /profile/me */
@@ -182,6 +186,8 @@ export type MlaScan = {
   details_saved: boolean;
   exported: boolean;
   images: MlaScanImage[];
+  /** Trainee who uploaded on the mentor's behalf */
+  uploaded_by?: string | null;
 };
 
 export type MlaScanUpdatePayload = {
@@ -396,19 +402,6 @@ export type TraineeApi = {
   status: string;
   role: string;
   created_at?: string;
-};
-
-export type TraineePayload = {
-  name: string;
-  mentor_id: number;
-  phone: string;
-  email?: string;
-  doj?: string;
-  expiry_date?: string;
-  subscription: string;
-  billing_percent: number;
-  remarks?: string;
-  status: 'Active' | 'Inactive';
 };
 
 export type TraineesStateApi = {

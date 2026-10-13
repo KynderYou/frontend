@@ -250,7 +250,7 @@ function MentorRow({ mentor, onOpen }: { mentor: MentorRowApi; onOpen: () => voi
           <div>
             <div className="trainees-person-name">{mentor.name}</div>
             <div className="trainees-person-email">
-              {mentor.email} · {mentor.trainee_count} trainee{mentor.trainee_count === 1 ? '' : 's'} · {mentor.mla_count} MLA
+              {mentor.email} · {mentor.trainee_count} consultant{mentor.trainee_count === 1 ? '' : 's'} · {mentor.mla_count} MLA
               {mentor.mla_count === 1 ? '' : 's'}
             </div>
           </div>

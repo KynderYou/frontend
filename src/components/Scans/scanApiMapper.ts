@@ -27,6 +27,7 @@ export function mlaScanToRecord(scan: MlaScan): ScanRecord {
       url: image.url,
       label: image.label,
     })),
+    uploadedBy: scan.uploaded_by ?? undefined,
   };
 }
 

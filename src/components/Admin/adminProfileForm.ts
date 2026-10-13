@@ -4,10 +4,9 @@ import type {
   AdminVisibilityFieldsPayload,
 } from '../../api/types';
 
-export type MemberRole = 'Admin' | 'Mentor' | 'MLA';
+export type MemberRole = 'Admin' | 'Mentor' | 'MLA' | 'Consultant';
 
-/** Trainee is create-only: it stores directory details and never creates a login. */
-export type CreateRole = MemberRole | 'Trainee';
+export type CreateRole = MemberRole;
 
 export type AdminAccountFormState = {
   name: string;
@@ -77,8 +76,13 @@ export function billingDigitsForForm(value: string | null | undefined, fallback:
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
-export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA'];
-export const createRoleOptions: CreateRole[] = [...roleOptions, 'Trainee'];
+export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA', 'Consultant'];
+export const createRoleOptions: CreateRole[] = roleOptions;
+
+/** MLAs and consultants always work under a mentor. */
+export function roleNeedsMentor(role: string): boolean {
+  return role === 'MLA' || role === 'Consultant';
+}
 
 export const emptyAccountForm: AdminAccountFormState = {
   name: '',
@@ -87,6 +91,16 @@ export const emptyAccountForm: AdminAccountFormState = {
   password: '',
   role: '',
 };
+
+/** Required fields for the create form are filled (format checks still run on submit). */
+export function createFormFilled(account: AdminAccountFormState, membership: AdminMembershipFormState): boolean {
+  const name = account.name.trim();
+  const phone = account.phone.trim();
+  const billing = parseBillingDigits(membership.billing);
+  if (!account.role || !name || !phone || !billing) return false;
+  if (!account.email.trim() || !account.password) return false;
+  return !roleNeedsMentor(account.role) || Boolean(membership.mentoredById);
+}
 
 export const emptyMembershipForm: AdminMembershipFormState = {
   mentoredById: '',
@@ -136,8 +150,7 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
 export function memberDisplayRole(member: Pick<AdminMemberApi, 'role' | 'mentee_type'>): MemberRole {
   if (member.role === 'MLA' || (member.mentee_type || '').toLowerCase() === 'mla') return 'MLA';
   if (member.role === 'Admin' || member.role === 'Mentor') return member.role;
-  // Legacy Trainee login accounts — directory trainees are not users.
-  return 'MLA';
+  return 'Consultant';
 }
 
 export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {

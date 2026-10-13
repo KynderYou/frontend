@@ -2969,6 +2969,14 @@
   transform: translateY(0);
 }
 
+.btn-pill-primary:disabled,
+.btn-pill-primary:disabled:hover {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-pill-secondary {
   display: inline-flex;
   align-items: center;

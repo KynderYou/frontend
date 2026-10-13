@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { colors } from '../../styles/theme';
 import type { ScanDetails } from './scanTypes';
 import { ScanDetailsFields } from './ScanDetailsFields';
-import { CLIENT_TYPE_INDIVIDUAL, normalizeClientType, scanDetailsComplete } from './scanDetails';
+import { brandingRequiresPhone, normalizeClientType, phoneRequiredFor, scanDetailsComplete } from './scanDetails';
+import { useCurrentMember } from '../Auth/MemberContext';
 
 const theme = colors.light;
 
@@ -14,9 +15,19 @@ type EditScanModalProps = {
   traineeNames?: string[];
   onClose: () => void;
   onSave: (details: ScanDetails) => void;
+  hideReferredBy?: boolean;
 };
 
-export function EditScanModal({ open, scanId, initial, traineeNames = [], onClose, onSave }: EditScanModalProps) {
+export function EditScanModal({
+  open,
+  scanId,
+  initial,
+  traineeNames = [],
+  onClose,
+  onSave,
+  hideReferredBy = false,
+}: EditScanModalProps) {
+  const memberRequiresPhone = brandingRequiresPhone(useCurrentMember()?.branding);
   const [form, setForm] = useState<ScanDetails>(() => ({
     ...initial,
     clientType: normalizeClientType(initial.clientType),
@@ -46,7 +57,7 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
 
   if (!open) return null;
 
-  const canSave = scanDetailsComplete(form);
+  const canSave = scanDetailsComplete(form, memberRequiresPhone);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +68,7 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
       referredBy: form.referredBy,
       name: form.name.trim(),
       age: form.age.trim(),
-      phone: clientType === CLIENT_TYPE_INDIVIDUAL ? '' : form.phone.trim(),
+      phone: phoneRequiredFor(clientType, memberRequiresPhone) ? form.phone.trim() : '',
       gender: form.gender,
       mrp: form.mrp,
     });
@@ -97,7 +108,14 @@ export function EditScanModal({ open, scanId, initial, traineeNames = [], onClos
 
         <form onSubmit={handleSave}>
           <div className="modal-body">
-            <ScanDetailsFields scanId={scanId} value={form} onChange={setForm} traineeNames={traineeNames} />
+            <ScanDetailsFields
+              scanId={scanId}
+              value={form}
+              onChange={setForm}
+              traineeNames={traineeNames}
+              memberRequiresPhone={memberRequiresPhone}
+              hideReferredBy={hideReferredBy}
+            />
           </div>
 
           <div className="modal-footer">

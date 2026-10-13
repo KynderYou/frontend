@@ -93,9 +93,9 @@ export function MisScansPage({
   const showMlaFilter = mlaMembers.length > 1;
   const subtitle =
     viewerRole === 'Admin'
-      ? `All network scans for ${NETWORK_YEAR} — every mentor, trainee, and MLA upload`
+      ? `All network scans for ${NETWORK_YEAR} — every mentor, consultant, and MLA upload`
       : viewerRole === 'Mentor'
-        ? `Your uploads plus your trainees’ and MLAs’ scans · ${NETWORK_YEAR}`
+        ? `Your uploads plus your consultants’ and MLAs’ scans · ${NETWORK_YEAR}`
         : `Your scans · ${NETWORK_YEAR}`;
 
   if (loadError) {

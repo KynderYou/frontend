@@ -21,7 +21,14 @@ import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { DeclarationModal } from './DeclarationModal';
 import { EditScanModal } from './EditScanModal';
 import { ScanDetailsFields } from './ScanDetailsFields';
-import { CLIENT_TYPE_INDIVIDUAL, normalizeClientType, phoneRequiredFor, scanDetailsComplete } from './scanDetails';
+import {
+  brandingRequiresPhone,
+  CLIENT_TYPE_INDIVIDUAL,
+  normalizeClientType,
+  phoneRequiredFor,
+  scanDetailsComplete,
+} from './scanDetails';
+import { isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
 import { extractClientFromZip, revokeScanZipImages, categoryToClientType, findConsentFormImage, type ScanZipImage } from './extractClientFromZip';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
@@ -105,6 +112,10 @@ type ScansMlaPageProps = {
 
 export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
   const { showSuccess, showError } = useToast();
+  const currentMember = useCurrentMember();
+  const memberRequiresPhone = brandingRequiresPhone(currentMember?.branding);
+  const isTrainee = isTraineeLogin(currentMember);
+  const isMentor = currentMember?.role === 'Mentor';
   const [file, setFile] = useState<File | null>(null);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
   const [extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
@@ -166,7 +177,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
     };
   }, []);
 
-  const clientComplete = scanDetailsComplete(clientForm);
+  const clientComplete = scanDetailsComplete(clientForm, memberRequiresPhone);
 
   const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
   const zipMessage = extracting ? null : (error ?? extractNotice);
@@ -330,7 +341,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
       const created = await createMlaScan(file, {
         client_name: clientForm.name.trim(),
         age: clientForm.age.trim(),
-        phone: phoneRequiredFor(clientForm.clientType) ? clientForm.phone.trim() : '',
+        phone: phoneRequiredFor(clientForm.clientType, memberRequiresPhone) ? clientForm.phone.trim() : '',
         gender: clientForm.gender,
         client_type: clientForm.clientType.trim() || CLIENT_TYPE_INDIVIDUAL,
         referred_by: clientForm.referredBy,
@@ -439,7 +450,9 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
             Upload Scan
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Upload a scan zip, enter client details, and export when ready for head office processing.
+            {isTrainee
+              ? 'Upload a scan zip and enter client details. Your mentor does the QC check and exports it to head office.'
+              : 'Upload a scan zip, enter client details, and export when ready for head office processing.'}
           </p>
         </div>
 
@@ -573,7 +586,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               <div>
                 <h3 className="scans-step-title">Client data</h3>
                 <p className="scans-step-hint">
-                  {extracting ? 'Reading zip…' : 'Enter name, age, gender and report package'}
+                  {extracting
+                    ? 'Reading zip…'
+                    : memberRequiresPhone
+                      ? 'Enter name, age, gender, client phone and report package'
+                      : 'Enter name, age, gender and report package'}
                 </p>
               </div>
             </div>
@@ -585,6 +602,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               onChange={(details) => setClientForm((prev) => ({ ...prev, ...details }))}
               traineeNames={traineeNames}
               disabled={!file || extracting}
+              memberRequiresPhone={memberRequiresPhone}
+              hideReferredBy={isTrainee}
             />
           </section>
         </div>
@@ -608,7 +627,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         <div className="scans-card-head">
           <div>
             <h2 className="scans-card-title">Uploaded scans</h2>
-            <p className="scans-card-sub">Export sends to scans DB and notifies HO · Edit to update billing details</p>
+            <p className="scans-card-sub">
+              {isTrainee
+                ? 'Your mentor QC-checks and exports these · Edit or delete until QC is done'
+                : 'Export sends to scans DB and notifies HO · Edit to update billing details'}
+            </p>
           </div>
           <span className="scans-card-meta">{records.length}</span>
         </div>
@@ -630,9 +653,10 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                 <th>Scan Id</th>
                 <th>Name</th>
                 <th>Gender</th>
+                {isMentor ? <th>Uploaded by</th> : null}
                 <th className="col-center">Status</th>
-                <th className="col-center">QC</th>
-                <th className="col-center">Export</th>
+                {isTrainee ? null : <th className="col-center">QC</th>}
+                {isTrainee ? null : <th className="col-center">Export</th>}
                 <th className="col-center">Edit</th>
                 <th className="col-center">Delete</th>
               </tr>
@@ -641,6 +665,8 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
               {listPagination.pageItems.map((row, index) => {
                 const chip = statusStyles(row.status);
                 const exportReady = canExport(row);
+                const lockedForTrainee = isTrainee && row.status === 'QC checked';
+                const lockedTitle = 'Your mentor has already QC-checked this scan';
                 return (
                   <tr key={row.id}>
                     <td data-label="Sno">{rowOffset + index + 1}</td>
@@ -656,11 +682,22 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                     </td>
                     <td data-label="Name">{row.details.name || '—'}</td>
                     <td data-label="Gender">{row.details.gender || '—'}</td>
+                    {isMentor ? (
+                      <td data-label="Uploaded by">
+                        {row.uploadedBy ? (
+                          <span title="Uploaded by your consultant">{row.uploadedBy} · Consultant</span>
+                        ) : (
+                          <span className="scans-table-meta">You</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td data-label="Status">
                       <span className="scans-status-chip" style={chip}>
                         {row.status}
                       </span>
                     </td>
+                    {isTrainee ? null : (
+                    <>
                     <td data-label="QC">
                       {canMarkQc(row) ? (
                         <button
@@ -691,13 +728,25 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                         Export
                       </button>
                     </td>
+                    </>
+                    )}
                     <td data-label="Edit">
-                      <button type="button" className="scans-action-btn" onClick={() => setEditingRecord(row)}>
+                      <button
+                        type="button"
+                        className={`scans-action-btn${lockedForTrainee ? ' is-disabled' : ''}`}
+                        disabled={lockedForTrainee}
+                        title={lockedForTrainee ? lockedTitle : undefined}
+                        onClick={() => setEditingRecord(row)}
+                      >
                         Edit
                       </button>
                     </td>
                     <td data-label="Delete">
-                      <TrashButton label="Delete scan" onClick={() => handleDelete(row.id)} />
+                      <TrashButton
+                        label={lockedForTrainee ? lockedTitle : 'Delete scan'}
+                        disabled={lockedForTrainee}
+                        onClick={() => handleDelete(row.id)}
+                      />
                     </td>
                   </tr>
                 );
@@ -729,6 +778,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           traineeNames={traineeNames}
           onClose={() => setEditingRecord(null)}
           onSave={handleSaveDetails}
+          hideReferredBy={isTrainee}
         />
       )}
       <ScanImagesModal

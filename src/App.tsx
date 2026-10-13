@@ -5,7 +5,7 @@ import type { Member } from './api';
 import { getThemeCssVars } from './styles/theme';
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileNavDrawer } from './components/Layout/MobileNavDrawer';
-import { isAppView, canAccessView, type AppView } from './components/Layout/navItems';
+import { isAppView, canAccessView, defaultViewFor, type AppView } from './components/Layout/navItems';
 import { HomeDashboard } from './components/Home/HomeDashboard';
 import { ProfilePage } from './components/Profile/ProfilePage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
@@ -215,7 +215,7 @@ function App() {
   useEffect(() => {
     if (!member) return;
     if (!canAccessView(view, member.nav)) {
-      setView(DEFAULT_VIEW);
+      setView(defaultViewFor(member.nav));
       setThreadId(null);
       setTopUpId(null);
       setMisScanCode(null);
