@@ -12,22 +12,7 @@ const emptyLedger: LedgerData = {
   },
   receipts: [],
   billing: [],
-  expenses_by_month: [
-    { month: 1, label: 'Jan', value: 0 },
-    { month: 2, label: 'Feb', value: 0 },
-    { month: 3, label: 'Mar', value: 0 },
-    { month: 4, label: 'Apr', value: 0 },
-    { month: 5, label: 'May', value: 0 },
-    { month: 6, label: 'Jun', value: 0 },
-    { month: 7, label: 'Jul', value: 0 },
-    { month: 8, label: 'Aug', value: 0 },
-    { month: 9, label: 'Sep', value: 0 },
-    { month: 10, label: 'Oct', value: 0 },
-    { month: 11, label: 'Nov', value: 0 },
-    { month: 12, label: 'Dec', value: 0 },
-  ],
   billing_window_days: 30,
-  expenses_year: new Date().getFullYear(),
   available_balance: 0,
   available_balance_display: '₹0',
 };
@@ -35,34 +20,41 @@ const emptyLedger: LedgerData = {
 /** GET /api/ledger/me */
 export async function getMyLedger(
   signal?: AbortSignal,
-  range: { start?: string; end?: string } = {},
+  range: { start?: string; end?: string; adminId?: number; memberId?: number } = {},
 ): Promise<LedgerData> {
   if (isDemoToken(getToken())) {
     return emptyLedger;
   }
   const params = new URLSearchParams();
   if (range.start) params.set('start', range.start);
+  if (range.adminId) params.set('admin_id', String(range.adminId));
+  if (range.memberId) params.set('member_id', String(range.memberId));
   if (range.end) params.set('end', range.end);
   const query = params.toString();
   return apiClient<LedgerData>(`/api/ledger/me${query ? `?${query}` : ''}`, { signal });
 }
 
 /** POST /api/ledger/company/funds — Admin adds money to the shared company ledger */
-export async function addCompanyFunds(amount: string): Promise<LedgerData> {
+export async function addCompanyFunds(amount: string, adminId?: number): Promise<LedgerData> {
   if (isDemoToken(getToken())) {
     throw new Error('Adding funds is not available in demo mode');
   }
-  return apiClient<LedgerData>('/api/ledger/company/funds', { method: 'POST', body: { amount } });
+  return apiClient<LedgerData>('/api/ledger/company/funds', { method: 'POST', body: { amount, admin_id: adminId } });
 }
 
 export type CompanyEntryKind = 'receipt' | 'expense';
 
 /** POST /api/ledger/company/entries — Admin records a receipt or expense on the company ledger */
-export async function addCompanyEntry(kind: CompanyEntryKind, title: string, amount: string): Promise<LedgerData> {
+export async function addCompanyEntry(
+  kind: CompanyEntryKind,
+  title: string,
+  amount: string,
+  adminId?: number,
+): Promise<LedgerData> {
   if (isDemoToken(getToken())) {
     throw new Error('Adding entries is not available in demo mode');
   }
-  return apiClient<LedgerData>('/api/ledger/company/entries', { method: 'POST', body: { kind, title, amount } });
+  return apiClient<LedgerData>('/api/ledger/company/entries', { method: 'POST', body: { kind, title, amount, admin_id: adminId } });
 }
 
 /** POST /api/ledger/topup */

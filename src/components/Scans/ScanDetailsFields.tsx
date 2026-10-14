@@ -126,24 +126,34 @@ export function ScanDetailsFields({
         </div>
       </label>
 
-      <label className="form-field">
-        <span className="form-label">Client Type</span>
-        <div className="form-select-wrap">
-          <select className="form-input form-select" value={value.clientType} onChange={update('clientType')} disabled={disabled}>
-            {clientTypeOptions.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-          <Chevron />
-        </div>
-      </label>
+      {memberRequiresPhone ? null : (
+        <label className="form-field">
+          <span className="form-label">Client Type</span>
+          <div className="form-select-wrap">
+            <select className="form-input form-select" value={value.clientType} onChange={update('clientType')} disabled={disabled}>
+              {clientTypeOptions.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+            <Chevron />
+          </div>
+        </label>
+      )}
 
       {needsPhone ? (
         <label className="form-field">
-          <span className="form-label">Phno</span>
-          <input className="form-input" type="tel" value={value.phone} onChange={update('phone')} disabled={disabled} required />
+          <span className="form-label">{memberRequiresPhone ? "Client's Phone number" : 'Phno'}</span>
+          <input
+            className="form-input"
+            type="tel"
+            placeholder={memberRequiresPhone ? "Client's phone number" : undefined}
+            value={value.phone}
+            onChange={update('phone')}
+            disabled={disabled}
+            required
+          />
         </label>
       ) : null}
 
@@ -158,7 +168,7 @@ export function ScanDetailsFields({
               </option>
             ))}
             {traineeOptions.length > 0 ? (
-              <optgroup label="My consultants">
+              <optgroup label="My counselors">
                 {traineeOptions.map((name) => (
                   <option key={`trainee-${name}`} value={name}>
                     {name}

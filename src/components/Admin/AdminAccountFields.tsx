@@ -1,5 +1,7 @@
 import type { AdminAccountFormState } from './adminProfileForm';
-import { createRoleOptions } from './adminProfileForm';
+import { roleOptionsFor } from './adminProfileForm';
+import { useCurrentMember } from '../Auth/MemberContext';
+import { isSuperAdminRole } from '../../utils/roles';
 
 type AdminAccountFieldsProps = {
   form: AdminAccountFormState;
@@ -7,7 +9,8 @@ type AdminAccountFieldsProps = {
 };
 
 export function AdminAccountFields({ form, onChange }: AdminAccountFieldsProps) {
-  const isConsultant = form.role === 'Consultant';
+  const isCounselor = form.role === 'Counselor';
+  const roleChoices = roleOptionsFor(isSuperAdminRole(useCurrentMember()?.role));
   const update = <K extends keyof AdminAccountFormState>(key: K, value: AdminAccountFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -16,8 +19,8 @@ export function AdminAccountFields({ form, onChange }: AdminAccountFieldsProps) 
     <div className="admin-form-section">
       <h3 className="admin-form-section-title">Account</h3>
       <p className="admin-form-section-sub">
-        {isConsultant
-          ? 'Consultant login · can upload scans and view reports; their mentor does QC check and export'
+        {isCounselor
+          ? 'Counselor login · can upload scans and view reports; their mentor does QC check and export'
           : 'Login credentials and role'}
       </p>
       <div className="admin-create-grid">
@@ -26,7 +29,7 @@ export function AdminAccountFields({ form, onChange }: AdminAccountFieldsProps) 
           <input
             className="form-input"
             type="text"
-            placeholder={isConsultant ? 'Consultant name' : 'Member name'}
+            placeholder={isCounselor ? 'Counselor name' : 'Member name'}
             value={form.name}
             onChange={(e) => update('name', e.target.value)}
             autoComplete="name"
@@ -76,7 +79,7 @@ export function AdminAccountFields({ form, onChange }: AdminAccountFieldsProps) 
               <option value="" disabled>
                 Select role
               </option>
-              {createRoleOptions.map((role) => (
+              {roleChoices.map((role) => (
                 <option key={role} value={role}>
                   {role}
                 </option>

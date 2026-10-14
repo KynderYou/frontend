@@ -2,27 +2,28 @@ import { useEffect, useMemo, useState } from 'react';
 import { addCompanyEntry, addCompanyFunds, ApiError, getMyLedger, submitLedgerTopUp } from '../../api';
 import type { LedgerEntryRow } from '../../api';
 import type { CompanyLedgerEntryApi } from '../../api/types';
-import { colors, metricColors, radius, shadow, spacing, typography, type MetricColor } from '../../styles/theme';
+import { colors, metricColors, radius, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
-import { ExpensesChart } from './ExpensesChart';
 import { TopUpModal } from './TopUpModal';
 import { AddCompanyEntryModal } from './AddCompanyEntryModal';
 import { AddFundsModal } from './AddFundsModal';
 import { LedgerPeriodFilter } from './LedgerPeriodFilter';
+import { LedgerPeopleFilter } from './LedgerPeopleFilter';
 import { ledgerRange, ledgerRangeLabel, type LedgerPeriod, type LedgerRange } from './ledgerPeriod';
 import { SkeletonLedgerBody, SkeletonSubtitle } from '../common/Skeleton';
 import { useCurrentMember } from '../Auth/MemberContext';
+import { isAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
 const LEDGER_TX_PAGE_SIZE = 10;
 const COMPANY_LEDGER_PAGE_SIZE = 10;
 
-type LedgerTab = 'topups' | 'receipts' | 'billing';
+type LedgerTab = 'receipts' | 'billing';
 
 type KpiDef = {
   id: LedgerTab;
@@ -30,31 +31,15 @@ type KpiDef = {
   getHint: (rangeLabel: string, companyWide: boolean) => string;
   color: MetricColor;
   icon: React.ReactNode;
-  memberOnly?: boolean;
-  /** MLAs earn no CAB credits, so they only track top-ups and billing. */
-  hiddenForMla?: boolean;
 };
 
 const kpis: KpiDef[] = [
   {
-    id: 'topups',
-    label: 'Top-up balance',
-    getHint: (rangeLabel) => `${rangeLabel} · top-ups minus billing`,
-    color: 'blue',
-    memberOnly: true,
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 19V5" />
-        <path d="m5 12 7-7 7 7" />
-      </svg>
-    ),
-  },
-  {
     id: 'receipts',
     label: 'Total Receipts',
-    getHint: (rangeLabel, companyWide) => `${rangeLabel} · ${companyWide ? 'all company credits' : 'CAB credits'}`,
+    getHint: (rangeLabel, companyWide) =>
+      `${rangeLabel} · ${companyWide ? 'report billing, funds & receipts' : 'top-ups & CAB credits'}`,
     color: 'green',
-    hiddenForMla: true,
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3v12" />
@@ -66,7 +51,8 @@ const kpis: KpiDef[] = [
   {
     id: 'billing',
     label: 'Total Billing',
-    getHint: (rangeLabel, companyWide) => (companyWide ? `${rangeLabel} · incl. CAB payouts` : rangeLabel),
+    getHint: (rangeLabel, companyWide) =>
+      `${rangeLabel} · ${companyWide ? 'member top-ups, CAB payouts & expenses' : 'report billing'}`,
     color: 'purple',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -78,7 +64,7 @@ const kpis: KpiDef[] = [
   },
 ];
 
-const TAB_TITLES: Record<LedgerTab, string> = { topups: 'Top-ups', receipts: 'Receipts', billing: 'Billing' };
+const TAB_TITLES: Record<LedgerTab, string> = { receipts: 'Receipts', billing: 'Billing' };
 
 type LedgerPageProps = {
   onOpenMobileMenu?: () => void;
@@ -190,14 +176,21 @@ const SECTOR_TITLE_PREFIXES = ['Report billing · ', 'CAB credit · ', 'Top-up c
 
 const FALLBACK_SECTOR: CompanySector = { label: 'Other', tone: 'slate', icon: COMPANY_SECTORS.funds.icon };
 
-type SectorRowProps = { kind: string; title: string; amount: string; isCredit: boolean; createdBy?: string | null };
+type SectorRowProps = {
+  kind: string;
+  title: string;
+  amount: string;
+  isCredit: boolean;
+  createdBy?: string | null;
+  owner?: string | null;
+};
 
-function SectorRow({ kind, title, amount, isCredit, createdBy }: SectorRowProps) {
+function SectorRow({ kind, title, amount, isCredit, createdBy, owner }: SectorRowProps) {
   const sector = SECTORS[kind] ?? FALLBACK_SECTOR;
   const prefix = SECTOR_TITLE_PREFIXES.find((p) => title.startsWith(p));
   const stripped = prefix ? title.slice(prefix.length) : title;
   const detail = stripped && stripped !== sector.label ? stripped : sector.fallbackDetail ?? stripped;
-  const description = createdBy ? `${detail} · ${createdBy}` : detail;
+  const description = [detail, createdBy, owner ? `${owner}'s ledger` : null].filter(Boolean).join(' · ');
   return (
     <div className={`ledger-company-row tone-${sector.tone}`}>
       <span className="ledger-company-icon">{sector.icon}</span>
@@ -215,14 +208,80 @@ function SectorRow({ kind, title, amount, isCredit, createdBy }: SectorRowProps)
   );
 }
 
-function CompanyEntryRow({ entry }: { entry: CompanyLedgerEntryApi }) {
+function CompanyEntryRow({ entry, showOwner }: { entry: CompanyLedgerEntryApi; showOwner: boolean }) {
   return (
-    <SectorRow kind={entry.kind} title={entry.title} amount={entry.amount} isCredit={entry.is_credit} createdBy={entry.created_by} />
+    <SectorRow
+      kind={entry.kind}
+      title={entry.title}
+      amount={entry.amount}
+      isCredit={entry.is_credit}
+      createdBy={entry.created_by}
+      owner={showOwner ? entry.admin : null}
+    />
   );
 }
 
 function TransactionRow({ tx, isCredit }: { tx: LedgerEntryRow; isCredit: boolean }) {
   return <SectorRow kind={tx.kind ?? ''} title={tx.title} amount={tx.amount} isCredit={tx.is_credit ?? isCredit} />;
+}
+
+function emptyHint(tab: LedgerTab, companyWide: boolean): string {
+  if (tab === 'receipts') return companyWide ? 'Report billing, funds and receipts appear here.' : 'Top-ups and CAB credits appear here.';
+  return companyWide ? 'Member top-ups, CAB payouts and expenses appear here.' : 'Report billing appears here.';
+}
+
+
+type LedgerSectionProps = {
+  tab: LedgerTab;
+  entries: LedgerEntryRow[];
+  resetKey: string;
+  periodLabel: string;
+  emptyDescription: string;
+  onAdd?: () => void;
+};
+
+function LedgerSection({ tab, entries, resetKey, periodLabel, emptyDescription, onAdd }: LedgerSectionProps) {
+  const pagination = useClientPagination(entries, LEDGER_TX_PAGE_SIZE, `${tab}|${resetKey}`);
+  const title = TAB_TITLES[tab];
+  const addLabel = tab === 'receipts' ? 'Add receipt' : 'Add expense';
+  return (
+    <div className="dash-card ledger-section-card" style={{ padding: spacing[5] }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[4], flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>{title}</h2>
+          {onAdd ? (
+            <button type="button" className="ledger-add-entry-btn" aria-label={addLabel} title={addLabel} onClick={onAdd}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+        <span style={{ color: theme['text-secondary'], fontSize: 13, fontWeight: 500, padding: '4px 2px' }}>{periodLabel}</span>
+      </div>
+      <div className="ledger-section-list">
+        {entries.length === 0 ? (
+          <EmptyState compact title={`No ${title.toLowerCase()} in this period`} description={emptyDescription} />
+        ) : (
+          groupByDate(pagination.pageItems).map((group) => (
+            <div key={group.date} className="ledger-company-group">
+              <div className="ledger-company-date">{group.date}</div>
+              {group.entries.map((tx) => (
+                <TransactionRow key={tx.id} tx={tx} isCredit={tab !== 'billing'} />
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+      <TablePager
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        onPageChange={pagination.setPage}
+        className="mis-table-footer"
+      />
+    </div>
+  );
 }
 
 function groupByDate<T extends { date: string }>(entries: T[]): { date: string; entries: T[] }[] {
@@ -239,9 +298,6 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const { showSuccess, showError } = useToast();
   const member = useCurrentMember();
   const isMla = member?.role === 'Trainee' || member?.role === 'MLA';
-  const [selectedTab, setActiveTab] = useState<LedgerTab>('receipts');
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -252,18 +308,21 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const [fundsSubmitting, setFundsSubmitting] = useState(false);
   const [fundsError, setFundsError] = useState('');
   const [entryOpen, setEntryOpen] = useState(false);
+  const [entryKind, setEntryKind] = useState<'receipt' | 'expense'>('receipt');
   const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [entryError, setEntryError] = useState('');
   const [period, setPeriod] = useState<LedgerPeriod>('all');
   const [customRange, setCustomRange] = useState<LedgerRange>({});
   const [reloadKey, setReloadKey] = useState(0);
+  const [personFilter, setPersonFilter] = useState('');
+  const memberId = personFilter ? Number(personFilter) : undefined;
   const range = useMemo(() => ledgerRange(period, customRange), [period, customRange]);
   const rangeLabel = ledgerRangeLabel(period, range);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getMyLedger(undefined, range)
+    getMyLedger(undefined, { ...range, memberId })
       .then((result) => {
         if (!cancelled) {
           setData(result);
@@ -281,39 +340,33 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     return () => {
       cancelled = true;
     };
-  }, [range, reloadKey]);
+  }, [range, memberId, reloadKey]);
 
   const companyWide = data?.company_wide ?? false;
+  const superAdmin = data?.super_admin ?? false;
+  const people = data?.people ?? [];
+  const viewingName = data?.viewing_member_id ? data.viewing_name ?? 'Member' : null;
+  const combinedView = superAdmin && companyWide && !viewingName;
+  /** Funds and manual entries a Super Admin adds while viewing an admin go to that admin's ledger. */
+  const adminId = companyWide && data?.viewing_member_id ? data.viewing_member_id : undefined;
   const entriesByTab: Record<LedgerTab, LedgerEntryRow[]> = {
-    topups: data?.topups ?? [],
     receipts: data?.receipts ?? [],
     billing: data?.billing ?? [],
   };
   const totalsByTab: Record<LedgerTab, number> = {
-    topups: data?.kpis.topup_balance ?? 0,
     receipts: data?.kpis.total_receipts ?? 0,
     billing: data?.kpis.billing_last_30_days ?? 0,
   };
   const displayByTab: Record<LedgerTab, string> = {
-    topups: data?.kpis.topup_balance_display ?? '₹0',
     receipts: data?.kpis.receipts_display ?? '₹0',
     billing: data?.kpis.billing_display ?? '₹0',
   };
-  const visibleKpis = kpis.filter((kpi) => !(kpi.memberOnly && companyWide) && !(kpi.hiddenForMla && isMla));
-  const activeTab = visibleKpis.some((kpi) => kpi.id === selectedTab) ? selectedTab : visibleKpis[0].id;
+  const visibleKpis = kpis;
   const companyEntries = data?.company_entries ?? [];
   const companyPagination = useClientPagination(companyEntries, COMPANY_LEDGER_PAGE_SIZE, 'company');
 
-  const transactions = entriesByTab[activeTab];
-  const txPagination = useClientPagination(transactions, LEDGER_TX_PAGE_SIZE, `${activeTab}|${rangeLabel}`);
-  const tableTitle = TAB_TITLES[activeTab];
   const periodLabel = companyWide ? `${rangeLabel} · all members` : rangeLabel;
   const initialLoading = loading && data === null;
-
-  const chartData = useMemo(
-    () => (data?.expenses_by_month ?? []).map((bar) => ({ label: bar.label, value: bar.value })),
-    [data?.expenses_by_month],
-  );
 
   const handleTopUp = async (amount: string, proof: File) => {
     setTopUpSubmitting(true);
@@ -322,7 +375,6 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
       await submitLedgerTopUp(amount, proof);
       setReloadKey((key) => key + 1);
       setTopUpOpen(false);
-      setActiveTab('topups');
       const formatted = amount.trim().replace(/^₹\s*/, '');
       showSuccess(
         `₹${formatted} credited to your ledger. Admin may verify the payment proof later.`,
@@ -340,7 +392,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     setFundsSubmitting(true);
     setFundsError('');
     try {
-      const ledger = await addCompanyFunds(amount);
+      const ledger = await addCompanyFunds(amount, adminId);
       setReloadKey((key) => key + 1);
       setFundsOpen(false);
       showSuccess(`Funds added · company balance ${ledger.available_balance_display ?? ''}`.trim());
@@ -354,9 +406,8 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     }
   };
 
-  const entryKind = activeTab === 'receipts' ? 'receipt' : 'expense';
-
-  const openEntryModal = () => {
+  const openEntryModal = (kind: 'receipt' | 'expense') => {
+    setEntryKind(kind);
     setEntryError('');
     setEntryOpen(true);
   };
@@ -365,7 +416,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     setEntrySubmitting(true);
     setEntryError('');
     try {
-      await addCompanyEntry(entryKind, title, amount);
+      await addCompanyEntry(entryKind, title, amount, adminId);
       setReloadKey((key) => key + 1);
       setEntryOpen(false);
       showSuccess(entryKind === 'receipt' ? 'Receipt added' : 'Expense added');
@@ -394,15 +445,19 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
               color: theme['text-primary'],
             }}
           >
-            My Ledger
+            {isAdminRole(member?.role) ? 'Ledger' : 'My Ledger'}
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {initialLoading ? (
               <SkeletonSubtitle />
+            ) : viewingName ? (
+              `Viewing ${viewingName}'s ledger${data?.viewing_role ? ` · ${data.viewing_role}` : ''}.`
+            ) : combinedView ? (
+              'Every admin ledger combined · receipts and billing across all members.'
             ) : companyWide ? (
-              'Company-wide receipts and billing across all members.'
+              'Report billing is your receipt · member top-ups and CAB payouts are your billing.'
             ) : (
-              'Track receipts and billing across your network.'
+              'Every credit is a receipt and every debit is billing.'
             )}
           </p>
         </div>
@@ -425,92 +480,70 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
       ) : null}
 
       {!initialLoading && !companyWide ? (
-      <div
-        className="dash-card ledger-topup-banner"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: spacing[4],
-          flexWrap: 'wrap',
-          marginBottom: spacing[5],
-          padding: `${spacing[4]} ${spacing[5]}`,
-          background: 'linear-gradient(135deg, #EEF0FF 0%, #F8F0FC 55%, #FFFFFF 100%)',
-          boxShadow: shadow.card,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-          <span
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              flexShrink: 0,
-              display: 'grid',
-              placeItems: 'center',
-              color: '#fff',
-              background: 'var(--btn-primary-gradient)',
-              boxShadow: shadow.soft,
-            }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-          </span>
+        <div className="dash-card ledger-topup-banner ledger-company-banner">
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: theme['text-primary'], letterSpacing: '-0.01em' }}>
-              Top up your ledger
+            <div style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>
+              {viewingName ? `${viewingName}'s balance` : 'Your balance'}
             </div>
-            <div style={{ fontSize: 13, color: theme['text-secondary'], marginTop: 2 }}>
-              Send funds and upload payment proof to credit your balance.
+            <div style={{ fontSize: 28, fontWeight: 700, color: theme['text-primary'], letterSpacing: '-0.02em', marginTop: 4 }}>
+              {data?.available_balance_display ?? '₹0'}
+            </div>
+            <div style={{ fontSize: 13, color: theme['text-muted'], marginTop: 2 }}>
+              Receipts minus billing{isMla && !viewingName ? ' · top up with a payment proof to add funds.' : '.'}
             </div>
           </div>
+          {isMla && !viewingName ? (
+            <button
+              type="button"
+              className="btn-pill-primary"
+              onClick={() => {
+                setTopUpError('');
+                setTopUpOpen(true);
+              }}
+              style={{ height: 44, padding: '0 20px', flexShrink: 0 }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+              Top up now
+            </button>
+          ) : null}
         </div>
-        <button
-          type="button"
-          className="btn-pill-primary"
-          onClick={() => {
-            setTopUpError('');
-            setTopUpOpen(true);
-          }}
-          style={{ height: 44, padding: '0 20px', flexShrink: 0 }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-          Top up now
-        </button>
-      </div>
       ) : null}
 
       {!initialLoading && companyWide ? (
         <div className="dash-card ledger-topup-banner ledger-company-banner">
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>Company ledger balance</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>
+              {combinedView ? 'Combined balance · all admins' : viewingName ? `${viewingName}'s ledger balance` : 'Ledger balance'}
+            </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: theme['text-primary'], letterSpacing: '-0.02em', marginTop: 4 }}>
               {data?.available_balance_display ?? '₹0'}
             </div>
             <div style={{ fontSize: 13, color: theme['text-muted'], marginTop: 2 }}>
-              Shared by Master Admin and H.O · mentor CAB credits are paid from here.
+              {combinedView
+                ? 'Total of every admin ledger.'
+                : 'Report billing adds to this balance · member top-ups, CAB payouts and expenses come out of it.'}
             </div>
           </div>
-          <button
-            type="button"
-            className="btn-pill-primary"
-            onClick={() => {
-              setFundsError('');
-              setFundsOpen(true);
-            }}
-            style={{ height: 44, padding: '0 20px', flexShrink: 0 }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M12 5v14" />
-              <path d="M5 12h14" />
-            </svg>
-            Add funds
-          </button>
+          {superAdmin ? null : (
+            <button
+              type="button"
+              className="btn-pill-primary"
+              onClick={() => {
+                setFundsError('');
+                setFundsOpen(true);
+              }}
+              style={{ height: 44, padding: '0 20px', flexShrink: 0 }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+              Add funds
+            </button>
+          )}
         </div>
       ) : null}
 
@@ -518,26 +551,40 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
         <SkeletonLedgerBody />
       ) : (
         <>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: spacing[3],
-              flexWrap: 'wrap',
-              marginBottom: spacing[4],
-            }}
-          >
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>
-              Showing {rangeLabel.toLowerCase().startsWith('all') ? 'all transactions' : rangeLabel}
-              {loading ? ' · updating…' : ''}
+          <div className="dash-card ledger-filter-bar">
+            <span className="ledger-filter-status">
+              {rangeLabel.toLowerCase().startsWith('all') ? 'All transactions' : rangeLabel}
+              {loading ? <span className="ledger-filter-updating"> · updating…</span> : null}
             </span>
-            <LedgerPeriodFilter
-              period={period}
-              custom={customRange}
-              onPeriodChange={setPeriod}
-              onCustomChange={setCustomRange}
-            />
+            <div className="ledger-filter-controls">
+              {people.length > 0 ? (
+                <LedgerPeopleFilter people={people} value={personFilter} onChange={setPersonFilter} superAdmin={superAdmin} />
+              ) : null}
+              <div className="ledger-filter-period">
+                <LedgerPeriodFilter
+                period={period}
+                custom={customRange}
+                onPeriodChange={setPeriod}
+                  onCustomChange={setCustomRange}
+                />
+              </div>
+              {personFilter || period !== 'all' ? (
+                <button
+                  type="button"
+                  className="ledger-filter-clear"
+                  onClick={() => {
+                    setPersonFilter('');
+                    setPeriod('all');
+                    setCustomRange({});
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                  Clear
+                </button>
+              ) : null}
+            </div>
           </div>
           <div
             className="ledger-kpi-grid"
@@ -550,59 +597,20 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
           >
             {visibleKpis.map((kpi) => {
               const tone = metricColors[kpi.color];
-              const selected = activeTab === kpi.id;
-              const hovered = hoveredId === kpi.id;
-              const focused = focusedId === kpi.id;
-              const showColor = selected || hovered || focused;
               const empty = totalsByTab[kpi.id] === 0;
-              const gradient = `linear-gradient(135deg, ${tone.icon} 0%, ${tone.text} 100%)`;
-
               return (
-                <article
-                  key={kpi.id}
-                  className={`kpi-card kpi-card--link${showColor ? ' is-featured' : ''}${empty ? ' kpi-card--empty' : ''}`}
-                  onMouseEnter={() => setHoveredId(kpi.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  onFocus={() => setFocusedId(kpi.id)}
-                  onBlur={() => setFocusedId(null)}
-                  onClick={() => setActiveTab(kpi.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setActiveTab(kpi.id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selected}
-                  style={{
-                    cursor: 'pointer',
-                    outline: 'none',
-                    background: showColor ? gradient : theme['bg-surface'],
-                    boxShadow: showColor ? `0 20px 40px ${tone.icon}55` : hovered ? 'var(--shadow-cardHover)' : undefined,
-                    transform: hovered || selected ? 'translateY(-3px)' : undefined,
-                    transition: 'background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, color 0.2s ease',
-                    opacity: empty ? 0.92 : 1,
-                  }}
-                >
+                <article key={kpi.id} className={`kpi-card${empty ? ' kpi-card--empty' : ''}`} style={{ opacity: empty ? 0.92 : 1 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
                     <span
                       style={{
                         fontSize: typography.roles.cardLabel.fontSize,
                         fontWeight: typography.roles.cardLabel.fontWeight,
-                        color: showColor ? 'rgba(255, 255, 255, 0.9)' : theme['text-secondary'],
+                        color: theme['text-secondary'],
                       }}
                     >
                       {kpi.label}
                     </span>
-                    <span
-                      className="kpi-icon-bubble"
-                      style={{
-                        background: showColor ? 'rgba(255, 255, 255, 0.22)' : tone.bg,
-                        color: showColor ? '#ffffff' : tone.icon,
-                        borderRadius: radius.pill,
-                      }}
-                    >
+                    <span className="kpi-icon-bubble" style={{ background: tone.bg, color: tone.icon, borderRadius: radius.pill }}>
                       {kpi.icon}
                     </span>
                   </div>
@@ -611,18 +619,12 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                       style={{
                         fontSize: typography.roles.kpiValue.fontSize,
                         fontWeight: typography.roles.kpiValue.fontWeight,
-                        color: showColor ? '#ffffff' : empty ? theme['text-muted'] : theme['text-primary'],
+                        color: empty ? theme['text-muted'] : theme['text-primary'],
                       }}
                     >
                       {displayByTab[kpi.id]}
                     </div>
-                    <div
-                      style={{
-                        fontSize: typography.roles.helperText.fontSize,
-                        marginTop: 6,
-                        color: showColor ? 'rgba(255, 255, 255, 0.78)' : theme['text-muted'],
-                      }}
-                    >
+                    <div style={{ fontSize: typography.roles.helperText.fontSize, marginTop: 6, color: theme['text-muted'] }}>
                       {kpi.getHint(rangeLabel, companyWide)}
                     </div>
                   </div>
@@ -631,79 +633,25 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
             })}
           </div>
 
-          <div className="ledger-lower">
-            <div className="dash-card" style={{ padding: spacing[5] }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: spacing[4],
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>
-                    {tableTitle}
-                  </h2>
-                  {companyWide ? (
-                    <button
-                      type="button"
-                      className="ledger-add-entry-btn"
-                      aria-label={entryKind === 'receipt' ? 'Add receipt' : 'Add expense'}
-                      title={entryKind === 'receipt' ? 'Add receipt' : 'Add expense'}
-                      onClick={openEntryModal}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                    </button>
-                  ) : null}
-                </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: theme['text-secondary'], fontSize: 13, fontWeight: 500, padding: '4px 2px' }}>
-                  {periodLabel}
-                </span>
-              </div>
-
-              <div key={activeTab} style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'ledger-swap-in 0.22s ease' }}>
-                {transactions.length === 0 ? (
-                  <EmptyState
-                    compact
-                    title={`No ${TAB_TITLES[activeTab].toLowerCase()} in this period`}
-                    description={
-                      period !== 'all'
-                        ? `Nothing recorded for ${rangeLabel}. Try a wider period.`
-                        : activeTab === 'topups'
-                          ? 'Use Top up to add funds to your ledger with a payment proof.'
-                          : activeTab === 'receipts'
-                            ? companyWide
-                              ? 'No company receipt entries recorded yet.'
-                              : 'CAB credits you earn appear here.'
-                            : companyWide
-                              ? 'No company billing recorded yet.'
-                              : 'No billing recorded yet.'
-                    }
-                  />
-                ) : (
-                  groupByDate(txPagination.pageItems).map((group) => (
-                    <div key={group.date} className="ledger-company-group">
-                      <div className="ledger-company-date">{group.date}</div>
-                      {group.entries.map((tx) => (
-                        <TransactionRow key={tx.id} tx={tx} isCredit={activeTab !== 'billing'} />
-                      ))}
-                    </div>
-                  ))
-                )}
-              </div>
-              <TablePager
-                page={txPagination.page}
-                pageSize={txPagination.pageSize}
-                total={txPagination.total}
-                onPageChange={txPagination.setPage}
-                className="mis-table-footer"
+          <div
+            className="ledger-sections-grid"
+            style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleKpis.length}, minmax(0, 1fr))`, gap: 20 }}
+          >
+            {visibleKpis.map((kpi) => (
+              <LedgerSection
+                key={kpi.id}
+                tab={kpi.id}
+                entries={entriesByTab[kpi.id]}
+                resetKey={rangeLabel}
+                periodLabel={periodLabel}
+                emptyDescription={
+                  period !== 'all'
+                    ? `Nothing recorded for ${rangeLabel}. Try a wider period.`
+                    : emptyHint(kpi.id, companyWide)
+                }
+                onAdd={companyWide ? () => openEntryModal(kpi.id === 'receipts' ? 'receipt' : 'expense') : undefined}
               />
-            </div>
-
-            <ExpensesChart data={chartData} year={data?.expenses_year ?? new Date().getFullYear()} />
+            ))}
           </div>
 
           {companyWide ? (
@@ -724,7 +672,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                     <div key={group.date} className="ledger-company-group">
                       <div className="ledger-company-date">{group.date}</div>
                       {group.entries.map((entry) => (
-                        <CompanyEntryRow key={entry.id} entry={entry} />
+                        <CompanyEntryRow key={entry.id} entry={entry} showOwner={combinedView} />
                       ))}
                     </div>
                   ))

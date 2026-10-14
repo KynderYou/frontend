@@ -4,7 +4,7 @@ import type {
   AdminVisibilityFieldsPayload,
 } from '../../api/types';
 
-export type MemberRole = 'Admin' | 'Mentor' | 'MLA' | 'Consultant';
+export type MemberRole = 'Super Admin' | 'Admin' | 'Mentor' | 'MLA' | 'Counselor';
 
 export type CreateRole = MemberRole;
 
@@ -18,6 +18,7 @@ export type AdminAccountFormState = {
 
 export type AdminMembershipFormState = {
   mentoredById: string;
+  mlaType: string;
   masType: SubscriptionTier;
   billing: string;
   doj: string;
@@ -29,7 +30,7 @@ export type AdminVisibilityFormState = {
   mrp: 'Show' | 'Hide';
   branding: string;
   misTraining: string;
-  adminBy: string;
+  adminById: string;
   remarks: string;
   certified: boolean;
 };
@@ -76,12 +77,17 @@ export function billingDigitsForForm(value: string | null | undefined, fallback:
 
 export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
-export const roleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA', 'Consultant'];
-export const createRoleOptions: CreateRole[] = roleOptions;
+const baseRoleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA', 'Counselor'];
 
-/** MLAs and consultants always work under a mentor. */
+/** Only a Super Admin can grant the Super Admin role; keep it listed when the member already has it. */
+export function roleOptionsFor(viewerIsSuperAdmin: boolean, current?: string): MemberRole[] {
+  return viewerIsSuperAdmin || current === 'Super Admin' ? ['Super Admin', ...baseRoleOptions] : baseRoleOptions;
+}
+export const mlaTypeOptions = ['Consultant', 'Life Coach', 'Expert'] as const;
+
+/** MLAs and counselors always work under a mentor. */
 export function roleNeedsMentor(role: string): boolean {
-  return role === 'MLA' || role === 'Consultant';
+  return role === 'MLA' || role === 'Counselor';
 }
 
 export const emptyAccountForm: AdminAccountFormState = {
@@ -99,11 +105,13 @@ export function createFormFilled(account: AdminAccountFormState, membership: Adm
   const billing = parseBillingDigits(membership.billing);
   if (!account.role || !name || !phone || !billing) return false;
   if (!account.email.trim() || !account.password) return false;
+  if (account.role === 'MLA' && !membership.mlaType) return false;
   return !roleNeedsMentor(account.role) || Boolean(membership.mentoredById);
 }
 
 export const emptyMembershipForm: AdminMembershipFormState = {
   mentoredById: '',
+  mlaType: '',
   masType: 'Gold',
   billing: tierBilling.Gold,
   doj: '',
@@ -115,7 +123,7 @@ export const emptyVisibilityForm: AdminVisibilityFormState = {
   mrp: 'Show',
   branding: '',
   misTraining: '',
-  adminBy: '',
+  adminById: '',
   remarks: '',
   certified: false,
 };
@@ -128,6 +136,7 @@ function asTier(value: string): SubscriptionTier {
 export function memberToMembershipForm(member: AdminMemberApi): AdminMembershipFormState {
   return {
     mentoredById: member.mentored_by_id ? String(member.mentored_by_id) : '',
+    mlaType: member.mla_type ?? '',
     masType: asTier(member.mas_type || 'Gold'),
     billing: billingDigitsForForm(member.billing, tierBilling.Gold),
     doj: member.doj ?? '',
@@ -141,7 +150,7 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
     mrp: member.mrp === 'Hide' ? 'Hide' : 'Show',
     branding: member.branding ?? '',
     misTraining: member.mis_training ?? '',
-    adminBy: member.admin_by ?? '',
+    adminById: member.admin_by_id ? String(member.admin_by_id) : '',
     remarks: member.remarks ?? '',
     certified: member.certified ?? false,
   };
@@ -149,8 +158,8 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
 
 export function memberDisplayRole(member: Pick<AdminMemberApi, 'role' | 'mentee_type'>): MemberRole {
   if (member.role === 'MLA' || (member.mentee_type || '').toLowerCase() === 'mla') return 'MLA';
-  if (member.role === 'Admin' || member.role === 'Mentor') return member.role;
-  return 'Consultant';
+  if (member.role === 'Super Admin' || member.role === 'Admin' || member.role === 'Mentor') return member.role;
+  return 'Counselor';
 }
 
 export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {
@@ -172,6 +181,7 @@ export function membershipFormToPayload(form: AdminMembershipFormState): AdminMe
   if (form.doj) payload.doj = form.doj;
   if (form.expiryDate) payload.expiry_date = form.expiryDate;
   if (form.opBal.trim()) payload.op_bal = Number(form.opBal);
+  if (form.mlaType) payload.mla_type = form.mlaType;
   return payload;
 }
 
@@ -179,6 +189,7 @@ export function editMembershipFormToPayload(form: AdminEditFormState): AdminMemb
   return {
     ...membershipFormToPayload(form),
     role: form.role,
+    mla_type: form.role === 'MLA' ? form.mlaType : '',
   };
 }
 
@@ -187,7 +198,7 @@ export function visibilityFormToPayload(form: AdminVisibilityFormState): AdminVi
     mrp: form.mrp,
     branding: form.branding.trim() || undefined,
     mis_training: form.misTraining.trim() || undefined,
-    admin_by: form.adminBy.trim() || undefined,
+    admin_by_id: form.adminById ? Number(form.adminById) : undefined,
     remarks: form.remarks.trim() || undefined,
     certified: form.certified,
   };

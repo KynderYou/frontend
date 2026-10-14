@@ -44,6 +44,7 @@ export type Member = {
   mentee_type?: string | null;
   avatar_url?: string | null;
   branding?: string;
+  mla_type?: string;
 };
 
 /** Full profile from /profile/me */
@@ -444,6 +445,14 @@ export type MlaApi = {
   role: string;
 };
 
+export type NetworkAdminApi = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  scan_count: number;
+};
+
 export type MentorRowApi = {
   id: number;
   name: string;
@@ -457,6 +466,8 @@ export type MentorRowApi = {
   status: string;
   trainee_count: number;
   mla_count: number;
+  admin_id?: number | null;
+  admin_name?: string | null;
 };
 
 export type MlasStateApi = {
@@ -487,12 +498,6 @@ export type LedgerEntryRow = {
   is_credit?: boolean;
 };
 
-export type LedgerMonthBar = {
-  month: number;
-  label: string;
-  value: number;
-};
-
 export type LedgerKpis = {
   total_receipts: number;
   billing_last_30_days: number;
@@ -509,13 +514,18 @@ export type LedgerData = {
   receipts: LedgerEntryRow[];
   topups?: LedgerEntryRow[];
   billing: LedgerEntryRow[];
-  expenses_by_month: LedgerMonthBar[];
   billing_window_days: number;
-  expenses_year: number;
   company_wide?: boolean;
   available_balance?: number;
   available_balance_display?: string;
   company_entries?: CompanyLedgerEntryApi[];
+  super_admin?: boolean;
+  admins?: { id: number; name: string; role: string }[];
+  admin_filter_id?: number | null;
+  people?: { id: number; name: string; role: string }[];
+  viewing_member_id?: number | null;
+  viewing_name?: string | null;
+  viewing_role?: string | null;
 };
 
 export type CompanyLedgerEntryApi = {
@@ -526,6 +536,7 @@ export type CompanyLedgerEntryApi = {
   amount: string;
   is_credit: boolean;
   created_by?: string | null;
+  admin?: string | null;
 };
 
 export type CabFeedbackStatus = 'Pending' | 'Approved' | 'Rejected';
@@ -628,6 +639,7 @@ export type AdminMemberApi = {
   created_at: string;
   status: string;
   mentee_type?: string;
+  mla_type?: string;
   doj?: string | null;
   mas_type?: string;
   expiry_date?: string | null;
@@ -639,6 +651,7 @@ export type AdminMemberApi = {
   branding?: string;
   mis_training?: string;
   admin_by?: string;
+  admin_by_id?: number | null;
   remarks?: string;
   certified?: boolean;
 };
@@ -666,13 +679,14 @@ export type AdminMembershipFieldsPayload = {
   op_bal?: number;
   doj?: string;
   role?: string;
+  mla_type?: string;
 };
 
 export type AdminVisibilityFieldsPayload = {
   mrp?: 'Show' | 'Hide';
   branding?: string;
   mis_training?: string;
-  admin_by?: string;
+  admin_by_id?: number;
   remarks?: string;
   certified?: boolean;
 };

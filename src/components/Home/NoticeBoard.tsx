@@ -4,6 +4,7 @@ import { mapCommunicationsToDashboardNotices } from '../Communications/communica
 import { colors, noticeAuthorTokens, radius, severityTokens, shadow, spacing, type SeverityLevel } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton, SkeletonLine } from '../common/Skeleton';
+import { isAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
 
@@ -31,7 +32,7 @@ const severityIcon: Record<SeverityLevel, React.ReactNode> = {
 };
 
 function authorTone(role: string | null | undefined) {
-  if (role === 'Admin') return noticeAuthorTokens.Admin;
+  if (isAdminRole(role)) return noticeAuthorTokens.Admin;
   if (role === 'Mentor') return noticeAuthorTokens.Mentor;
   return noticeAuthorTokens.default;
 }

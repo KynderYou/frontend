@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { colors, sidebarTokens, spacing } from '../../styles/theme';
-import { getVisibleNavItems, type AppView } from './navItems';
+import { getVisibleNavItems, isAdminNav, navLabel, type AppView } from './navItems';
 import type { MemberNav } from '../../api/types';
 import logo from '../../assets/midna-logo.png';
 
@@ -17,6 +17,7 @@ type MobileNavDrawerProps = {
 
 export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogout, nav }: MobileNavDrawerProps) {
   const visibleNavItems = getVisibleNavItems(nav);
+  const isAdmin = isAdminNav(nav);
   const go = (view: AppView) => {
     onNavigate(view);
     onClose();
@@ -101,7 +102,7 @@ export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogou
                       <Icon size={18} fill="none" stroke="currentColor" strokeWidth={1.7} />
                     </span>
                   </span>
-                  <span className="sidebar-nav-label">{item.label}</span>
+                  <span className="sidebar-nav-label">{navLabel(item.label, isAdmin)}</span>
                 </button>
               </Fragment>
             );

@@ -89,36 +89,11 @@ export function SkeletonTxRows({ rows = 6, variant = 'default' }: { rows?: numbe
   );
 }
 
-export function SkeletonExpensesChart() {
-  const barHeights = [52, 84, 38, 112, 68, 94, 44, 76, 58, 102, 48, 88];
-
-  return (
-    <div className="dash-card skeleton-expenses-chart">
-      <div className="skeleton-expenses-header">
-        <Skeleton width={92} height={20} />
-        <Skeleton width={36} height={13} />
-      </div>
-      <div className="skeleton-expenses-body">
-        <div className="skeleton-expenses-bars" aria-hidden="true">
-          {barHeights.map((height, index) => (
-            <Skeleton key={index} className="skeleton-expenses-bar" height={height} />
-          ))}
-        </div>
-        <div className="skeleton-expenses-labels" aria-hidden="true">
-          {Array.from({ length: 12 }, (_, index) => (
-            <Skeleton key={index} width="100%" height={11} className="skeleton-expenses-label" />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function SkeletonLedgerBody() {
   return (
     <>
       <SkeletonKpiGrid count={2} columns={2} />
-      <div className="ledger-lower skeleton-ledger-lower">
+      <div className="skeleton-ledger-lower">
         <div className="dash-card skeleton-ledger-receipts">
           <div className="skeleton-ledger-receipts-head">
             <Skeleton width={88} height={20} />
@@ -133,7 +108,6 @@ export function SkeletonLedgerBody() {
             </div>
           </div>
         </div>
-        <SkeletonExpensesChart />
       </div>
     </>
   );

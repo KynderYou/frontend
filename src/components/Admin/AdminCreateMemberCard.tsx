@@ -16,6 +16,7 @@ type AdminCreateMemberCardProps = {
   membershipForm: AdminMembershipFormState;
   visibilityForm: AdminVisibilityFormState;
   mentors: MentorOption[];
+  admins: MentorOption[];
   error: string | null;
   submitting: boolean;
   onAccountChange: (next: AdminAccountFormState) => void;
@@ -29,6 +30,7 @@ export function AdminCreateMemberCard({
   membershipForm,
   visibilityForm,
   mentors,
+  admins,
   error,
   submitting,
   onAccountChange,
@@ -36,7 +38,7 @@ export function AdminCreateMemberCard({
   onVisibilityChange,
   onSubmit,
 }: AdminCreateMemberCardProps) {
-  const isConsultant = accountForm.role === 'Consultant';
+  const isCounselor = accountForm.role === 'Counselor';
   const needsMentor = roleNeedsMentor(accountForm.role);
   const canSubmit = createFormFilled(accountForm, membershipForm);
   const mentorChoices = needsMentor ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors;
@@ -57,10 +59,18 @@ export function AdminCreateMemberCard({
           form={membershipForm}
           mentors={mentorChoices}
           onChange={onMembershipChange}
-          consultantMode={isConsultant}
+          counselorMode={isCounselor}
           mentorRequired={needsMentor}
+          mlaMode={accountForm.role === 'MLA'}
+          mlaTypeRequired
         />
-        <AdminVisibilityAdminFields form={visibilityForm} onChange={onVisibilityChange} />
+        <AdminVisibilityAdminFields
+          form={visibilityForm}
+          onChange={onVisibilityChange}
+          admins={admins}
+          defaultToSelf
+          hideAssignedAdmin={accountForm.role === 'Admin' || accountForm.role === 'Super Admin'}
+        />
         <AdminReadOnlyNote />
 
         <div className="admin-create-footer">

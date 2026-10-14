@@ -1,7 +1,7 @@
 import { apiClient } from '../client';
 import { isDemoToken } from '../demoAuth';
 import { getToken } from '../token';
-import type { MentorRowApi, MlaScanApi, MlasStateApi } from '../types';
+import type { MentorRowApi, MlaScanApi, MlasStateApi, NetworkAdminApi } from '../types';
 
 /** GET /api/mlas/state — pass scope=mine for mentor MLA List */
 export async function getMlasState(
@@ -37,4 +37,20 @@ export async function getMentorScans(mentorId: number, signal?: AbortSignal): Pr
     return [];
   }
   return apiClient<MlaScanApi[]>(`/api/mentors/${mentorId}/scans`, { signal });
+}
+
+/** GET /api/mentors/admins — admins for the Network tree; scan figures count only scans the admin uploaded */
+export async function getNetworkAdmins(signal?: AbortSignal): Promise<NetworkAdminApi[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<NetworkAdminApi[]>('/api/mentors/admins', { signal });
+}
+
+/** GET /api/mentors/admins/{id}/scans — scans uploaded by the admin themselves */
+export async function getAdminScans(adminId: number, signal?: AbortSignal): Promise<MlaScanApi[]> {
+  if (isDemoToken(getToken())) {
+    return [];
+  }
+  return apiClient<MlaScanApi[]>(`/api/mentors/admins/${adminId}/scans`, { signal });
 }

@@ -1,12 +1,23 @@
-import type { AdminVisibilityFormState } from './adminProfileForm';
+import type { AdminVisibilityFormState, MentorOption } from './adminProfileForm';
 import { brandingOptions } from './adminProfileForm';
 
 type AdminVisibilityAdminFieldsProps = {
   form: AdminVisibilityFormState;
   onChange: (next: AdminVisibilityFormState) => void;
+  admins: MentorOption[];
+  /** Create form: blank means the signed-in admin. */
+  defaultToSelf?: boolean;
+  /** Admin accounts run their own ledger, so they have no assigned admin. */
+  hideAssignedAdmin?: boolean;
 };
 
-export function AdminVisibilityAdminFields({ form, onChange }: AdminVisibilityAdminFieldsProps) {
+export function AdminVisibilityAdminFields({
+  form,
+  onChange,
+  admins,
+  defaultToSelf = false,
+  hideAssignedAdmin = false,
+}: AdminVisibilityAdminFieldsProps) {
   const update = <K extends keyof AdminVisibilityFormState>(key: K, value: AdminVisibilityFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -51,15 +62,21 @@ export function AdminVisibilityAdminFields({ form, onChange }: AdminVisibilityAd
             placeholder="Completed / Pending"
           />
         </label>
-        <label className="form-field">
-          <span className="form-label">Admin by</span>
-          <input
-            className="form-input"
-            value={form.adminBy}
-            onChange={(e) => update('adminBy', e.target.value)}
-            placeholder="Admin name"
-          />
-        </label>
+        {!hideAssignedAdmin && (
+          <label className="form-field">
+            <span className="form-label">Assigned admin (ledger)</span>
+            <div className="form-select-wrap">
+              <select className="form-input form-select" value={form.adminById} onChange={(e) => update('adminById', e.target.value)}>
+                {(defaultToSelf || !form.adminById) && <option value="">{defaultToSelf ? 'Me' : 'Not assigned'}</option>}
+                {admins.map((admin) => (
+                  <option key={admin.id} value={admin.id}>
+                    {admin.name} · {admin.role}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+        )}
         <label className="form-field admin-form-span-2">
           <span className="form-label">Remarks</span>
           <textarea

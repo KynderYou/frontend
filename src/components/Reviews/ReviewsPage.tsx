@@ -11,10 +11,14 @@ import { TablePager } from '../common/TablePager';
 import { TrashButton } from '../common/TrashButton';
 import { useToast } from '../common/ToastProvider';
 import { useClientPagination } from '../../hooks/useClientPagination';
+import { isAdminRole } from '../../utils/roles';
+import { useCurrentMember } from '../Auth/MemberContext';
+import { useNetworkHierarchy } from '../Network/useNetworkHierarchy';
 import { useProtectedFile } from '../../hooks/useProtectedFile';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { AddReviewModal } from './AddReviewModal';
+import { ReviewsPeopleTree } from './ReviewsPeopleTree';
 import { REVIEW_KIND_OPTIONS } from './reviewKinds';
 
 const theme = colors.light;
@@ -101,6 +105,9 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
   const [addOpen, setAddOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError] = useState('');
+  const isAdminViewer = isAdminRole(useCurrentMember()?.role);
+  const hierarchy = useNetworkHierarchy(isAdminViewer);
+  const [personId, setPersonId] = useState<number | null>(null);
 
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -119,17 +126,34 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
     return () => controller.abort();
   }, [loadReviews]);
 
+  const postedCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const review of reviews) counts.set(review.posted_by_id, (counts.get(review.posted_by_id) ?? 0) + 1);
+    return counts;
+  }, [reviews]);
+
+  const personReviews = useMemo(
+    () => (personId === null ? reviews : reviews.filter((review) => review.posted_by_id === personId)),
+    [reviews, personId],
+  );
+
+  const personName = useMemo(() => {
+    if (personId === null) return '';
+    const people = [...hierarchy.admins, ...hierarchy.mentors, ...hierarchy.mentees];
+    return people.find((person) => person.id === personId)?.name ?? '';
+  }, [hierarchy, personId]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return reviews.filter((review) => {
+    return personReviews.filter((review) => {
       if (filter !== 'all' && review.kind !== filter) return false;
       if (!q) return true;
       return [review.client_name, review.caption, review.posted_by_name, review.kind_label]
         .some((value) => value.toLowerCase().includes(q));
     });
-  }, [reviews, filter, query]);
+  }, [personReviews, filter, query]);
 
-  const pagination = useClientPagination(filtered, REVIEWS_PAGE_SIZE, `${filter}|${query}`);
+  const pagination = useClientPagination(filtered, REVIEWS_PAGE_SIZE, `${filter}|${query}|${personId ?? ''}`);
 
   const handleAdd = async (review: NewReview) => {
     setSubmitting(true);
@@ -157,7 +181,8 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
     }
   };
 
-  const countFor = (kind: KindFilter) => (kind === 'all' ? reviews.length : reviews.filter((r) => r.kind === kind).length);
+  const countFor = (kind: KindFilter) =>
+    kind === 'all' ? personReviews.length : personReviews.filter((r) => r.kind === kind).length;
 
   return (
     <section className="page-section reviews-page">
@@ -191,100 +216,131 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
         </div>
       </div>
 
-      <div className="dash-card reviews-toolbar">
-        <div className="reviews-filters" role="tablist" aria-label="Filter by review type">
-          {(['all', ...REVIEW_KIND_OPTIONS.map((o) => o.id)] as KindFilter[]).map((kind) => {
-            const label = kind === 'all' ? 'All' : REVIEW_KIND_OPTIONS.find((o) => o.id === kind)?.label;
-            return (
-              <button
-                key={kind}
-                type="button"
-                role="tab"
-                aria-selected={filter === kind}
-                className={`reviews-filter${filter === kind ? ' is-active' : ''}`}
-                onClick={() => setFilter(kind)}
-              >
-                {label}
-                <span className="reviews-filter-count">{countFor(kind)}</span>
+      <div className={isAdminViewer ? 'trainees-layout reviews-layout' : undefined}>
+        {isAdminViewer ? (
+          <ReviewsPeopleTree
+            hierarchy={hierarchy}
+            counts={postedCounts}
+            total={reviews.length}
+            selectedId={personId}
+            onSelect={setPersonId}
+          />
+        ) : null}
+        <div className="reviews-main">
+          {personName ? (
+            <div className="reviews-person-chip">
+              <span>
+                Showing reviews posted by <strong>{personName}</strong>
+              </span>
+              <button type="button" onClick={() => setPersonId(null)} aria-label="Show everyone's reviews">
+                × Everyone
               </button>
-            );
-          })}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3] }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: theme['bg-muted'],
-              borderRadius: radius.md,
-              padding: '8px 12px',
-              minWidth: 200,
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme['text-muted']} strokeWidth="1.8">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search client or member"
-              aria-label="Search reviews"
-              className="reviews-search-input"
-            />
-          </label>
-          <button
-            type="button"
-            className="btn-pill-primary reviews-add-btn"
-            aria-label="Add review"
-            title="Add review"
-            onClick={() => {
-              setAddError('');
-              setAddOpen(true);
-            }}
-          >
-            <LuPlus size={18} />
-          </button>
+            </div>
+          ) : null}
+          <div className="dash-card reviews-toolbar">
+            <div className="reviews-filters" role="tablist" aria-label="Filter by review type">
+              {(['all', ...REVIEW_KIND_OPTIONS.map((o) => o.id)] as KindFilter[]).map((kind) => {
+                const label = kind === 'all' ? 'All' : REVIEW_KIND_OPTIONS.find((o) => o.id === kind)?.label;
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === kind}
+                    className={`reviews-filter${filter === kind ? ' is-active' : ''}`}
+                    onClick={() => setFilter(kind)}
+                  >
+                    {label}
+                    <span className="reviews-filter-count">{countFor(kind)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3] }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: theme['bg-muted'],
+                  borderRadius: radius.md,
+                  padding: '8px 12px',
+                  minWidth: 200,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme['text-muted']} strokeWidth="1.8">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search client or member"
+                  aria-label="Search reviews"
+                  className="reviews-search-input"
+                />
+              </label>
+              <button
+                type="button"
+                className="btn-pill-primary reviews-add-btn"
+                aria-label="Add review"
+                title="Add review"
+                onClick={() => {
+                  setAddError('');
+                  setAddOpen(true);
+                }}
+              >
+                <LuPlus size={18} />
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="reviews-grid" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="review-card is-skeleton" />
+              ))}
+            </div>
+          ) : loadError ? (
+            <div className="dash-card" style={{ padding: spacing[2] }}>
+              <EmptyState title="Could not load reviews" description={loadError} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="dash-card" style={{ padding: spacing[2] }}>
+              <EmptyState
+                title={
+                  personReviews.length > 0
+                    ? 'No matching reviews'
+                    : personName
+                      ? `No reviews from ${personName} yet`
+                      : 'No reviews yet'
+                }
+                description={
+                  personReviews.length > 0
+                    ? 'Try another review type or search.'
+                    : personName
+                      ? 'Pick someone else, or press + to add a review.'
+                      : 'Press + to add the first client review.'
+                }
+              />
+            </div>
+          ) : (
+            <>
+              <div className="reviews-grid">
+                {pagination.pageItems.map((review) => (
+                  <ReviewCard key={review.id} review={review} onDelete={handleDelete} />
+                ))}
+              </div>
+              <TablePager
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                total={pagination.total}
+                onPageChange={pagination.setPage}
+              />
+            </>
+          )}
         </div>
       </div>
-
-      {loading ? (
-        <div className="reviews-grid" aria-busy="true">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="review-card is-skeleton" />
-          ))}
-        </div>
-      ) : loadError ? (
-        <div className="dash-card" style={{ padding: spacing[2] }}>
-          <EmptyState title="Could not load reviews" description={loadError} />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="dash-card" style={{ padding: spacing[2] }}>
-          <EmptyState
-            title={reviews.length === 0 ? 'No reviews yet' : 'No matching reviews'}
-            description={
-              reviews.length === 0
-                ? 'Press + to add the first client review.'
-                : 'Try another review type or search.'
-            }
-          />
-        </div>
-      ) : (
-        <>
-          <div className="reviews-grid">
-            {pagination.pageItems.map((review) => (
-              <ReviewCard key={review.id} review={review} onDelete={handleDelete} />
-            ))}
-          </div>
-          <TablePager
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            onPageChange={pagination.setPage}
-          />
-        </>
-      )}
 
       {addOpen ? (
         <AddReviewModal

@@ -1,23 +1,27 @@
 import type { AdminMembershipFormState, MentorOption } from './adminProfileForm';
-import { subscriptionTierOptions, tierBilling } from './adminProfileForm';
+import { mlaTypeOptions, subscriptionTierOptions, tierBilling } from './adminProfileForm';
 import { BillingSlabField } from './BillingSlabField';
 
 type AdminMembershipBillingFieldsProps = {
   form: AdminMembershipFormState;
   mentors: MentorOption[];
   onChange: (next: AdminMembershipFormState) => void;
-  consultantMode?: boolean;
+  counselorMode?: boolean;
   mentorRequired?: boolean;
+  mlaMode?: boolean;
+  mlaTypeRequired?: boolean;
 };
 
 export function AdminMembershipBillingFields({
   form,
   mentors,
   onChange,
-  consultantMode = false,
+  counselorMode = false,
   mentorRequired = false,
+  mlaMode = false,
+  mlaTypeRequired = false,
 }: AdminMembershipBillingFieldsProps) {
-  const needsMentor = consultantMode || mentorRequired;
+  const needsMentor = counselorMode || mentorRequired;
   const update = <K extends keyof AdminMembershipFormState>(key: K, value: AdminMembershipFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -34,11 +38,31 @@ export function AdminMembershipBillingFields({
     <div className="admin-form-section">
       <h3 className="admin-form-section-title">Membership &amp; billing</h3>
       <p className="admin-form-section-sub">
-        {consultantMode
-          ? 'Consultant scans go to this mentor for QC check and export, and are billed to the mentor'
+        {counselorMode
+          ? 'Counselor scans go to this mentor for QC check and export, and are billed to the mentor'
           : 'Admin-only · member cannot edit these on profile'}
       </p>
       <div className="admin-create-grid">
+        {mlaMode ? (
+          <label className="form-field">
+            <span className="form-label">MLA type{mlaTypeRequired ? ' *' : ''}</span>
+            <div className="form-select-wrap">
+              <select
+                className="form-input form-select"
+                value={form.mlaType}
+                onChange={(e) => update('mlaType', e.target.value)}
+                required={mlaTypeRequired}
+              >
+                <option value="">{mlaTypeRequired ? 'Select MLA type' : 'Not set'}</option>
+                {mlaTypeOptions.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+        ) : null}
         <label className="form-field">
           <span className="form-label">Mentored by{needsMentor ? ' *' : ''}</span>
           <div className="form-select-wrap">
@@ -87,7 +111,7 @@ export function AdminMembershipBillingFields({
             onChange={(e) => update('expiryDate', e.target.value)}
           />
         </label>
-        {!consultantMode ? (
+        {!counselorMode ? (
           <label className="form-field">
             <span className="form-label">Opening balance</span>
             <input

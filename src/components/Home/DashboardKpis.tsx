@@ -9,8 +9,7 @@ import type { AppView } from '../Layout/navItems';
 const theme = colors.light;
 
 function scansDashboardLink(nav?: MemberNav): AppView | undefined {
-  if (nav?.scans_mla) return 'scans-mla';
-  if (nav?.scans_ho) return 'scans-ho';
+  if (nav?.scans_mla || nav?.scans_ho) return 'scans';
   return undefined;
 }
 

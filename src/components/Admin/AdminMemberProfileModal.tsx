@@ -3,14 +3,17 @@ import { updateAdminMemberMembership, updateAdminMemberStatus, updateAdminMember
 import type { AdminMemberApi } from '../../api/types';
 import { colors, spacing } from '../../styles/theme';
 import { useToast } from '../common/ToastProvider';
+import { useCurrentMember } from '../Auth/MemberContext';
+import { isSuperAdminRole } from '../../utils/roles';
 import { AdminMembershipBillingFields } from './AdminMembershipBillingFields';
 import { AdminVisibilityAdminFields } from './AdminVisibilityAdminFields';
 import {
   billingSlabError,
   editMembershipFormToPayload,
+  memberDisplayRole,
   memberToEditForm,
   roleNeedsMentor,
-  roleOptions,
+  roleOptionsFor,
   visibilityFormToPayload,
   type AdminEditFormState,
   type MemberRole,
@@ -23,6 +26,7 @@ type AdminMemberProfileModalProps = {
   open: boolean;
   member: AdminMemberApi | null;
   mentors: MentorOption[];
+  admins: MentorOption[];
   onClose: () => void;
   onSaved: (member: AdminMemberApi) => void;
 };
@@ -31,10 +35,12 @@ export function AdminMemberProfileModal({
   open,
   member,
   mentors,
+  admins,
   onClose,
   onSaved,
 }: AdminMemberProfileModalProps) {
   const { showSuccess, showError } = useToast();
+  const viewerIsSuperAdmin = isSuperAdminRole(useCurrentMember()?.role);
   const [form, setForm] = useState<AdminEditFormState>(() =>
     member ? memberToEditForm(member) : memberToEditForm({} as AdminMemberApi),
   );
@@ -64,6 +70,8 @@ export function AdminMemberProfileModal({
 
   if (!open || !member) return null;
 
+  const becomingMla = form.role === 'MLA' && memberDisplayRole(member) !== 'MLA';
+
   const handleResendVerification = async () => {
     setResending(true);
     setError('');
@@ -83,6 +91,10 @@ export function AdminMemberProfileModal({
     e.preventDefault();
     if (roleNeedsMentor(form.role) && !form.mentoredById) {
       setError(`Select a mentor for this ${form.role}.`);
+      return;
+    }
+    if (becomingMla && !form.mlaType) {
+      setError('Select the MLA type.');
       return;
     }
     const billingError = billingSlabError(form.billing);
@@ -150,7 +162,7 @@ export function AdminMemberProfileModal({
                         setForm((current) => ({ ...current, role: e.target.value as MemberRole }))
                       }
                     >
-                      {roleOptions.map((role) => (
+                      {roleOptionsFor(viewerIsSuperAdmin, member?.role).map((role) => (
                         <option key={role} value={role}>
                           {role}
                         </option>
@@ -194,8 +206,15 @@ export function AdminMemberProfileModal({
               mentors={roleNeedsMentor(form.role) ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors}
               onChange={(next) => setForm((current) => ({ ...current, ...next }))}
               mentorRequired={roleNeedsMentor(form.role)}
+              mlaMode={form.role === 'MLA'}
+              mlaTypeRequired={becomingMla}
             />
-            <AdminVisibilityAdminFields form={form} onChange={(next) => setForm((current) => ({ ...current, ...next }))} />
+            <AdminVisibilityAdminFields
+              form={form}
+              onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+              admins={admins}
+              hideAssignedAdmin={form.role === 'Admin' || form.role === 'Super Admin'}
+            />
           </div>
           <div className="modal-footer">
             <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={saving}>

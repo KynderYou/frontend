@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { colors, layoutTokens, sidebarTokens, spacing } from '../../styles/theme';
-import { getVisibleNavItems, type AppView } from './navItems';
+import { getVisibleNavItems, isAdminNav, navLabel, type AppView } from './navItems';
 import type { MemberNav } from '../../api/types';
 import logo from '../../assets/midna-logo.png';
 
@@ -18,6 +18,7 @@ type SidebarProps = {
 export function Sidebar({ collapsed, onToggle, activeView, onNavigate, onLogout, nav }: SidebarProps) {
   const width = collapsed ? layoutTokens.sidebarCollapsedWidth : layoutTokens.sidebarWidth;
   const visibleNavItems = getVisibleNavItems(nav);
+  const isAdmin = isAdminNav(nav);
 
   return (
     <aside
@@ -144,7 +145,7 @@ export function Sidebar({ collapsed, onToggle, activeView, onNavigate, onLogout,
                 type="button"
                 onClick={() => onNavigate(item.id)}
                 className={`sidebar-nav-item${active ? ' is-active' : ''}${collapsed ? '' : ' is-expanded'}`}
-                aria-label={item.label}
+                aria-label={navLabel(item.label, isAdmin)}
                 style={{
                   position: 'relative',
                   display: 'flex',
@@ -174,8 +175,8 @@ export function Sidebar({ collapsed, onToggle, activeView, onNavigate, onLogout,
                     <Icon size={collapsed ? 18 : 16} fill="none" stroke="currentColor" strokeWidth={1.7} />
                   </span>
                 </span>
-                {!collapsed && <span className="sidebar-nav-label">{item.label}</span>}
-                {collapsed && <span className="sidebar-tooltip">{item.label}</span>}
+                {!collapsed && <span className="sidebar-nav-label">{navLabel(item.label, isAdmin)}</span>}
+                {collapsed && <span className="sidebar-tooltip">{navLabel(item.label, isAdmin)}</span>}
               </button>
             </Fragment>
           );

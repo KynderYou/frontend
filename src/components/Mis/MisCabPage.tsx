@@ -12,6 +12,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapCabState } from './cabApiMapper';
 import type { CabFeedback, CabFeedbackStatus } from './cabData';
+import { isAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
 const CAB_PAGE_SIZE = 12;
@@ -77,7 +78,7 @@ export function MisCabPage({
     setLoading(true);
     try {
       const [member, state] = await Promise.all([getMe(signal), getCabState(signal)]);
-      setIsAdmin(member.role === 'Admin');
+      setIsAdmin(isAdminRole(member.role));
       applyState(state);
       setLoadError('');
     } catch {

@@ -8,6 +8,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapMisScans } from './misApiMapper';
 import { MONTH_LABELS, NETWORK_YEAR, type MlaMember, type NetworkScan } from './misData';
+import { isAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
 const PAGE_SIZE = 12;
@@ -92,10 +93,10 @@ export function MisScansPage({
   const hasFilters = query.trim() !== '' || mlaFilter !== 'All' || monthFilter !== 'All';
   const showMlaFilter = mlaMembers.length > 1;
   const subtitle =
-    viewerRole === 'Admin'
-      ? `All network scans for ${NETWORK_YEAR} — every mentor, consultant, and MLA upload`
+    isAdminRole(viewerRole)
+      ? `All network scans for ${NETWORK_YEAR} — every mentor, counselor, and MLA upload`
       : viewerRole === 'Mentor'
-        ? `Your uploads plus your consultants’ and MLAs’ scans · ${NETWORK_YEAR}`
+        ? `Your uploads plus your counselors’ and MLAs’ scans · ${NETWORK_YEAR}`
         : `Your scans · ${NETWORK_YEAR}`;
 
   if (loadError) {

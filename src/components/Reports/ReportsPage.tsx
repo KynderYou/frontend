@@ -31,7 +31,8 @@ import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_S
 import { UpgradeReportModal } from './UpgradeReportModal';
 import { InfoTip } from '../common/InfoTip';
 import { initials } from '../../utils/initials';
-import { isTraineeLogin } from '../Auth/MemberContext';
+import { isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
+import { isAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
 const REPORTS_PAGE_SIZE = 12;
@@ -92,6 +93,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [upgradingRecord, setUpgradingRecord] = useState<ReportRecord | null>(null);
   const [cabRecord, setCabRecord] = useState<ReportRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
+  const isAdminViewer = isAdminRole(useCurrentMember()?.role);
   /** Ledger balance for field members; null for Admin/HO, who have no wallet. */
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletChecked, setWalletChecked] = useState(false);
@@ -247,7 +249,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
 
   const cabTitle = (row: ReportRecord) => {
     if (isOwnNonMlaScan(row)) return 'Your own scan · CAB feedback is only for scans your MLAs upload';
-    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a consultant — no CAB feedback';
+    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a counselor — no CAB feedback';
     if (canRequestCab(row)) {
       return row.cabRequestedAt
         ? `Requested ${row.cabRequestedAt} · click to remind the MLA again (once a day)`
@@ -262,7 +264,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
 
   const cabLabel = (row: ReportRecord) => {
     if (isOwnNonMlaScan(row)) return 'Own scan';
-    if (row.uploadedForTrainee) return 'Uploaded by consultant';
+    if (row.uploadedForTrainee) return 'Uploaded by counselor';
     if (canRequestCab(row)) {
       if (requestingCab === row.id) return 'Requesting…';
       if (row.cabRequestedAt) return 'Requested ✓';
@@ -607,7 +609,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
               color: theme['text-primary'],
             }}
           >
-            My Reports
+            {isAdminViewer ? 'Reports' : 'My Reports'}
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             All your scans and their reports — download, upgrade, give CAB feedback, or delete a scan. AI reports are coming soon.

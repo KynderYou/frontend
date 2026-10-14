@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createAdminMember, deleteAdminMember, getAdminMembers, getAdminMentors } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
+import { isAdminRole } from '../../utils/roles';
 import { colors, spacing, typography } from '../../styles/theme';
 import { Skeleton, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
@@ -72,6 +73,10 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
     loadPage(controller.signal);
     return () => controller.abort();
   }, [loadPage]);
+
+  const admins: MentorOption[] = members
+    .filter((member) => isAdminRole(member.role))
+    .map((member) => ({ id: String(member.id), name: member.name, role: member.role }));
 
   const membersPagination = useClientPagination(members, MEMBERS_PAGE_SIZE, members.length);
 
@@ -190,6 +195,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
         open={editMember != null}
         member={editMember}
         mentors={mentors}
+        admins={admins}
         onClose={() => setEditMember(null)}
         onSaved={handleProfileSaved}
       />
@@ -230,6 +236,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
         membershipForm={membershipForm}
         visibilityForm={visibilityForm}
         mentors={mentors}
+        admins={admins}
         error={error}
         submitting={submitting}
         onAccountChange={setAccountForm}

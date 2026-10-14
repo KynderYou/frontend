@@ -20,6 +20,7 @@ import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { HoRecycleBinModal } from './HoRecycleBinModal';
+import { ScansMlaPage } from './ScansMlaPage';
 import { hoScanListToRecords, type HoScanRecord, type HoSectionId } from './hoScanApiMapper';
 import { ProcessScanModal, type ProcessScanMode, type ProcessScanPayload, type ScanFingerPayload } from './ProcessScanModal';
 import { scanStatusStyles } from './scanStatusStyles';
@@ -40,6 +41,10 @@ function revokeResolvedImages(images: ScanImage[] | null) {
 
 type ScansHoPageProps = {
   isAdmin?: boolean;
+  /** Shows the Upload Scan tab (first tab, open by default). */
+  canUpload?: boolean;
+  /** Shows the head office queues (Preprocess for mentors; every queue for admins). */
+  canProcess?: boolean;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
 };
@@ -119,6 +124,11 @@ function toProcessRecord(row: HoScanRecord, initialFingers?: ReturnType<typeof m
   };
 }
 
+/** Admin-uploaded scans carry a 0% billing preview from the API and are not billed. */
+function isHeadOfficeScan(record: HoScanRecord): boolean {
+  return record.billingPercent === 0;
+}
+
 function HoDebitScanModal({
   open,
   record,
@@ -147,6 +157,7 @@ function HoDebitScanModal({
 
   const billingLabel = record.billingPercent ? `${record.billingPercent}%` : 'billing %';
   const debitAmount = record.reportDebitAmount ?? '—';
+  const headOffice = isHeadOfficeScan(record);
 
   return (
     <div
@@ -160,7 +171,7 @@ function HoDebitScanModal({
         <div className="modal-header">
           <div>
             <h2 id="ho-debit-scan-title" className="modal-title">
-              Debit report billing?
+              {headOffice ? 'Finish report?' : 'Debit report billing?'}
             </h2>
             <p className="modal-subtitle">
               Scan {record.scanId} · {record.name}
@@ -174,11 +185,18 @@ function HoDebitScanModal({
         </div>
 
         <div className="modal-body">
-          <p className="reports-delete-warning">
-            This will debit <strong>{debitAmount}</strong> from the company ledger and credit it to{' '}
-            <strong>{record.scanBy}</strong> using <strong>{billingLabel}</strong> of the report MRP{' '}
-            <strong>{record.cost}</strong>.
-          </p>
+          {headOffice ? (
+            <p className="reports-delete-warning">
+              This is a head office scan uploaded by <strong>{record.scanBy}</strong>, so there is no report
+              billing. The report moves to My Reports.
+            </p>
+          ) : (
+            <p className="reports-delete-warning">
+              This will debit <strong>{debitAmount}</strong> from the company ledger and credit it to{' '}
+              <strong>{record.scanBy}</strong> using <strong>{billingLabel}</strong> of the report MRP{' '}
+              <strong>{record.cost}</strong>.
+            </p>
+          )}
         </div>
 
         <div className="modal-footer">
@@ -194,7 +212,7 @@ function HoDebitScanModal({
               onClose();
             }}
           >
-            Confirm debit
+            {headOffice ? 'Finish' : 'Confirm debit'}
           </button>
         </div>
       </div>
@@ -202,8 +220,15 @@ function HoDebitScanModal({
   );
 }
 
-export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }: ScansHoPageProps) {
+export function ScansHoPage({
+  isAdmin = true,
+  canUpload = false,
+  canProcess = true,
+  onOpenMobileMenu,
+  onOpenProfile,
+}: ScansHoPageProps) {
   const { showSuccess, showError } = useToast();
+  const [uploadTab, setUploadTab] = useState(canUpload || !canProcess);
   const [activeSection, setActiveSection] = useState<HoSectionId>('preprocess');
   const [records, setRecords] = useState<HoScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,6 +254,10 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
   }, [isAdmin, activeSection]);
 
   const loadScans = useCallback(async (signal?: AbortSignal) => {
+    if (!canProcess) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const scans = await getHoScans(signal);
@@ -239,13 +268,14 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [canProcess]);
 
   useEffect(() => {
+    if (uploadTab) return;
     const controller = new AbortController();
     loadScans(controller.signal);
     return () => controller.abort();
-  }, [loadScans]);
+  }, [loadScans, uploadTab]);
 
   const refreshBinCount = useCallback(
     async (signal?: AbortSignal) => {
@@ -316,10 +346,10 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
     return () => controller.abort();
   }, [panelTarget]);
 
-  const visibleSections = useMemo(
-    () => (isAdmin ? (Object.keys(sectionLabels) as HoSectionId[]) : (['preprocess'] as HoSectionId[])),
-    [isAdmin],
-  );
+  const visibleSections = useMemo(() => {
+    if (!canProcess) return [] as HoSectionId[];
+    return isAdmin ? (Object.keys(sectionLabels) as HoSectionId[]) : (['preprocess'] as HoSectionId[]);
+  }, [isAdmin, canProcess]);
 
   const canOpenFingerprint =
     activeSection === 'preprocess' ||
@@ -450,10 +480,12 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
               color: theme['text-primary'],
             }}
           >
-            Process Scan
+            Scans
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Review exported scans across preprocess, process, review, download, and report upload queues.
+            {canProcess
+              ? 'Upload scans, then work them through the head office queues.'
+              : 'Upload a scan zip, enter client details, and track your uploads.'}
           </p>
         </div>
 
@@ -469,22 +501,43 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
       </div>
 
       <div className="dash-card ho-scans-nav-card">
-        <div className="ho-scans-nav" role="tablist" aria-label="Process scan sections">
-          {visibleSections.map((section) => (
+        <div className="ho-scans-nav" role="tablist" aria-label="Scan sections">
+          {canUpload ? (
             <button
-              key={section}
               type="button"
               role="tab"
-              aria-selected={activeSection === section}
-              className={`ho-scans-nav-btn${activeSection === section ? ' is-active' : ''}`}
-              onClick={() => setActiveSection(section)}
+              aria-selected={uploadTab}
+              className={`ho-scans-nav-btn${uploadTab ? ' is-active' : ''}`}
+              onClick={() => setUploadTab(true)}
             >
-              {sectionLabels[section]}
+              Upload Scan
             </button>
-          ))}
+          ) : null}
+          {visibleSections.map((section) => {
+            const active = !uploadTab && activeSection === section;
+            return (
+              <button
+                key={section}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`ho-scans-nav-btn${active ? ' is-active' : ''}`}
+                onClick={() => {
+                  setUploadTab(false);
+                  setActiveSection(section);
+                }}
+              >
+                {sectionLabels[section]}
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      {uploadTab ? (
+        <ScansMlaPage embedded />
+      ) : (
+      <>
       {loadError && (
         <p role="alert" style={{ margin: `0 0 ${spacing[4]}`, color: theme.error, fontSize: 14 }}>
           {loadError}
@@ -661,6 +714,8 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
           </div>
         )}
       </div>
+      </>
+      )}
 
       <ProcessScanModal
         open={Boolean(panelTarget)}
@@ -713,14 +768,16 @@ export function ScansHoPage({ isAdmin = true, onOpenMobileMenu, onOpenProfile }:
             record,
             'debit',
             undefined,
-            `${amount} (${billing} of MRP) debited from the company ledger and from ${record.scanBy}'s balance.`,
+            isHeadOfficeScan(record)
+              ? `Scan ${record.scanId} finished · head office scan, no report billing.`
+              : `${amount} (${billing} of MRP) debited from the company ledger and from ${record.scanBy}'s balance.`,
           ).then((ok) => {
             if (ok) void refreshBinCount();
           });
         }}
       />
 
-      {isAdmin ? (
+      {isAdmin && canProcess && !uploadTab ? (
         <>
           <button
             type="button"

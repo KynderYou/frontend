@@ -106,11 +106,13 @@ function exportBlockedReason(record: ScanRecord) {
 }
 
 type ScansMlaPageProps = {
+  /** Rendered as the Upload Scan tab of the Scans page, which owns the page header. */
+  embedded?: boolean;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
 };
 
-export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
+export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
   const { showSuccess, showError } = useToast();
   const currentMember = useCurrentMember();
   const memberRequiresPhone = brandingRequiresPhone(currentMember?.branding);
@@ -432,8 +434,11 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
   const listPagination = useClientPagination(records, MLA_SCANS_PAGE_SIZE, records.length);
   const rowOffset = (listPagination.page - 1) * listPagination.pageSize;
 
+  const Wrapper = embedded ? 'div' : 'section';
+
   return (
-    <section className="page-section">
+    <Wrapper className={embedded ? undefined : 'page-section'}>
+      {embedded ? null : (
       <div className="page-header">
         <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
           <h1
@@ -466,6 +471,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
           <ProfileAvatarButton onClick={onOpenProfile} />
         </div>
       </div>
+      )}
 
       {loadError ? (
         <p role="alert" style={{ marginBottom: spacing[4], color: theme.error, fontSize: 14 }}>
@@ -685,7 +691,7 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
                     {isMentor ? (
                       <td data-label="Uploaded by">
                         {row.uploadedBy ? (
-                          <span title="Uploaded by your consultant">{row.uploadedBy} · Consultant</span>
+                          <span title="Uploaded by your counselor">{row.uploadedBy} · Counselor</span>
                         ) : (
                           <span className="scans-table-meta">You</span>
                         )}
@@ -786,6 +792,6 @@ export function ScansMlaPage({ onOpenMobileMenu, onOpenProfile }: ScansMlaPagePr
         record={viewingImages}
         onClose={() => setViewingImages(null)}
       />
-    </section>
+    </Wrapper>
   );
 }

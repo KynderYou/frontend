@@ -5,11 +5,17 @@ import type { Member } from './api';
 import { getThemeCssVars } from './styles/theme';
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileNavDrawer } from './components/Layout/MobileNavDrawer';
-import { isAppView, canAccessView, defaultViewFor, type AppView } from './components/Layout/navItems';
+import {
+  canAccessView,
+  canProcessScans,
+  canUploadScans,
+  defaultViewFor,
+  resolveView,
+  type AppView,
+} from './components/Layout/navItems';
 import { HomeDashboard } from './components/Home/HomeDashboard';
 import { ProfilePage } from './components/Profile/ProfilePage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
-import { ScansMlaPage } from './components/Scans/ScansMlaPage';
 import { ScansHoPage } from './components/Scans/ScansHoPage';
 import { ReportsPage } from './components/Reports/ReportsPage';
 import { AuthPage } from './components/Auth/AuthPage';
@@ -17,11 +23,9 @@ import { MemberProvider } from './components/Auth/MemberContext';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { AdminTopUpsPage } from './components/Admin/AdminTopUpsPage';
-import { TraineesPage } from './components/Trainees/TraineesPage';
+import { NetworkPage } from './components/Network/NetworkPage';
 import { MentorTraineesPage } from './components/Trainees/MentorTraineesPage';
-import { MlasPage } from './components/Mlas/MlasPage';
 import { MentorMlasPage } from './components/Mlas/MentorMlasPage';
-import { MentorsPage } from './components/Mentors/MentorsPage';
 import { CommunicationsPage } from './components/Communications/CommunicationsPage';
 import { MisScansPage } from './components/Mis/MisScansPage';
 import { NetworkPerformancePage } from './components/Mis/NetworkPerformancePage';
@@ -30,12 +34,13 @@ import { ReviewsPage } from './components/Reviews/ReviewsPage';
 import { ToastProvider } from './components/common/ToastProvider';
 import { NotificationsPage } from './components/Notifications/NotificationsPage';
 import { NotificationProvider } from './components/Notifications/NotificationContext';
+import { isAdminRole } from './utils/roles';
 
 /** Covers iPhone 14 Pro Max (430px) and similar phones / small tablets */
 const MOBILE_QUERY = '(max-width: 860px)';
 
 /** Views whose panels manage their own scrolling and should fill the viewport height */
-const fillViews = new Set<AppView>(['trainees', 'mlas', 'mentors', 'mis-scans', 'mis-cab', 'admin-topups']);
+const fillViews = new Set<AppView>(['network', 'mis-scans', 'mis-cab', 'admin-topups']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
@@ -68,7 +73,7 @@ function parseHash(): HashState {
       isVerifyEmailRoute: true,
     };
   }
-  const view = isAppView(pathPart) ? pathPart : DEFAULT_VIEW;
+  const view = resolveView(pathPart) ?? DEFAULT_VIEW;
   const threadId = params.get('thread');
   const topUpRaw = params.get('id');
   const topUpId = topUpRaw && /^\d+$/.test(topUpRaw) ? Number(topUpRaw) : null;
@@ -148,7 +153,8 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const navigate = (nextView: AppView, target?: string) => {
+  const navigate = (requestedView: AppView, target?: string) => {
+    const nextView = resolveView(requestedView) ?? DEFAULT_VIEW;
     setView(nextView);
     if (nextView === 'mis-communications' && target) {
       setThreadId(target);
@@ -324,14 +330,11 @@ function App() {
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
-            ) : view === 'scans-mla' ? (
-              <ScansMlaPage
-                onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => navigate('profile')}
-              />
-            ) : view === 'scans-ho' ? (
+            ) : view === 'scans' ? (
               <ScansHoPage
-                isAdmin={member?.role === 'Admin'}
+                isAdmin={isAdminRole(member?.role)}
+                canUpload={member ? canUploadScans(member.nav) : false}
+                canProcess={member ? canProcessScans(member.nav) : false}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
@@ -355,18 +358,8 @@ function App() {
                 initialRequestId={topUpId}
                 onNavigate={navigate}
               />
-            ) : view === 'trainees' ? (
-              <TraineesPage
-                onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => navigate('profile')}
-              />
-            ) : view === 'mlas' ? (
-              <MlasPage
-                onOpenMobileMenu={() => setMobileMenuOpen(true)}
-                onOpenProfile={() => navigate('profile')}
-              />
-            ) : view === 'mentors' ? (
-              <MentorsPage
+            ) : view === 'network' ? (
+              <NetworkPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
               />
