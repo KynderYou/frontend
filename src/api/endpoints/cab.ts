@@ -29,9 +29,15 @@ export async function submitCabFeedback(scanCode: string, input: CabFeedbackInpu
   return apiUpload<CabFeedbackApi>(`/api/cab/scans/${encodeURIComponent(scanCode)}/feedback`, form, { method: 'PUT' });
 }
 
-/** POST /api/cab/scans/{code}/request — mentor asks their MLA to rate the CAB (once per scan per day) */
-export async function requestCabFeedback(scanCode: string): Promise<{ scan_code: string; requested_at: string }> {
-  return apiClient(`/api/cab/scans/${encodeURIComponent(scanCode)}/request`, { method: 'POST' });
+/** POST /api/cab/scans/{code}/request — MLA sends a recorded voice note asking their mentor for CAB inputs (once per scan) */
+export async function requestCabInputs(
+  scanCode: string,
+  audio: Blob,
+  filename: string,
+): Promise<{ scan_code: string; requested_at: string }> {
+  const form = new FormData();
+  form.append('audio', audio, filename);
+  return apiUpload(`/api/cab/scans/${encodeURIComponent(scanCode)}/request`, form, { method: 'POST' });
 }
 
 /** POST /api/cab/feedback/{id}/approve | reject — Admin only; approval credits the mentor */

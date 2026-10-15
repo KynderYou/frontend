@@ -14,6 +14,11 @@ export type HandView = {
   groups: FingerprintGroup[];
 };
 
+export function isConsentImage(image: ScanImage): boolean {
+  const base = image.name.replace(/\.[^.]+$/i, '').toLowerCase();
+  return base === 'photo' || base.startsWith('consent') || /consent/i.test(image.label);
+}
+
 const viewOrder = ['center', 'left', 'right'];
 
 function viewRank(name: string): number {

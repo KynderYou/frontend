@@ -594,8 +594,22 @@ export function ScansHoPage({
                   return (
                     <tr
                       key={row.id}
-                      className={[canOpenFingerprint ? 'ho-scans-row-clickable' : '', row.flaggedX ? 'row-flagged' : ''].filter(Boolean).join(' ') || undefined}
-                      {...flagTip.bind(row.flaggedX ? 'Flag X · complex scan' : null)}
+                      className={
+                        [
+                          canOpenFingerprint ? 'ho-scans-row-clickable' : '',
+                          row.upgradedToPlan ? 'row-upgraded' : row.flaggedX ? 'row-flagged' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
+                      {...flagTip.bind(
+                        [
+                          row.upgradedToPlan ? `Upgraded to ${row.upgradedToPlan} · regenerate the report` : '',
+                          row.flaggedX ? 'Flag X · complex scan' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || null,
+                      )}
                       onClick={
                         canOpenFingerprint
                           ? () => openFingerprintPanel(row, activeSection as ProcessScanMode)
@@ -632,7 +646,12 @@ export function ScansHoPage({
                           row.scanId
                         )}
                       </td>
-                      <td data-label="Name">{row.name}</td>
+                      <td data-label="Name">
+                        {row.name}
+                        {row.upgradedToPlan ? (
+                          <span className="ho-scans-upgraded-chip">Upgraded to {row.upgradedToPlan}</span>
+                        ) : null}
+                      </td>
                       <td data-label="Scan By">{row.scanBy}</td>
                       <td data-label="Report Type">{row.reportType}</td>
                       <td data-label="Cost">{row.cost}</td>

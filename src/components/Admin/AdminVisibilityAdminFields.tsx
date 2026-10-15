@@ -1,3 +1,4 @@
+import { useCurrentMember } from '../Auth/MemberContext';
 import type { AdminVisibilityFormState, MentorOption } from './adminProfileForm';
 import { brandingOptions } from './adminProfileForm';
 
@@ -18,6 +19,8 @@ export function AdminVisibilityAdminFields({
   defaultToSelf = false,
   hideAssignedAdmin = false,
 }: AdminVisibilityAdminFieldsProps) {
+  const selfId = useCurrentMember()?.mid;
+  const adminOptions = defaultToSelf ? admins.filter((admin) => admin.id !== String(selfId)) : admins;
   const update = <K extends keyof AdminVisibilityFormState>(key: K, value: AdminVisibilityFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
@@ -68,7 +71,7 @@ export function AdminVisibilityAdminFields({
             <div className="form-select-wrap">
               <select className="form-input form-select" value={form.adminById} onChange={(e) => update('adminById', e.target.value)}>
                 {(defaultToSelf || !form.adminById) && <option value="">{defaultToSelf ? 'Me' : 'Not assigned'}</option>}
-                {admins.map((admin) => (
+                {adminOptions.map((admin) => (
                   <option key={admin.id} value={admin.id}>
                     {admin.name} · {admin.role}
                   </option>

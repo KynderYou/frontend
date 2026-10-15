@@ -239,7 +239,7 @@ export const layoutTokens = {
   /** Soft border around each panel — invisible; cards provide elevation */
   panelBorder: 'none',
   /** Expanded width — icons + labels */
-  sidebarWidth: '220px',
+  sidebarWidth: '196px',
   /** Collapsed width — icons only (matches slim icon rail in reference) */
   sidebarCollapsedWidth: '80px',
   /** Page title sits near the top — avoid stacked large top gaps */

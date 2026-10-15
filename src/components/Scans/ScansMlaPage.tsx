@@ -30,6 +30,7 @@ import {
 } from './scanDetails';
 import { isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
 import { extractClientFromZip, revokeScanZipImages, categoryToClientType, findConsentFormImage, type ScanZipImage } from './extractClientFromZip';
+import { QcConsentModal } from './QcConsentModal';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
 import {
@@ -134,6 +135,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
   const [declarationOpen, setDeclarationOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ScanRecord | null>(null);
   const [viewingImages, setViewingImages] = useState<ScanRecord | null>(null);
+  const [qcRecord, setQcRecord] = useState<ScanRecord | null>(null);
   const [traineeNames, setTraineeNames] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -409,6 +411,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     try {
       const updated = await markMlaQcChecked(scanId);
       await applyUpdatedScan(updated);
+      setQcRecord(null);
       showSuccess(`QC checked for ${record.scanId}.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not mark QC checked.';
@@ -709,7 +712,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
                         <button
                           type="button"
                           className="scans-action-btn scans-action-qc"
-                          onClick={() => void handleMarkQc(row)}
+                          onClick={() => setQcRecord(row)}
                         >
                           Mark QC
                         </button>
@@ -791,6 +794,12 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
         open={Boolean(viewingImages)}
         record={viewingImages}
         onClose={() => setViewingImages(null)}
+      />
+      <QcConsentModal
+        key={qcRecord?.id ?? 'closed'}
+        record={qcRecord}
+        onClose={() => setQcRecord(null)}
+        onConfirm={handleMarkQc}
       />
     </Wrapper>
   );

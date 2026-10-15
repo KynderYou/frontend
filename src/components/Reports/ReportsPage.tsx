@@ -6,7 +6,7 @@ import {
   getMe,
   getMyLedger,
   getMyReports,
-  requestCabFeedback,
+  requestCabInputs,
   submitCabFeedback,
   upgradeReport,
 } from '../../api';
@@ -20,6 +20,7 @@ import { useClientPagination } from '../../hooks/useClientPagination';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { CabModal } from './CabModal';
+import { CabRequestModal } from './CabRequestModal';
 import { DeleteScanModal } from './DeleteScanModal';
 import { downloadReportPdf } from './downloadReportPdf';
 import type { CabFeedbackInput } from '../../api/endpoints/cab';
@@ -102,7 +103,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [memberId, setMemberId] = useState<number | null>(null);
   const [isMentor, setIsMentor] = useState(false);
   const [isTrainee, setIsTrainee] = useState(false);
-  const [requestingCab, setRequestingCab] = useState<ReportRecord['id'] | null>(null);
+  const [requestingCab, setRequestingCab] = useState<ReportRecord | null>(null);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -218,69 +219,66 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     return `Uploaded by ${who}${role}${forTrainee}`;
   };
 
-  /** Mentor asking their MLA to rate the CAB: only while there is no feedback yet, or it was rejected. */
+  /** The MLA asks their mentor for CAB inputs with a voice note, once per scan, before any feedback. */
   const canRequestCab = (row: ReportRecord) =>
-    isMentor &&
-    row.ownerId !== memberId &&
+    row.ownerId === memberId &&
     !row.uploadedForTrainee &&
     Boolean(row.cabEligible) &&
-    (!row.cabFeedback || row.cabFeedback.status === 'Rejected');
+    !row.cabRequestedAt &&
+    !row.cabFeedback;
 
-  const cabDisabled = (row: ReportRecord) =>
-    Boolean(row.uploadedForTrainee) || (row.ownerId === memberId && !row.cabEligible) || requestingCab === row.id;
+  const cabDisabled = (row: ReportRecord) => {
+    if (row.uploadedForTrainee || (row.ownerId === memberId && !row.cabEligible)) return true;
+    return row.ownerId !== memberId && !row.cabRequestedAt && !row.cabFeedback;
+  };
 
-  const handleRequestCab = async (record: ReportRecord) => {
-    setRequestingCab(record.id);
+  const handleRequestCab = async (record: ReportRecord, audio: Blob, filename: string) => {
     try {
-      const res = await requestCabFeedback(record.scanId);
+      const res = await requestCabInputs(record.scanId, audio, filename);
       setRecords((prev) => prev.map((row) => (row.id === record.id ? { ...row, cabRequestedAt: res.requested_at } : row)));
-      showSuccess(`Asked the MLA to rate the CAB for scan ${record.scanId}.`);
+      showSuccess(`Voice note sent. Your mentor will share inputs for scan ${record.scanId}.`);
+      void loadReports();
+      return true;
     } catch (err) {
-      showError(apiErrorDetail(err, 'Could not request feedback. Please try again.'));
-    } finally {
-      setRequestingCab(null);
+      showError(apiErrorDetail(err, 'Could not send the request. Please try again.'));
+      return false;
     }
   };
 
   const onCabClick = (row: ReportRecord) => {
-    if (canRequestCab(row)) void handleRequestCab(row);
+    if (canRequestCab(row)) setRequestingCab(row);
     else setCabRecord(row);
-  };
-
-  const cabTitle = (row: ReportRecord) => {
-    if (isOwnNonMlaScan(row)) return 'Your own scan · CAB feedback is only for scans your MLAs upload';
-    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a counselor — no CAB feedback';
-    if (canRequestCab(row)) {
-      return row.cabRequestedAt
-        ? `Requested ${row.cabRequestedAt} · click to remind the MLA again (once a day)`
-        : 'Ask the MLA to rate the CAB you sent';
-    }
-    if (row.cabFeedback) return `CAB feedback · ${row.cabFeedback.status}`;
-    if (row.ownerId !== memberId) return 'View CAB feedback from the mentee';
-    return 'Rate the CAB your mentor sent';
   };
 
   const isOwnNonMlaScan = (row: ReportRecord) => row.ownerId === memberId && !row.cabEligible;
 
+  const cabTitle = (row: ReportRecord) => {
+    if (isOwnNonMlaScan(row)) return 'Your own scan · CAB is only for scans your MLAs upload';
+    if (row.uploadedForTrainee) return 'Uploaded by the mentor for a counselor — no CAB';
+    if (canRequestCab(row)) return 'Record a voice note asking your mentor for CAB inputs';
+    if (row.cabFeedback) return `CAB feedback · ${row.cabFeedback.status}`;
+    if (row.ownerId === memberId) {
+      return `Requested ${row.cabRequestedAt} · once your mentor shares inputs, click to give feedback`;
+    }
+    if (row.cabRequestedAt) return `The MLA requested CAB inputs on ${row.cabRequestedAt} · click to listen`;
+    return 'The MLA has not requested CAB inputs yet';
+  };
+
   const cabLabel = (row: ReportRecord) => {
     if (isOwnNonMlaScan(row)) return 'Own scan';
     if (row.uploadedForTrainee) return 'Uploaded by counselor';
-    if (canRequestCab(row)) {
-      if (requestingCab === row.id) return 'Requesting…';
-      if (row.cabRequestedAt) return 'Requested ✓';
-      return row.cabFeedback?.status === 'Rejected' ? 'Request again' : 'Request feedback';
-    }
+    if (canRequestCab(row)) return 'Request';
     const status = row.cabFeedback?.status;
     if (row.ownerId !== memberId) {
       if (status === 'Approved') return 'Approved ✓';
       if (status === 'Pending') return 'Awaiting approval';
       if (status === 'Rejected') return 'Rejected';
-      return 'No feedback yet';
+      return row.cabRequestedAt ? 'Requested' : 'Not requested';
     }
     if (status === 'Approved') return 'Feedback ✓';
     if (status === 'Pending') return 'Feedback sent';
     if (status === 'Rejected') return 'Resubmit';
-    return 'Feedback';
+    return 'Requested ✓';
   };
 
   const handleDownload = async (record: ReportRecord) => {
@@ -789,6 +787,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
         onClose={() => setUpgradingRecord(null)}
         onConfirm={handleUpgrade}
       />
+      <CabRequestModal record={requestingCab} onClose={() => setRequestingCab(null)} onSend={handleRequestCab} />
       <CabModal
         key={cabRecord?.id ?? 'none'}
         open={Boolean(cabRecord)}

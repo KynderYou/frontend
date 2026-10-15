@@ -14,7 +14,14 @@ import { AddCompanyEntryModal } from './AddCompanyEntryModal';
 import { AddFundsModal } from './AddFundsModal';
 import { LedgerPeriodFilter } from './LedgerPeriodFilter';
 import { LedgerPeopleFilter } from './LedgerPeopleFilter';
-import { ledgerRange, ledgerRangeLabel, type LedgerPeriod, type LedgerRange } from './ledgerPeriod';
+import {
+  inLedgerRange,
+  ledgerDisplayDateToIso,
+  ledgerRange,
+  ledgerRangeLabel,
+  type LedgerPeriod,
+  type LedgerRange,
+} from './ledgerPeriod';
 import { SkeletonLedgerBody, SkeletonSubtitle } from '../common/Skeleton';
 import { useCurrentMember } from '../Auth/MemberContext';
 import { isAdminRole } from '../../utils/roles';
@@ -22,6 +29,7 @@ import { isAdminRole } from '../../utils/roles';
 const theme = colors.light;
 const LEDGER_TX_PAGE_SIZE = 10;
 const COMPANY_LEDGER_PAGE_SIZE = 10;
+const COMPANY_PERIODS: LedgerPeriod[] = ['all', '7d', '30d', 'custom'];
 
 type LedgerTab = 'receipts' | 'billing';
 
@@ -309,6 +317,9 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const [fundsError, setFundsError] = useState('');
   const [entryOpen, setEntryOpen] = useState(false);
   const [entryKind, setEntryKind] = useState<'receipt' | 'expense'>('receipt');
+  const [companyKind, setCompanyKind] = useState('all');
+  const [companyPeriod, setCompanyPeriod] = useState<LedgerPeriod>('all');
+  const [companyCustom, setCompanyCustom] = useState<LedgerRange>({});
   const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [entryError, setEntryError] = useState('');
   const [period, setPeriod] = useState<LedgerPeriod>('all');
@@ -362,8 +373,28 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
     billing: data?.kpis.billing_display ?? '₹0',
   };
   const visibleKpis = kpis;
-  const companyEntries = data?.company_entries ?? [];
-  const companyPagination = useClientPagination(companyEntries, COMPANY_LEDGER_PAGE_SIZE, 'company');
+  const companyEntries = useMemo(() => data?.company_entries ?? [], [data]);
+  const companyKinds = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of companyEntries) counts.set(entry.kind, (counts.get(entry.kind) ?? 0) + 1);
+    return [...counts.entries()].map(([kind, count]) => ({ kind, count, label: COMPANY_SECTORS[kind]?.label ?? kind }));
+  }, [companyEntries]);
+  const companyRange = useMemo(() => ledgerRange(companyPeriod, companyCustom), [companyPeriod, companyCustom]);
+  const filteredCompanyEntries = useMemo(
+    () =>
+      companyEntries.filter(
+        (entry) =>
+          (companyKind === 'all' || entry.kind === companyKind) &&
+          inLedgerRange(ledgerDisplayDateToIso(entry.date), companyRange),
+      ),
+    [companyEntries, companyKind, companyRange],
+  );
+  const companyFiltered = companyKind !== 'all' || companyPeriod !== 'all';
+  const companyPagination = useClientPagination(
+    filteredCompanyEntries,
+    COMPANY_LEDGER_PAGE_SIZE,
+    `company|${companyKind}|${companyRange.start ?? ''}|${companyRange.end ?? ''}`,
+  );
 
   const periodLabel = companyWide ? `${rangeLabel} · all members` : rangeLabel;
   const initialLoading = loading && data === null;
@@ -661,12 +692,60 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                   Company ledger
                 </h2>
                 <span style={{ color: theme['text-secondary'], fontSize: 13, fontWeight: 500 }}>
-                  All credits and debits · {companyEntries.length}
+                  {companyFiltered
+                    ? `${filteredCompanyEntries.length} of ${companyEntries.length} entries`
+                    : `All credits and debits · ${companyEntries.length}`}
                 </span>
               </div>
+              {companyEntries.length > 0 ? (
+                <div className="ledger-company-toolbar">
+                  <div className="reviews-filters" role="tablist" aria-label="Filter by transaction type">
+                    {[{ kind: 'all', label: 'All types', count: companyEntries.length }, ...companyKinds].map((option) => (
+                      <button
+                        key={option.kind}
+                        type="button"
+                        role="tab"
+                        aria-selected={companyKind === option.kind}
+                        className={`reviews-filter${companyKind === option.kind ? ' is-active' : ''}`}
+                        onClick={() => setCompanyKind(option.kind)}
+                      >
+                        {option.label}
+                        <span className="reviews-filter-count">{option.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="ledger-company-toolbar-end">
+                    <div className="ledger-filter-period">
+                      <LedgerPeriodFilter
+                        period={companyPeriod}
+                        custom={companyCustom}
+                        onPeriodChange={setCompanyPeriod}
+                        onCustomChange={setCompanyCustom}
+                        options={COMPANY_PERIODS}
+                        ariaLabel="Company ledger period"
+                      />
+                    </div>
+                    {companyFiltered ? (
+                      <button
+                        type="button"
+                        className="ledger-filter-clear"
+                        onClick={() => {
+                          setCompanyKind('all');
+                          setCompanyPeriod('all');
+                          setCompanyCustom({});
+                        }}
+                      >
+                        × Clear
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {companyEntries.length === 0 ? (
                   <EmptyState compact title="No company entries yet" description="Credits and debits on the company ledger appear here." />
+                ) : filteredCompanyEntries.length === 0 ? (
+                  <EmptyState compact title="No matching entries" description="Try another transaction type or a wider date range." />
                 ) : (
                   groupByDate(companyPagination.pageItems).map((group) => (
                     <div key={group.date} className="ledger-company-group">

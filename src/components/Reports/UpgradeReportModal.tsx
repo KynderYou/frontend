@@ -4,6 +4,7 @@ import {
   formatInr,
   higherPackages,
   packageForPlan,
+  upgradeBilledAmount,
   upgradeDelta,
   type ReportPlan,
 } from './reportPackages';
@@ -39,6 +40,8 @@ export function UpgradeReportModal({ open, record, onClose, onConfirm }: Upgrade
   const selected = targetPlan ? packageForPlan(targetPlan) : null;
   const delta = targetPlan ? upgradeDelta(record.plan, targetPlan) : 0;
   const canConfirm = Boolean(targetPlan && selected && delta > 0);
+  const billingPercent = record.billingPercent;
+  const billed = upgradeBilledAmount(delta, billingPercent);
 
   return (
     <div
@@ -105,9 +108,15 @@ export function UpgradeReportModal({ open, record, onClose, onConfirm }: Upgrade
               </div>
               {selected ? (
                 <div className="reports-upgrade-price">
-                  <span className="reports-upgrade-price-value">{formatInr(delta)}</span>
+                  <span className="reports-upgrade-price-value">{formatInr(billed)}</span>
                   <span className="reports-upgrade-price-meta">
-                    upgrade difference · {selected.pages}-page {selected.id}
+                    {billingPercent > 0
+                      ? `remaining billing · ${billingPercent}% of ${formatInr(selected.price)} (${formatInr(
+                          upgradeBilledAmount(selected.price, billingPercent),
+                        )}) − ${billingPercent}% of ${formatInr(current.price)} (${formatInr(
+                          upgradeBilledAmount(current.price, billingPercent),
+                        )})`
+                      : `no billing on head office scans · ${selected.pages}-page ${selected.id}`}
                   </span>
                 </div>
               ) : null}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { buildFingerViewIndex, findFingerViewImage, type FingerViewTab } from './scanImages';
+import { buildFingerViewIndex, findFingerViewImage, isConsentImage, type FingerViewTab } from './scanImages';
 import type { ScanImage, ScanRecord } from './scanTypes';
 
 const LEFT_FINGERS = ['L1', 'L2', 'L3', 'L4', 'L5'] as const;
@@ -16,11 +16,6 @@ type ScanImagesModalProps = {
   record: ScanRecord | null;
   onClose: () => void;
 };
-
-function isConsentImage(image: ScanImage): boolean {
-  const base = image.name.replace(/\.[^.]+$/i, '').toLowerCase();
-  return base === 'photo' || base.startsWith('consent') || /consent/i.test(image.label);
-}
 
 function PlaceholderFingerprint({ slot }: { slot: number }) {
   const ridges = 7 + (slot % 4);

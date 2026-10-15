@@ -6,7 +6,7 @@ import type { CabFeedbackStatus, ReportRecord } from './reportTypes';
 type CabModalProps = {
   open: boolean;
   record: ReportRecord | null;
-  /** Only the scan owner (the mentee) can rate the CAB. */
+  /** Only the scan owner (the MLA) can rate the mentor's inputs. */
   isOwner: boolean;
   onClose: () => void;
   onSubmit: (record: ReportRecord, input: CabFeedbackInput) => Promise<boolean>;
@@ -92,7 +92,7 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
             </h2>
             <p className="modal-subtitle">
               Scan {record.scanId} · {record.details.name || 'Client'} —{' '}
-              {isOwner ? 'rate the counselling audio byte you received.' : "the mentee's rating of the counselling audio byte."}
+              {isOwner ? 'rate the inputs your mentor shared with you.' : "the MLA's rating of the inputs their mentor shared."}
             </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
@@ -103,6 +103,16 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
         </div>
 
         <div className="modal-body">
+          {record.cabRequestAudioUrl ? (
+            <div className="reports-cab-request">
+              <span className="reports-cab-form-label">
+                {isOwner ? 'Your request to your mentor' : "MLA's request"}
+                {record.cabRequestedAt ? ` · ${record.cabRequestedAt}` : ''}
+              </span>
+              <ProtectedAudio path={record.cabRequestAudioUrl} />
+            </div>
+          ) : null}
+
           {status ? (
             <div className={`reports-cab-status is-${feedback!.status.toLowerCase()}`}>
               <p className="reports-cab-empty-title">{status.title}</p>
@@ -115,7 +125,11 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
           {!feedback && !isOwner ? (
             <div className="reports-cab-empty">
               <p className="reports-cab-empty-title">No feedback yet</p>
-              <p className="reports-cab-empty-sub">The mentee hasn't rated the CAB for this scan.</p>
+              <p className="reports-cab-empty-sub">
+                {record.cabRequestedAt
+                  ? 'Share your inputs with the MLA personally. They will rate them here afterwards.'
+                  : "The MLA hasn't requested CAB inputs for this scan."}
+              </p>
             </div>
           ) : (
             <div className="reports-cab-form">
@@ -144,7 +158,7 @@ export function CabModal({ open, record, isOwner, onClose, onSubmit }: CabModalP
                 className="reports-cab-comments"
                 rows={4}
                 maxLength={2000}
-                placeholder="Was the audio clear and helpful for your client?"
+                placeholder="How helpful were your mentor's inputs for this client?"
                 value={comments}
                 readOnly={!editable}
                 onChange={(e) => setComments(e.target.value)}

@@ -227,6 +227,7 @@ export type HoScan = {
   report_debit_amount?: string | null;
   report_billed?: boolean;
   has_report_file?: boolean;
+  upgraded_to_plan?: string | null;
 };
 
 export type ScanFinger = {
@@ -372,6 +373,8 @@ export type ReportRecordApi = {
   report_file_url: string | null;
   flagged_x?: boolean;
   cab_requested_at?: string | null;
+  cab_request_audio_url?: string | null;
+  billing_percent?: number;
 };
 
 export type MentorApi = {

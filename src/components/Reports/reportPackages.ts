@@ -56,6 +56,12 @@ export function upgradeDelta(currentPlan: string | null | undefined, targetPlan:
   return Math.max(0, target.price - current.price);
 }
 
+/** What an upgrade adds to report billing: the uploader's billing % of the price difference. */
+export function upgradeBilledAmount(delta: number, billingPercent: number): number {
+  if (delta <= 0 || billingPercent <= 0) return 0;
+  return Math.round(delta * billingPercent) / 100;
+}
+
 export function formatInr(amount: number): string {
   return `₹${amount.toLocaleString('en-IN')}`;
 }

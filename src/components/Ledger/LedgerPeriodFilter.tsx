@@ -19,9 +19,19 @@ type LedgerPeriodFilterProps = {
   custom: LedgerRange;
   onPeriodChange: (period: LedgerPeriod) => void;
   onCustomChange: (range: LedgerRange) => void;
+  /** Limit the choices; defaults to every period. */
+  options?: LedgerPeriod[];
+  ariaLabel?: string;
 };
 
-export function LedgerPeriodFilter({ period, custom, onPeriodChange, onCustomChange }: LedgerPeriodFilterProps) {
+export function LedgerPeriodFilter({
+  period,
+  custom,
+  onPeriodChange,
+  onCustomChange,
+  options,
+  ariaLabel = 'Ledger period',
+}: LedgerPeriodFilterProps) {
   const today = todayIso();
 
   return (
@@ -29,10 +39,10 @@ export function LedgerPeriodFilter({ period, custom, onPeriodChange, onCustomCha
       <select
         value={period}
         onChange={(e) => onPeriodChange(e.target.value as LedgerPeriod)}
-        aria-label="Ledger period"
+        aria-label={ariaLabel}
         style={controlStyle}
       >
-        {ledgerPeriodOptions.map((option) => (
+        {ledgerPeriodOptions.filter((option) => !options || options.includes(option.value)).map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

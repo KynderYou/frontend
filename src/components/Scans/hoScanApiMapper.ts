@@ -29,6 +29,8 @@ export type HoScanRecord = {
   reportDebitAmount?: string;
   reportBilled?: boolean;
   hasReportFile?: boolean;
+  /** Package upgraded at the Upload stage — the report must be regenerated on this plan. */
+  upgradedToPlan?: string;
 };
 
 export function hoScanToRecord(scan: HoScan): HoScanRecord {
@@ -59,6 +61,7 @@ export function hoScanToRecord(scan: HoScan): HoScanRecord {
     reportDebitAmount: scan.report_debit_amount ?? undefined,
     reportBilled: scan.report_billed ?? undefined,
     hasReportFile: scan.has_report_file ?? false,
+    upgradedToPlan: scan.upgraded_to_plan ?? undefined,
   };
 }
 

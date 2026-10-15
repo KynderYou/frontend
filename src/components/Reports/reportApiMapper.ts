@@ -43,7 +43,9 @@ export function reportToRecord(report: ReportRecordApi): ReportRecord {
     uploadedForTrainee: Boolean(report.uploaded_for_trainee),
     reportFileUrl: report.report_file_url,
     flaggedX: Boolean(report.flagged_x),
+    billingPercent: report.billing_percent ?? 0,
     cabRequestedAt: report.cab_requested_at ?? undefined,
+    cabRequestAudioUrl: report.cab_request_audio_url ?? undefined,
   };
 }
 

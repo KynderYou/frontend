@@ -35,6 +35,10 @@ export type ReportRecord = {
   flaggedX?: boolean;
   /** When the mentor last asked the MLA to rate the CAB. */
   cabRequestedAt?: string;
+  /** MLA's recorded voice note asking the mentor for CAB inputs. */
+  cabRequestAudioUrl?: string;
+  /** Uploader's billing %, applied to the package price difference on upgrade. */
+  billingPercent: number;
 };
 
 export function formatDuration(totalSec: number) {
