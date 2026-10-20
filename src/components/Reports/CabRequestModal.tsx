@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReportRecord } from './reportTypes';
 
-const MAX_SECONDS = 180;
+const MAX_SECONDS = 240;
 
 type CabRequestModalProps = {
   record: ReportRecord | null;
@@ -147,7 +147,7 @@ export function CabRequestModal({ record, onClose, onSend }: CabRequestModalProp
               Request CAB
             </h2>
             <p className="modal-subtitle">
-              Scan {record.scanId} · {record.details.name || 'Client'} — record a voice note asking your mentor for inputs.
+              Scan {record.scanId} · {record.details.name || 'Client'}
             </p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose} disabled={sending || isRecording}>
@@ -182,7 +182,7 @@ export function CabRequestModal({ record, onClose, onSend }: CabRequestModalProp
                   ? `Tap again to stop · up to ${clock(MAX_SECONDS)}`
                   : recording
                     ? 'Play it back below, or tap the mic to record again.'
-                    : 'Tell your mentor what you need help with for this client.'}
+                    : 'Share a voice note to your mentor about the client and specific inputs needed for you (not more than 3-4 mins).'}
               </span>
             </div>
           </div>

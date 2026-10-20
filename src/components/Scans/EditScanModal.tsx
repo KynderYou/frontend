@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import { colors } from '../../styles/theme';
 import type { ScanDetails } from './scanTypes';
 import { ScanDetailsFields } from './ScanDetailsFields';
-import { brandingRequiresPhone, normalizeClientType, phoneRequiredFor, scanDetailsComplete } from './scanDetails';
-import { useCurrentMember } from '../Auth/MemberContext';
+import {
+  normalizeClientType,
+  phoneRequiredFor,
+  scanDetailsComplete,
+  type HasClientMobile,
+} from './scanDetails';
 
 const theme = colors.light;
 
@@ -27,11 +31,13 @@ export function EditScanModal({
   onSave,
   hideReferredBy = false,
 }: EditScanModalProps) {
-  const memberRequiresPhone = brandingRequiresPhone(useCurrentMember()?.branding);
   const [form, setForm] = useState<ScanDetails>(() => ({
     ...initial,
     clientType: normalizeClientType(initial.clientType),
   }));
+  const [hasClientMobile, setHasClientMobile] = useState<HasClientMobile>(() =>
+    initial.phone.trim() ? 'yes' : 'no',
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -52,12 +58,13 @@ export function EditScanModal({
         ...initial,
         clientType: normalizeClientType(initial.clientType),
       });
+      setHasClientMobile(initial.phone.trim() ? 'yes' : 'no');
     }
   }, [open, initial]);
 
   if (!open) return null;
 
-  const canSave = scanDetailsComplete(form, memberRequiresPhone);
+  const canSave = scanDetailsComplete(form, hasClientMobile);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +75,7 @@ export function EditScanModal({
       referredBy: form.referredBy,
       name: form.name.trim(),
       age: form.age.trim(),
-      phone: phoneRequiredFor(clientType, memberRequiresPhone) ? form.phone.trim() : '',
+      phone: phoneRequiredFor(hasClientMobile) ? form.phone.trim() : '',
       gender: form.gender,
       mrp: form.mrp,
     });
@@ -113,7 +120,8 @@ export function EditScanModal({
               value={form}
               onChange={setForm}
               traineeNames={traineeNames}
-              memberRequiresPhone={memberRequiresPhone}
+              hasClientMobile={hasClientMobile}
+              onHasClientMobileChange={setHasClientMobile}
               hideReferredBy={hideReferredBy}
             />
           </div>

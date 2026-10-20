@@ -16,5 +16,7 @@ export * from './mlas';
 export * from './profile';
 export * from './reports';
 export * from './reviews';
+export * from './rightsMaster';
+export * from './statusMaster';
 export * from './scans';
 export * from './trainees';

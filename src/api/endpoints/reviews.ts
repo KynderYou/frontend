@@ -1,5 +1,5 @@
 import { apiClient, apiUpload } from '../client';
-import type { ReviewApi, ReviewKind } from '../types';
+import type { ReviewApi, ReviewDuplicateCheckApi, ReviewKind, ReviewRewardAmount, ReviewRewardsApi } from '../types';
 
 export type NewReview = {
   kind: ReviewKind;
@@ -30,4 +30,29 @@ export async function createReview(review: NewReview): Promise<ReviewApi> {
 /** DELETE /api/reviews/:id — poster or Admin */
 export async function deleteReview(id: number): Promise<void> {
   await apiClient<void>(`/api/reviews/${id}`, { method: 'DELETE' });
+}
+
+/** PUT /api/reviews/:id/reward — Admin records ₹50/100/150 (null clears); paid out annually, not a ledger credit */
+export async function setReviewReward(id: number, amount: ReviewRewardAmount | null): Promise<ReviewApi> {
+  return apiClient<ReviewApi>(`/api/reviews/${id}/reward`, {
+    method: 'PUT',
+    body: { amount },
+  });
+}
+
+/** GET /api/reviews/rewards?year= — Super Admin yearly totals per member */
+export async function getReviewRewards(year: number, signal?: AbortSignal): Promise<ReviewRewardsApi> {
+  return apiClient<ReviewRewardsApi>(`/api/reviews/rewards?year=${year}`, { signal });
+}
+
+/** POST /api/reviews/check-duplicate — run before posting so duplicates stop before any upload */
+export async function checkReviewDuplicate(
+  payload: { link?: string; fileHash?: string | null },
+  signal?: AbortSignal,
+): Promise<ReviewDuplicateCheckApi> {
+  return apiClient<ReviewDuplicateCheckApi>('/api/reviews/check-duplicate', {
+    method: 'POST',
+    body: { link: payload.link || null, file_hash: payload.fileHash || null },
+    signal,
+  });
 }

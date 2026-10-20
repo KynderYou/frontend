@@ -1,29 +1,27 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { getMisNetwork, getMisScans } from '../../api';
+import { getMisNetwork } from '../../api';
 import type { NetworkScope } from '../../api/types';
 import { colors, metricColors, spacing, typography, type MetricColor } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
-import { Skeleton, SkeletonKpiGrid, SkeletonTableCard } from '../common/Skeleton';
+import { SkeletonKpiGrid, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
+import { DailyScansLineChart } from './DailyScansLineChart';
 import { MonthlyBarChart } from './MonthlyBarChart';
-import { mapMisNetwork, mapMisScanRows } from './misApiMapper';
+import { mapMisNetwork } from './misApiMapper';
 import { useClientPagination } from '../../hooks/useClientPagination';
 import {
   formatCompactMoney,
   formatMoney,
   LOW_PERFORMER_THRESHOLD,
-  MONTH_LABELS,
   NETWORK_YEARS,
-  type NetworkScan,
   type NetworkYear,
 } from './misData';
 import { initials } from '../../utils/initials';
 
 const theme = colors.light;
 const TEAM_DB_PAGE_SIZE = 15;
-const DRILLDOWN_PAGE_SIZE = 12;
 
 const SCOPE_COPY: Record<NetworkScope, { subtitle: string; scansHint: string; billingLabel: string }> = {
   network: { subtitle: 'How the entire network is performing', scansHint: 'network total', billingLabel: 'Network billing' },
@@ -46,7 +44,6 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
     last_quarter_label: '',
     low_performer_threshold: LOW_PERFORMER_THRESHOLD,
     year_totals: { scans: 0, reviews: 0, billing: 0 },
-    scans_by_month: [],
     reviews_by_month: [],
     billing_by_month: [],
     performance_rows: [],
@@ -54,14 +51,8 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
   }));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [scanMonth, setScanMonth] = useState(0);
-  const [reviewMonth, setReviewMonth] = useState(0);
+  const [dailyMonth, setDailyMonth] = useState(() => new Date().getMonth());
   const [billingMonth, setBillingMonth] = useState(0);
-  const [drilldownMonth, setDrilldownMonth] = useState<number | null>(null);
-  const [monthScans, setMonthScans] = useState<NetworkScan[]>([]);
-  const [drilldownPage, setDrilldownPage] = useState(1);
-  const [drilldownTotal, setDrilldownTotal] = useState(0);
-  const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [teamDbOpen, setTeamDbOpen] = useState(false);
 
   const teamPagination = useClientPagination(
@@ -76,10 +67,8 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
       const state = await getMisNetwork(year, signal);
       const mapped = mapMisNetwork(state);
       setYearData(mapped);
-      setScanMonth(mapped.defaultMonth);
-      setReviewMonth(mapped.defaultMonth);
+      setDailyMonth(year === new Date().getFullYear() ? new Date().getMonth() : mapped.defaultMonth);
       setBillingMonth(mapped.defaultMonth);
-      setDrilldownMonth(null);
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load network performance.');
@@ -93,37 +82,6 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
     loadNetwork(selectedYear, controller.signal);
     return () => controller.abort();
   }, [selectedYear, loadNetwork]);
-
-  useEffect(() => {
-    if (drilldownMonth === null) {
-      setMonthScans([]);
-      setDrilldownTotal(0);
-      setDrilldownPage(1);
-      return;
-    }
-    const controller = new AbortController();
-    setDrilldownLoading(true);
-    getMisScans(
-      { year: selectedYear, month: drilldownMonth, page: drilldownPage, pageSize: DRILLDOWN_PAGE_SIZE },
-      controller.signal,
-    )
-      .then((page) => {
-        setMonthScans(mapMisScanRows(page));
-        setDrilldownTotal(page.total);
-      })
-      .catch(() => {
-        setMonthScans([]);
-        setDrilldownTotal(0);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setDrilldownLoading(false);
-      });
-    return () => controller.abort();
-  }, [drilldownMonth, selectedYear, drilldownPage]);
-
-  useEffect(() => {
-    setDrilldownPage(1);
-  }, [drilldownMonth, selectedYear]);
 
   if (loading) {
     return (
@@ -231,32 +189,14 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
         )}
       </div>
 
+      <DailyScansLineChart
+        year={selectedYear}
+        scansByDay={yearData.scansByDay ?? []}
+        month={dailyMonth}
+        onMonthChange={setDailyMonth}
+      />
+
       <div className="mis-summary-grid">
-        <MonthlyBarChart
-          title="Monthly progress"
-          subtitle={`Scans uploaded each month in ${selectedYear}`}
-          data={yearData.scansByMonth}
-          activeMonth={scanMonth}
-          onSelectMonth={setScanMonth}
-          formatValue={(v) => v.toLocaleString('en-IN')}
-          unit="scans"
-          action={{
-            label: `View ${MONTH_LABELS[scanMonth]} scans`,
-            onClick: () => setDrilldownMonth(scanMonth),
-            disabled: yearData.scansByMonth[scanMonth].value === 0,
-          }}
-        />
-
-        <MonthlyBarChart
-          title="Reviews & testimonials"
-          subtitle={`Reviews and testimonials posted in ${selectedYear}`}
-          data={yearData.reviewsByMonth}
-          activeMonth={reviewMonth}
-          onSelectMonth={setReviewMonth}
-          formatValue={(v) => v.toLocaleString('en-IN')}
-          unit="posted"
-        />
-
         <MonthlyBarChart
           title="Monthly billing"
           subtitle={`Scan report billing debited each month in ${selectedYear}`}
@@ -319,80 +259,6 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
           ) : null}
         </div>
       </div>
-
-      {drilldownMonth !== null && (
-        <MisOverlay
-          title={`${MONTH_LABELS[drilldownMonth]} ${selectedYear} scans`}
-          subtitle={`${drilldownTotal} scans from ${yearData.scansByMonth[drilldownMonth].contributors.length} contributors`}
-          onClose={() => setDrilldownMonth(null)}
-        >
-          <div className="mis-drill-grid">
-            <div>
-              <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>Contributors</h4>
-              <ul className="mis-insight-list mis-insight-list--compact">
-                {yearData.scansByMonth[drilldownMonth].contributors.map((c) => (
-                  <li key={c.id}>
-                    <span style={{ minWidth: 0, flex: 1, fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>
-                      {c.name}
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: theme.primary }}>{c.value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div style={{ minWidth: 0 }}>
-              <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>Scans</h4>
-              <div className="mis-overlay-table">
-                <table className="mis-data-table mis-data-table--compact">
-                  <thead>
-                    <tr>
-                      <th>Scan ID</th>
-                      <th>Name</th>
-                      <th>Uploaded by</th>
-                      <th>Upload date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {drilldownLoading ? (
-                      Array.from({ length: 5 }, (_, index) => (
-                        <tr key={index} className="mis-data-skeleton-row">
-                          <td colSpan={4}>
-                            <Skeleton width={`${88 - (index % 3) * 10}%`} height={12} />
-                          </td>
-                        </tr>
-                      ))
-                    ) : monthScans.length === 0 ? (
-                      <tr className="mis-data-empty">
-                        <td colSpan={4}>No scans for this month.</td>
-                      </tr>
-                    ) : (
-                      monthScans.map((scan) => (
-                        <tr key={scan.scanId}>
-                          <td data-label="Scan ID">
-                            <span className="mis-scan-id">{scan.scanId}</span>
-                          </td>
-                          <td data-label="Name">{scan.clientName}</td>
-                          <td data-label="Uploaded by">{scan.mlaName}</td>
-                          <td data-label="Upload date">{scan.uploadedAt}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-                <TablePager
-                  page={drilldownPage}
-                  pageSize={DRILLDOWN_PAGE_SIZE}
-                  total={drilldownTotal}
-                  loading={drilldownLoading}
-                  onPageChange={setDrilldownPage}
-                  className="mis-table-footer mis-table-footer--overlay"
-                />
-              </div>
-            </div>
-          </div>
-        </MisOverlay>
-      )}
 
       {teamDbOpen && (
         <MisOverlay

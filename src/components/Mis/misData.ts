@@ -55,6 +55,8 @@ export type NetworkScan = {
   month: number;
   day: number;
   uploadedAt: string;
+  /** When the fingerprint images were deleted from the recycle bin. */
+  archivedAt?: string;
 };
 
 const clientNames = [
@@ -280,9 +282,10 @@ export type NetworkYearSnapshot = {
   scope: NetworkScope;
   monthsSoFar: number;
   networkScans: NetworkScan[];
-  scansByMonth: MonthPoint[];
   reviewsByMonth: MonthPoint[];
   billingByMonth: MonthPoint[];
+  /** Scans per day for each month (index 0 = Jan). */
+  scansByDay?: number[][];
   yearTotals: { scans: number; reviews: number; billing: number };
   performanceRows: PerformanceRow[];
   lowPerformers: PerformanceRow[];
@@ -311,7 +314,6 @@ export function getNetworkYearSnapshot(year: NetworkYear): NetworkYearSnapshot {
     scope: 'network',
     monthsSoFar,
     networkScans: yearScans,
-    scansByMonth,
     reviewsByMonth,
     billingByMonth,
     yearTotals: {
@@ -330,7 +332,6 @@ export function getNetworkYearSnapshot(year: NetworkYear): NetworkYearSnapshot {
 /** Backward-compatible exports for the current year */
 const currentYearSnapshot = getNetworkYearSnapshot(NETWORK_YEAR);
 
-export const scansByMonth = currentYearSnapshot.scansByMonth;
 export const reviewsByMonth = currentYearSnapshot.reviewsByMonth;
 export const billingByMonth = currentYearSnapshot.billingByMonth;
 export const yearTotals = currentYearSnapshot.yearTotals;

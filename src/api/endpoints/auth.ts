@@ -30,12 +30,23 @@ export async function login(body: LoginRequest, signal?: AbortSignal): Promise<L
   }
 }
 
+/** POST /api/auth/activate-login — pay ₹499 reactivation fee for a Suspended account */
+export async function activateLogin(body: LoginRequest, signal?: AbortSignal): Promise<LoginResponse> {
+  const result = await apiClient<LoginResponse>('/api/auth/activate-login', {
+    method: 'POST',
+    body,
+    signal,
+  });
+  setToken(result.token);
+  return result;
+}
+
 /** GET /api/auth/me — returns demo member when using frontend-only session */
-export async function getMe(signal?: AbortSignal): Promise<Member> {
+export async function getMe(signal?: AbortSignal): Promise<Member & { gates?: import('../types').LoginGate[] }> {
   if (isDemoToken(getToken())) {
     return demoMember;
   }
-  return apiClient<Member>('/api/auth/me', { signal });
+  return apiClient<Member & { gates?: import('../types').LoginGate[] }>('/api/auth/me', { signal });
 }
 
 /** GET /api/auth/verify-email?token=... */

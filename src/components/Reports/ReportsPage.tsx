@@ -12,6 +12,8 @@ import {
 } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TopUpRequiredModal } from '../common/TopUpRequiredModal';
+import { negativeBalanceMessage } from '../../utils/negativeBalance';
 import { SkeletonReportsStats, SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
@@ -79,9 +81,10 @@ type ReportsPageProps = {
   /** Scan code from a CAB notification — opens that report's CAB feedback modal. */
   openCabForScan?: string | null;
   onCabOpened?: () => void;
+  onOpenLedger?: () => void;
 };
 
-export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, onCabOpened }: ReportsPageProps) {
+export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, onCabOpened, onOpenLedger }: ReportsPageProps) {
   const { showSuccess, showError } = useToast();
   const [records, setRecords] = useState<ReportRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +107,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [isMentor, setIsMentor] = useState(false);
   const [isTrainee, setIsTrainee] = useState(false);
   const [requestingCab, setRequestingCab] = useState<ReportRecord | null>(null);
+  const [topUpMessage, setTopUpMessage] = useState<string | null>(null);
 
   const loadReports = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -117,7 +121,11 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
       setWalletRequired(needsWallet);
       if (needsWallet) {
         const ledger = await getMyLedger(signal);
-        setWalletBalance(ledger.available_balance ?? 0);
+        const balance = ledger.available_balance ?? 0;
+        setWalletBalance(balance);
+        if (!signal?.aborted && balance < 0) {
+          setTopUpMessage(negativeBalanceMessage(balance));
+        }
       } else {
         setWalletBalance(null);
       }
@@ -186,12 +194,12 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     [records]
   );
 
-  const walletBlocked = walletChecked && walletBalance !== null && walletBalance <= 0;
+  /** Report actions and downloads are on hold only while the ledger is negative; ₹0 is fine. */
+  const walletBlocked = walletChecked && walletBalance !== null && walletBalance < 0;
   const canUseActions = !walletBlocked;
-  const walletBlockTitle = 'Top up your ledger to use report actions';
-  /** Report billing can take the balance below zero; the final report unlocks once a top-up clears it. */
+  const walletBlockTitle = 'Your ledger balance is negative · top up to continue';
   const reportDues = walletBalance !== null && walletBalance < 0 ? -walletBalance : 0;
-  const duesTitle = `Report billing of ₹${reportDues.toLocaleString('en-IN')} is due · top up to download`;
+  const duesTitle = `Your ledger balance is −₹${reportDues.toLocaleString('en-IN')} · top up to download`;
 
   const downloadTitle = (ready: boolean) => {
     if (reportDues > 0) return duesTitle;
@@ -282,8 +290,8 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   };
 
   const handleDownload = async (record: ReportRecord) => {
-    if (reportDues > 0) {
-      showError(duesTitle);
+    if (walletBlocked || reportDues > 0) {
+      setTopUpMessage(negativeBalanceMessage(walletBalance ?? -reportDues));
       return;
     }
     try {
@@ -291,9 +299,17 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
       await downloadReportPdf(record);
       showSuccess(`Report for scan ${record.scanId} downloaded.`);
     } catch (err) {
-      showError(apiErrorDetail(err, 'Download failed. Please try again.'));
+      const detail = apiErrorDetail(err, 'Download failed. Please try again.');
+      if (err instanceof ApiError && err.status === 403 && /balance/i.test(detail)) {
+        setTopUpMessage(detail);
+        return;
+      }
+      showError(detail);
     }
   };
+
+  const downloadLocked = (row: ReportRecord, ready: boolean) =>
+    isViewOnlyRow(row) || !ready || walletBlocked || reportDues > 0;
 
   const handleUpgrade = async (record: ReportRecord, targetPlan: ReportPlan) => {
     if (submitting) return;
@@ -313,7 +329,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
     try {
       const cabFeedback = mapCabFeedback(await submitCabFeedback(record.scanId, input));
       setRecords((prev) => prev.map((row) => (row.id === record.id ? { ...row, cabFeedback } : row)));
-      showSuccess(`Feedback for scan ${record.scanId} sent to H.O for approval.`);
+      showSuccess(`Feedback for scan ${record.scanId} sent to your admin for approval.`);
       return true;
     } catch (err) {
       showError(apiErrorDetail(err, 'Could not submit feedback. Please try again.'));
@@ -394,9 +410,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
           <button
             type="button"
             className="reports-card-download"
-            disabled={isViewOnlyRow(row) || reportDues > 0 || !ready}
+            disabled={downloadLocked(row, ready)}
             title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(ready)}
-            onClick={() => handleDownload(row)}
+            onClick={() => void handleDownload(row)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -491,7 +507,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                 </p>
                 <p>
                   Once you receive the audio byte on WhatsApp or another channel, rate it here. Your mentor is credited
-                  after H.O approves your feedback.
+                  after your admin approves your feedback.
                 </p>
               </InfoTip>
             </th>
@@ -531,9 +547,9 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                   <button
                     type="button"
                     className="scans-action-btn scans-action-export"
-                    disabled={isViewOnlyRow(row) || reportDues > 0 || !ready}
+                    disabled={downloadLocked(row, ready)}
                     title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(ready)}
-                    onClick={() => handleDownload(row)}
+                    onClick={() => void handleDownload(row)}
                   >
                     Download
                   </button>
@@ -787,7 +803,10 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
         onClose={() => setUpgradingRecord(null)}
         onConfirm={handleUpgrade}
       />
-      <CabRequestModal record={requestingCab} onClose={() => setRequestingCab(null)} onSend={handleRequestCab} />
+      <TopUpRequiredModal message={topUpMessage} onClose={() => setTopUpMessage(null)} onTopUp={onOpenLedger} />
+      <CabRequestModal
+        key={requestingCab?.id ?? 'none'}
+        record={requestingCab} onClose={() => setRequestingCab(null)} onSend={handleRequestCab} />
       <CabModal
         key={cabRecord?.id ?? 'none'}
         open={Boolean(cabRecord)}

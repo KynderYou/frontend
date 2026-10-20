@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { LuExternalLink, LuPlus } from 'react-icons/lu';
-import midnaLogo from '../../assets/Midna logo.jpeg';
-import { ApiError, createReview, deleteReview, getReviews } from '../../api';
+import { ApiError, createReview, deleteReview, getReviews, setReviewReward } from '../../api';
 import type { NewReview } from '../../api/endpoints/reviews';
-import type { ReviewApi, ReviewKind } from '../../api/types';
+import type { ReviewApi, ReviewKind, ReviewRewardAmount } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
 import { initials } from '../../utils/initials';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { EmptyState } from '../common/EmptyState';
 import { TablePager } from '../common/TablePager';
 import { TrashButton } from '../common/TrashButton';
@@ -18,11 +18,13 @@ import { useProtectedFile } from '../../hooks/useProtectedFile';
 import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { AddReviewModal } from './AddReviewModal';
+import { CompactAudio } from './CompactAudio';
+import { ReviewRewardModal } from './ReviewRewardModal';
 import { ReviewsPeopleTree } from './ReviewsPeopleTree';
 import { REVIEW_KIND_OPTIONS } from './reviewKinds';
 
 const theme = colors.light;
-const REVIEWS_PAGE_SIZE = 9;
+const REVIEWS_PAGE_SIZE = 10;
 
 type KindFilter = ReviewKind | 'all';
 
@@ -36,62 +38,107 @@ function apiErrorDetail(err: unknown, fallback: string) {
   return typeof detail === 'string' ? detail : fallback;
 }
 
-function ReviewMedia({ review }: { review: ReviewApi }) {
+function ReviewProof({ review }: { review: ReviewApi }) {
   const src = useProtectedFile(review.file_url);
-  if (!review.file_url) {
-    return (
-      <div className="review-media is-placeholder">
-        <img src={midnaLogo} alt="Midna Global" />
-      </div>
-    );
-  }
-  if (!src) return <div className="review-media is-loading" aria-hidden="true" />;
+  const link = review.link ? (
+    <a className="review-row-link" href={review.link} target="_blank" rel="noopener noreferrer">
+      <LuExternalLink size={13} />
+      Open
+    </a>
+  ) : null;
+  if (!review.file_url) return link ?? <span className="review-row-muted">—</span>;
+  if (!src) return <span className="review-row-thumb is-loading" aria-hidden="true" />;
   if (review.kind === 'audio' || review.file_mime?.startsWith('audio/')) {
-    return <audio className="review-audio" controls preload="metadata" src={src} />;
+    return <CompactAudio src={src} label={review.kind_label} />;
   }
   return (
-    <a className="review-media" href={src} target="_blank" rel="noopener noreferrer" title="Open picture">
-      <img src={src} alt={`${review.kind_label} screenshot`} />
-    </a>
+    <span className="review-row-proof">
+      <a className="review-row-thumb" href={src} target="_blank" rel="noopener noreferrer" title="Open picture">
+        <img src={src} alt={`${review.kind_label} screenshot`} />
+      </a>
+      {link}
+    </span>
   );
 }
 
-function ReviewCard({ review, onDelete }: { review: ReviewApi; onDelete: (review: ReviewApi) => void }) {
+type ReviewRowProps = {
+  review: ReviewApi;
+  showReward: boolean;
+  onReward: (review: ReviewApi) => void;
+  onDelete: (review: ReviewApi) => void;
+};
+
+function ReviewRow({ review, showReward, onReward, onDelete }: ReviewRowProps) {
   const option = REVIEW_KIND_OPTIONS.find((o) => o.id === review.kind) ?? REVIEW_KIND_OPTIONS[3];
+  const reward = review.reward_amount ?? null;
+  const link = review.link;
+  const openLink = (e: MouseEvent<HTMLTableRowElement> | KeyboardEvent<HTMLTableRowElement>) => {
+    if (!link) return;
+    if ((e.target as HTMLElement).closest('a, button, input, audio, .compact-audio')) return;
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
   return (
-    <article className={`review-card tone-${option.tone}`}>
-      <header className="review-card-head">
+    <tr
+      className={`review-row tone-${option.tone}${link ? ' is-link' : ''}`}
+      title={link ? 'Open review' : undefined}
+      tabIndex={link ? 0 : undefined}
+      onClick={link ? openLink : undefined}
+      onKeyDown={
+        link
+          ? (e) => {
+              if (e.key === 'Enter' && e.target === e.currentTarget) openLink(e);
+            }
+          : undefined
+      }
+    >
+      <td data-label="Type">
         <span className="review-kind-badge">
           {option.icon}
           {review.kind_label}
         </span>
-        {review.can_delete ? <TrashButton label="Delete review" onClick={() => onDelete(review)} /> : null}
-      </header>
-
-      {review.client_name ? <h3 className="review-client">{review.client_name}</h3> : null}
-      {review.caption ? <p className="review-caption">{review.caption}</p> : null}
-
-      <ReviewMedia review={review} />
-
-      {review.link ? (
-        <a className="review-link" href={review.link} target="_blank" rel="noopener noreferrer">
-          <LuExternalLink size={14} />
-          Open review
-        </a>
-      ) : null}
-
-      <footer className="review-card-foot">
-        <span className="review-poster-avatar" aria-hidden="true">
-          {initials(review.posted_by_name)}
-        </span>
-        <span className="review-poster">
-          <strong>{review.posted_by_name}</strong>
-          <span>
-            {review.posted_by_role} · {review.posted_at}
+      </td>
+      <td data-label="Client">
+        <span className="review-row-client">{review.client_name || '—'}</span>
+        {review.caption ? <span className="review-row-caption">{review.caption}</span> : null}
+      </td>
+      <td data-label="Proof">
+        <ReviewProof review={review} />
+      </td>
+      <td data-label="Posted by">
+        <span className="review-row-poster">
+          <span className="review-poster-avatar" aria-hidden="true">
+            {initials(review.posted_by_name)}
+          </span>
+          <span className="review-poster">
+            <strong>{review.posted_by_name}</strong>
+            <span>{review.posted_by_role}</span>
           </span>
         </span>
-      </footer>
-    </article>
+      </td>
+      <td data-label="Posted on" className="review-row-date">
+        {review.posted_at}
+      </td>
+      {showReward ? (
+        <td data-label="Reward">
+          {review.can_reward ? (
+            <button
+              type="button"
+              className={`review-reward-pill${reward ? ' is-rewarded' : ''}`}
+              title={reward ? 'Change or remove the reward' : 'Reward this review'}
+              onClick={() => onReward(review)}
+            >
+              {reward ? `₹${reward} rewarded` : 'Reward'}
+            </button>
+          ) : null}
+          {reward && review.rewarded_by_name ? (
+            <span className="review-reward-meta">by {review.rewarded_by_name}</span>
+          ) : null}
+        </td>
+      ) : null}
+      <td data-label="" className="col-center">
+        {review.can_delete ? <TrashButton label="Delete review" onClick={() => onDelete(review)} /> : null}
+      </td>
+    </tr>
   );
 }
 
@@ -108,6 +155,10 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
   const isAdminViewer = isAdminRole(useCurrentMember()?.role);
   const hierarchy = useNetworkHierarchy(isAdminViewer);
   const [personId, setPersonId] = useState<number | null>(null);
+  const [deletingReview, setDeletingReview] = useState<ReviewApi | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [rewardingReview, setRewardingReview] = useState<ReviewApi | null>(null);
+  const [rewardSaving, setRewardSaving] = useState(false);
 
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -164,20 +215,39 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
       setAddOpen(false);
       showSuccess(`${created.kind_label} posted.`);
     } catch (err) {
-      setAddError(apiErrorDetail(err, 'Could not post the review. Please try again.'));
+      const message = apiErrorDetail(err, 'Could not post the review. Please try again.');
+      setAddError(message);
+      if (err instanceof ApiError && err.status === 409) showError(message);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (review: ReviewApi) => {
-    if (!window.confirm(`Delete this ${review.kind_label.toLowerCase()}?`)) return;
+    setDeleting(true);
     try {
       await deleteReview(review.id);
       setReviews((prev) => prev.filter((row) => row.id !== review.id));
+      setDeletingReview(null);
       showSuccess('Review deleted.');
     } catch (err) {
       showError(apiErrorDetail(err, 'Could not delete the review.'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleReward = async (review: ReviewApi, amount: ReviewRewardAmount | null) => {
+    setRewardSaving(true);
+    try {
+      const updated = await setReviewReward(review.id, amount);
+      setReviews((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      setRewardingReview(null);
+      showSuccess(amount ? `₹${amount} reward recorded for ${review.posted_by_name}.` : 'Reward cleared.');
+    } catch (err) {
+      showError(apiErrorDetail(err, 'Could not save the reward.'));
+    } finally {
+      setRewardSaving(false);
     }
   };
 
@@ -185,7 +255,7 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
     kind === 'all' ? personReviews.length : personReviews.filter((r) => r.kind === kind).length;
 
   return (
-    <section className="page-section reviews-page">
+    <section className="page-section trainees-page reviews-page">
       <div className="page-header">
         <div className="page-title-block" style={{ minWidth: 0, flex: 1 }}>
           <h1
@@ -216,7 +286,7 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
         </div>
       </div>
 
-      <div className={isAdminViewer ? 'trainees-layout reviews-layout' : undefined}>
+      <div className={`trainees-layout reviews-layout${isAdminViewer ? '' : ' trainees-layout--single'}`} style={{ gap: spacing[5] }}>
         {isAdminViewer ? (
           <ReviewsPeopleTree
             hierarchy={hierarchy}
@@ -296,9 +366,9 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
           </div>
 
           {loading ? (
-            <div className="reviews-grid" aria-busy="true">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="review-card is-skeleton" />
+            <div className="dash-card reviews-table-skeleton" aria-busy="true">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="reviews-row-skeleton" />
               ))}
             </div>
           ) : loadError ? (
@@ -325,19 +395,41 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
               />
             </div>
           ) : (
-            <>
-              <div className="reviews-grid">
-                {pagination.pageItems.map((review) => (
-                  <ReviewCard key={review.id} review={review} onDelete={handleDelete} />
-                ))}
+            <div className="dash-card trainees-table-panel reviews-table-panel" style={{ padding: 0, minWidth: 0 }}>
+              <div className="trainees-table-body">
+                <table className="mis-data-table trainees-data-table reviews-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Client</th>
+                      <th>Proof</th>
+                      <th>Posted by</th>
+                      <th>Posted on</th>
+                      {isAdminViewer ? <th>Reward</th> : null}
+                      <th className="col-center" aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagination.pageItems.map((review) => (
+                      <ReviewRow
+                        key={review.id}
+                        review={review}
+                        showReward={isAdminViewer}
+                        onReward={setRewardingReview}
+                        onDelete={setDeletingReview}
+                      />
+                    ))}
+                  </tbody>
+                </table>
               </div>
               <TablePager
                 page={pagination.page}
                 pageSize={pagination.pageSize}
                 total={pagination.total}
                 onPageChange={pagination.setPage}
+                className="mis-table-footer"
               />
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -351,6 +443,24 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
           error={addError}
         />
       ) : null}
+      <ReviewRewardModal
+        key={rewardingReview?.id ?? 'none'}
+        review={rewardingReview}
+        busy={rewardSaving}
+        onClose={() => setRewardingReview(null)}
+        onSave={(row, amount) => void handleReward(row, amount)}
+      />
+      <ConfirmModal
+        open={deletingReview != null}
+        title={`Delete this ${deletingReview?.kind_label.toLowerCase() ?? 'review'}?`}
+        confirmLabel="Delete"
+        danger
+        busy={deleting}
+        onClose={() => setDeletingReview(null)}
+        onConfirm={() => deletingReview && void handleDelete(deletingReview)}
+      >
+        This removes it for everyone. This action cannot be undone.
+      </ConfirmModal>
     </section>
   );
 }

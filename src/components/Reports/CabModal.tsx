@@ -21,16 +21,16 @@ function fileSize(bytes: number) {
 
 const STATUS_COPY: Record<CabFeedbackStatus, { title: string; body: string }> = {
   Pending: {
-    title: 'Feedback submitted · awaiting H.O approval',
-    body: 'You can still edit your feedback until H.O reviews it.',
+    title: 'Feedback submitted · awaiting admin approval',
+    body: 'You can still edit your feedback until your admin reviews it.',
   },
   Approved: {
     title: 'Feedback approved',
-    body: 'Thank you. H.O approved your feedback for this CAB.',
+    body: 'Thank you. Your admin approved your feedback for this CAB.',
   },
   Rejected: {
     title: 'Feedback not approved',
-    body: 'H.O did not approve this feedback. Update it and submit again.',
+    body: 'Your admin did not approve this feedback. Update it and submit again.',
   },
 };
 

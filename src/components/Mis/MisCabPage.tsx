@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ApiError, getCabState, getMe, reviewCabFeedback } from '../../api';
 import type { CabStateApi } from '../../api/types';
 import { colors, radius, spacing, typography } from '../../styles/theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { EmptyState } from '../common/EmptyState';
 import { ProtectedAudio } from '../common/ProtectedAudio';
 import { SkeletonCabPage } from '../common/Skeleton';
@@ -12,7 +13,7 @@ import { NotificationButton } from '../Layout/NotificationButton';
 import { ProfileAvatarButton } from '../Layout/ProfileAvatarButton';
 import { mapCabState } from './cabApiMapper';
 import type { CabFeedback, CabFeedbackStatus } from './cabData';
-import { isAdminRole } from '../../utils/roles';
+import { isAdminRole, isSuperAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
 const CAB_PAGE_SIZE = 12;
@@ -34,7 +35,7 @@ function statusStyles(status: CabFeedbackStatus) {
 function statusLabel(row: CabFeedback) {
   if (row.status === 'Approved') return row.mentorId != null ? `Credited · ${row.creditAmount}` : 'Approved';
   if (row.status === 'Rejected') return 'Rejected';
-  return 'Awaiting H.O approval';
+  return 'Awaiting admin approval';
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -57,9 +58,12 @@ export function MisCabPage({
 }: MisCabPageProps) {
   const { showSuccess, showError } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
+  /** Super Admin (H.O) only sees status; the admin above the member approves. */
+  const [canReview, setCanReview] = useState(false);
   const [feedback, setFeedback] = useState<CabFeedback[]>([]);
   const [companyBalance, setCompanyBalance] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [approvingRow, setApprovingRow] = useState<CabFeedback | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState(initialScanCode ?? '');
@@ -79,6 +83,7 @@ export function MisCabPage({
     try {
       const [member, state] = await Promise.all([getMe(signal), getCabState(signal)]);
       setIsAdmin(isAdminRole(member.role));
+      setCanReview(isAdminRole(member.role) && !isSuperAdminRole(member.role));
       applyState(state);
       setLoadError('');
     } catch {
@@ -113,13 +118,10 @@ export function MisCabPage({
   const handleReview = async (row: CabFeedback, approve: boolean) => {
     if (busy) return;
     const paysMentor = row.mentorId != null;
-    const confirmText = paysMentor
-      ? `Approve feedback for ${row.scanCode}? ${row.creditAmount} will be debited from the company ledger and credited to ${row.mentorName}.`
-      : `Approve feedback for ${row.scanCode}? The mentee has no mentor, so no credit is paid.`;
-    if (approve && !window.confirm(confirmText)) return;
     setBusy(true);
     try {
       applyState(await reviewCabFeedback(row.id, approve));
+      setApprovingRow(null);
       showSuccess(
         !approve
           ? `Feedback for ${row.scanCode} rejected.`
@@ -152,8 +154,10 @@ export function MisCabPage({
           MIS · CAB
         </h1>
         <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-          {isAdmin
-            ? 'Mentee feedback on CAB sent by mentors. Approving debits the company ledger and credits the mentor.'
+          {canReview
+            ? 'MLA feedback on their mentors\' CAB inputs. Approving debits your ledger and credits the mentor.'
+            : isAdmin
+            ? 'CAB status across all admins. Each admin approves feedback for their own members.'
             : 'Feedback on counselling audio bytes for your scans and mentees.'}
         </p>
       </div>
@@ -303,13 +307,13 @@ export function MisCabPage({
                         <span className="trainees-status" style={statusStyles(row.status)}>
                           {statusLabel(row)}
                         </span>
-                        {isAdmin && row.status === 'Pending' ? (
+                        {canReview && row.status === 'Pending' ? (
                           <div className="mis-cab-actions" style={{ marginTop: 6 }}>
                             <button
                               type="button"
                               className="scans-action-btn scans-action-export"
                               disabled={busy}
-                              onClick={() => void handleReview(row, true)}
+                              onClick={() => setApprovingRow(row)}
                             >
                               Approve
                             </button>
@@ -339,6 +343,25 @@ export function MisCabPage({
           />
         </div>
       )}
+
+      <ConfirmModal
+        open={approvingRow != null}
+        title="Approve CAB feedback?"
+        subtitle={approvingRow ? `Scan ${approvingRow.scanCode} · ${approvingRow.clientName}` : undefined}
+        confirmLabel="Approve"
+        busy={busy}
+        onClose={() => setApprovingRow(null)}
+        onConfirm={() => approvingRow && void handleReview(approvingRow, true)}
+      >
+        {approvingRow?.mentorId != null ? (
+          <>
+            <strong>{approvingRow.creditAmount}</strong> will be debited from your ledger and credited to{' '}
+            <strong>{approvingRow.mentorName}</strong>.
+          </>
+        ) : (
+          'The MLA has no mentor, so no credit is paid.'
+        )}
+      </ConfirmModal>
     </section>
   );
 }

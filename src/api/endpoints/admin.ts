@@ -64,7 +64,7 @@ export async function updateAdminMemberVisibility(
 /** PATCH /api/admin/members/{id}/status */
 export async function updateAdminMemberStatus(
   memberId: number,
-  status: 'Active' | 'Invited' | 'Disabled',
+  status: 'Active' | 'Invited' | 'Disabled' | 'Suspended',
   signal?: AbortSignal,
 ): Promise<UpdateAdminMemberStatusResultApi> {
   return apiClient<UpdateAdminMemberStatusResultApi>(`/api/admin/members/${memberId}/status`, {

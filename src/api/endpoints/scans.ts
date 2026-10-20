@@ -13,9 +13,10 @@ export async function getMyMlaScans(signal?: AbortSignal): Promise<MlaScan[]> {
   return apiClient<MlaScan[]>('/api/scans/me', { signal });
 }
 
-/** POST /api/scans — multipart zip + client fields */
+/** POST /api/scans — multipart zip + consent card + client fields */
 export async function createMlaScan(
   file: File,
+  consentFile: File,
   fields: {
     client_name: string;
     age: string;
@@ -32,6 +33,7 @@ export async function createMlaScan(
   }
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('consent_file', consentFile);
   formData.append('client_name', fields.client_name);
   formData.append('age', fields.age);
   formData.append('phone', fields.phone);
@@ -157,6 +159,14 @@ export async function purgeRecycleBinImages(scanId: number): Promise<void> {
     throw new Error('Not available in demo mode');
   }
   await apiClient<void>(`/api/scans/ho/recycle-bin/${scanId}/images`, { method: 'DELETE' });
+}
+
+/** DELETE /api/scans/ho/recycle-bin — Super Admin purges every scan's ZIP and fingerprint images */
+export async function emptyRecycleBin(): Promise<{ purged: number }> {
+  if (isDemoToken(getToken())) {
+    throw new Error('Not available in demo mode');
+  }
+  return apiClient<{ purged: number }>('/api/scans/ho/recycle-bin', { method: 'DELETE' });
 }
 
 /** POST /api/scans/ho/{id}/report — attach the report PDF (Admin) */

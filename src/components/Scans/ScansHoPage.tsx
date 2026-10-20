@@ -47,6 +47,7 @@ type ScansHoPageProps = {
   canProcess?: boolean;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenLedger?: () => void;
 };
 
 const sectionLabels: Record<HoSectionId, string> = {
@@ -226,6 +227,7 @@ export function ScansHoPage({
   canProcess = true,
   onOpenMobileMenu,
   onOpenProfile,
+  onOpenLedger,
 }: ScansHoPageProps) {
   const { showSuccess, showError } = useToast();
   const [uploadTab, setUploadTab] = useState(canUpload || !canProcess);
@@ -535,7 +537,7 @@ export function ScansHoPage({
       </div>
 
       {uploadTab ? (
-        <ScansMlaPage embedded />
+        <ScansMlaPage embedded onOpenLedger={onOpenLedger} />
       ) : (
       <>
       {loadError && (

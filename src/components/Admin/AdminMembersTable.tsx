@@ -8,6 +8,7 @@ const theme = colors.light;
 function statusStyles(status: string) {
   if (status === 'Active') return { color: theme.success, background: theme['success-bg'] };
   if (status === 'Invited') return { color: theme.warning, background: theme['warning-bg'] };
+  if (status === 'Suspended') return { color: theme.warning, background: theme['warning-bg'] };
   if (status === 'Inactive') return { color: theme['text-muted'], background: theme['bg-muted'] };
   return { color: theme.error, background: theme['error-bg'] };
 }

@@ -26,6 +26,9 @@ export type MemberNav = {
   mentor_mlas: boolean;
   admin_members: boolean;
   admin_topups: boolean;
+  review_rewards?: boolean;
+  rights_master?: boolean;
+  status_master?: boolean;
   mis_cab: boolean;
   scans_mla: boolean;
   scans_ho: boolean;
@@ -112,9 +115,20 @@ export type LoginRequest = {
   password: string;
 };
 
+export type LoginGate = {
+  code: string;
+  message: string;
+  blocking: boolean;
+  action?: string | null;
+  amount?: number | null;
+  count?: number | null;
+  redirect_view?: string | null;
+};
+
 export type LoginResponse = {
   token: string;
   member: Member;
+  gates?: LoginGate[];
 };
 
 export type MessageResponse = {
@@ -601,9 +615,10 @@ export type MisNetworkStateApi = {
   last_quarter_label: string;
   low_performer_threshold: number;
   year_totals: { scans: number; reviews: number; billing: number };
-  scans_by_month: MisMonthPointApi[];
   reviews_by_month: MisMonthPointApi[];
   billing_by_month: MisMonthPointApi[];
+  /** Scans per day: 12 lists (Jan–Dec), each as long as that month. */
+  scans_by_day?: number[][];
   performance_rows: MisPerformanceRowApi[];
   low_performers: MisPerformanceRowApi[];
 };
@@ -622,6 +637,7 @@ export type MisScanRowApi = {
   year: number;
   month: number;
   uploaded_at: string;
+  archived_at?: string;
 };
 
 export type MisScansPageApi = {
@@ -657,6 +673,7 @@ export type AdminMemberApi = {
   admin_by_id?: number | null;
   remarks?: string;
   certified?: boolean;
+  competency_expiry?: string | null;
 };
 
 export type AdminMembersStateApi = {
@@ -692,6 +709,7 @@ export type AdminVisibilityFieldsPayload = {
   admin_by_id?: number;
   remarks?: string;
   certified?: boolean;
+  competency_expiry?: string | null;
 };
 
 export type CreateAdminMemberPayload = AdminMembershipFieldsPayload &
@@ -751,4 +769,111 @@ export type ReviewApi = {
   posted_by_role: string;
   posted_at: string;
   can_delete: boolean;
+  reward_amount?: number | null;
+  rewarded_by_name?: string;
+  rewarded_at?: string;
+  can_reward?: boolean;
+};
+
+export type ReviewDuplicateCheckApi = {
+  duplicate: boolean;
+  field: 'link' | 'file' | null;
+  message: string;
+};
+
+export type ReviewRewardAmount = 50 | 100 | 150;
+
+export type ReviewRewardMemberApi = {
+  member_id: number;
+  name: string;
+  role: string;
+  reviews: number;
+  total: number;
+};
+
+export type ReviewRewardEntryApi = {
+  review_id: number;
+  kind_label: string;
+  client_name: string;
+  link: string | null;
+  posted_by_id: number;
+  posted_by_name: string;
+  posted_by_role: string;
+  posted_at: string;
+  amount: number;
+  rewarded_by_name: string;
+  rewarded_at: string;
+};
+
+export type ReviewRewardsApi = {
+  year: number;
+  total: number;
+  members: ReviewRewardMemberApi[];
+  entries: ReviewRewardEntryApi[];
+};
+
+export type RightsMaster = {
+  id: number;
+  name: string;
+  subscription_amount: number;
+  billing_percent: number;
+  cws_reports: string;
+  mrp_display: string;
+  lys_billing: string;
+  plus_reports: string;
+  dnai_reports: string;
+  nat_discount: number | null;
+  sort_order: number;
+  active: boolean;
+};
+
+export type RightsMasterInput = {
+  name: string;
+  subscription_amount: number;
+  billing_percent: number;
+  cws_reports: 'na' | 'yes';
+  mrp_display: 'must' | 'optional';
+  lys_billing: 'na' | 'yes';
+  plus_reports: 'upgrade' | 'direct';
+  dnai_reports: 'na' | 'conditional' | 'yes';
+  nat_discount: number | null;
+  sort_order: number;
+  active: boolean;
+};
+
+export type RightsMasterList = {
+  items: RightsMaster[];
+};
+
+export type StatusMaster = {
+  id: number;
+  name: string;
+  rank: number;
+  dds_adult: string;
+  dds_basic: string;
+  dds_plus: string;
+  min_lys: string;
+  max_billing: number | null;
+  renewal: string;
+  nat_billing: number | null;
+  sort_order: number;
+  active: boolean;
+};
+
+export type StatusMasterInput = {
+  name: string;
+  rank: number;
+  dds_adult: 'na' | 'must' | 'optional';
+  dds_basic: 'na' | 'must' | 'optional';
+  dds_plus: 'na' | 'must' | 'optional';
+  min_lys: 'na' | 'upto_25' | '25_49' | '50_99' | '100_plus';
+  max_billing: number | null;
+  renewal: 'na' | 'optional' | 'must';
+  nat_billing: number | null;
+  sort_order: number;
+  active: boolean;
+};
+
+export type StatusMasterList = {
+  items: StatusMaster[];
 };

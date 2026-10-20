@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { genderOptions } from './scanDetails';
+import { genderOptions, type HasClientMobile } from './scanDetails';
 
 export type ClientData = {
   name: string;
@@ -21,9 +21,9 @@ const emptyForm: ClientData = {
   gender: '',
 };
 
-
 export function AddClientDataModal({ open, onClose, onSubmit }: AddClientDataModalProps) {
   const [form, setForm] = useState<ClientData>(emptyForm);
+  const [hasClientMobile, setHasClientMobile] = useState<HasClientMobile>('');
 
   useEffect(() => {
     if (!open) return;
@@ -39,7 +39,10 @@ export function AddClientDataModal({ open, onClose, onSubmit }: AddClientDataMod
   }, [open, onClose]);
 
   useEffect(() => {
-    if (!open) setForm(emptyForm);
+    if (!open) {
+      setForm(emptyForm);
+      setHasClientMobile('');
+    }
   }, [open]);
 
   if (!open) return null;
@@ -53,8 +56,9 @@ export function AddClientDataModal({ open, onClose, onSubmit }: AddClientDataMod
   const canSubmit =
     form.name.trim().length > 0 &&
     form.age.trim().length > 0 &&
-    form.phone.trim().length > 0 &&
-    form.gender.trim().length > 0;
+    form.gender.trim().length > 0 &&
+    (hasClientMobile === 'yes' || hasClientMobile === 'no') &&
+    (hasClientMobile !== 'yes' || form.phone.trim().length > 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +66,7 @@ export function AddClientDataModal({ open, onClose, onSubmit }: AddClientDataMod
     onSubmit({
       name: form.name.trim(),
       age: form.age.trim(),
-      phone: form.phone.trim(),
+      phone: hasClientMobile === 'yes' ? form.phone.trim() : '',
       gender: form.gender,
     });
     onClose();
@@ -126,15 +130,51 @@ export function AddClientDataModal({ open, onClose, onSubmit }: AddClientDataMod
             </label>
 
             <label className="form-field">
-              <span className="form-label">Phno</span>
-              <input
-                className="form-input"
-                type="tel"
-                placeholder="Phone number"
-                value={form.phone}
-                onChange={update('phone')}
-              />
+              <span className="form-label">Client mobile number?</span>
+              <div className="form-select-wrap">
+                <select
+                  className="form-input form-select"
+                  value={hasClientMobile}
+                  onChange={(e) => {
+                    const next = e.target.value as HasClientMobile;
+                    setHasClientMobile(next);
+                    if (next !== 'yes') setForm((f) => ({ ...f, phone: '' }));
+                  }}
+                  required
+                >
+                  <option value="" disabled>
+                    Yes / No
+                  </option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+                <svg
+                  className="form-select-chevron"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </div>
             </label>
+
+            {hasClientMobile === 'yes' ? (
+              <label className="form-field">
+                <span className="form-label">Mobile number</span>
+                <input
+                  className="form-input"
+                  type="tel"
+                  placeholder="Client's mobile number"
+                  value={form.phone}
+                  onChange={update('phone')}
+                  required
+                />
+              </label>
+            ) : null}
 
             <label className="form-field">
               <span className="form-label">Gender</span>

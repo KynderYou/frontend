@@ -139,13 +139,29 @@ export async function findConsentFormImage<T extends ConsentCandidate>(
   };
 }
 
-export async function consentFormValidationError(images: ConsentCandidate[]): Promise<string | null> {
-  const { image, rejection } = await findConsentFormImage(images);
-  if (image) return null;
-  if (rejection) {
-    return `Consent form not accepted (${rejection}). Include a clear full-page scan of the Midna Family Consent Form.`;
+/** Consent is uploaded separately — reject packages that still contain a consent page. */
+export async function consentInZipForbiddenError(images: ConsentCandidate[]): Promise<string | null> {
+  const { image } = await findConsentFormImage(images);
+  if (!image) return null;
+  return 'Consent card found in the zip. Upload the consent card separately — the zip should only contain fingerprint scans.';
+}
+
+/** Validate a separately uploaded consent image. Returns why it failed, or null when OK. */
+export async function validateConsentFile(file: File): Promise<string | null> {
+  const lower = file.name.toLowerCase();
+  if (!/\.(jpe?g|png|webp)$/i.test(lower) && !/^image\/(jpeg|png|webp)$/.test(file.type)) {
+    return 'Consent card must be a JPEG, PNG or WebP image';
   }
-  return 'Consent form missing. The zip must include a full-page scan of the Midna Family Consent Form.';
+  const url = URL.createObjectURL(file);
+  try {
+    const stats = await analyzeImage(url);
+    if (!stats) return 'Could not read this consent card image';
+    const reason = consentPageRejection(stats, file.size);
+    if (!reason) return null;
+    return `Consent form not accepted — ${reason}. Upload a clear full-page scan of the Midna Family Consent Form.`;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export type ZipExtractResult = {
@@ -195,7 +211,7 @@ export function categoryToClientType(category: string): string {
     value === 'corporate' ||
     value === 'company'
   ) {
-    return 'Family (phone required)';
+    return 'Family';
   }
   return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
 }

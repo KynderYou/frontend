@@ -13,7 +13,6 @@ export async function getMisNetwork(year: number, signal?: AbortSignal): Promise
       last_quarter_label: '',
       low_performer_threshold: 10,
       year_totals: { scans: 0, reviews: 0, billing: 0 },
-      scans_by_month: [],
       reviews_by_month: [],
       billing_by_month: [],
       performance_rows: [],
@@ -30,6 +29,8 @@ type MisScansQuery = {
   mlaId?: number;
   month?: number;
   q?: string;
+  /** Only scans whose images were deleted from the recycle bin (Scan Archive). */
+  archived?: boolean;
 };
 
 /** GET /api/mis/scans */
@@ -44,5 +45,6 @@ export async function getMisScans(query: MisScansQuery = {}, signal?: AbortSigna
   if (query.mlaId !== undefined) params.set('mla_id', String(query.mlaId));
   if (query.month !== undefined) params.set('month', String(query.month));
   if (query.q?.trim()) params.set('q', query.q.trim());
+  if (query.archived) params.set('archived', 'true');
   return apiClient<MisScansPageApi>(`/api/mis/scans?${params.toString()}`, { signal });
 }

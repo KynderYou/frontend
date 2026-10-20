@@ -10,7 +10,7 @@ import type {
 } from './misData';
 
 export function mapMisNetwork(state: MisNetworkStateApi): NetworkYearSnapshot {
-  const mapPoints = (points: MisNetworkStateApi['scans_by_month']): MonthPoint[] =>
+  const mapPoints = (points: MisNetworkStateApi['billing_by_month']): MonthPoint[] =>
     points.map((point) => ({
       month: point.month,
       label: point.label,
@@ -49,9 +49,9 @@ export function mapMisNetwork(state: MisNetworkStateApi): NetworkYearSnapshot {
     scope: state.scope ?? 'network',
     monthsSoFar: state.months_so_far,
     networkScans: [],
-    scansByMonth: mapPoints(state.scans_by_month),
     reviewsByMonth: mapPoints(state.reviews_by_month),
     billingByMonth: mapPoints(state.billing_by_month),
+    scansByDay: state.scans_by_day ?? [],
     yearTotals: state.year_totals,
     performanceRows,
     lowPerformers,
@@ -79,6 +79,7 @@ export function mapMisScans(page: MisScansPageApi): {
       month: row.month,
       day: 1,
       uploadedAt: row.uploaded_at,
+      archivedAt: row.archived_at || undefined,
     })),
     mlaMembers: page.mla_options.map((mla) => ({
       id: String(mla.id),

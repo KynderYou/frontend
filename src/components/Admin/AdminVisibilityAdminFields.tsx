@@ -95,6 +95,15 @@ export function AdminVisibilityAdminFields({
             Certified
           </span>
         </label>
+        <label className="form-field">
+          <span className="form-label">Competency expiry</span>
+          <input
+            className="form-input"
+            type="date"
+            value={form.competencyExpiry}
+            onChange={(e) => update('competencyExpiry', e.target.value)}
+          />
+        </label>
       </div>
     </div>
   );

@@ -20,14 +20,9 @@ export function NotificationRow({ item, onAction, onMarkRead }: NotificationRowP
           Take action
         </button>
       ) : !item.read ? (
-        <button
-          type="button"
-          className="notification-row-read"
-          aria-label="Mark as read"
-          title="Mark as read"
-          onClick={() => onMarkRead(item)}
-        >
-          <LuCheck size={16} />
+        <button type="button" className="notification-row-read" onClick={() => onMarkRead(item)}>
+          <LuCheck size={14} aria-hidden="true" />
+          Mark as read
         </button>
       ) : null}
     </div>

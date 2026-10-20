@@ -1,15 +1,17 @@
+import { useEffect, useState } from 'react';
 import type { ScanDetails } from './scanTypes';
 import { REPORT_PACKAGES } from '../Reports/reportPackages';
 import {
   BASE_REFERRED_BY,
-  CLIENT_TYPE_INDIVIDUAL,
   clientTypeOptions,
   genderOptions,
+  hasClientMobileFromPhone,
   isValidAge,
   MAX_AGE,
   MIN_AGE,
   normalizeClientType,
   phoneRequiredFor,
+  type HasClientMobile,
 } from './scanDetails';
 
 function Chevron() {
@@ -29,8 +31,9 @@ type ScanDetailsFieldsProps = {
   traineeNames?: string[];
   disabled?: boolean;
   className?: string;
-  /** Phone is required regardless of client type (MBA-branded members). */
-  memberRequiresPhone?: boolean;
+  /** Controlled Yes/No for client mobile; when omitted, derived from phone / local state. */
+  hasClientMobile?: HasClientMobile;
+  onHasClientMobileChange?: (next: HasClientMobile) => void;
   /** Trainee uploads are always referred by the trainee, so the field is hidden. */
   hideReferredBy?: boolean;
 };
@@ -43,7 +46,8 @@ export function ScanDetailsFields({
   traineeNames = [],
   disabled = false,
   className = 'form-grid',
-  memberRequiresPhone = false,
+  hasClientMobile: controlledHasMobile,
+  onHasClientMobileChange,
   hideReferredBy = false,
 }: ScanDetailsFieldsProps) {
   const baseOptions = BASE_REFERRED_BY as readonly string[];
@@ -52,15 +56,30 @@ export function ScanDetailsFields({
     value.referredBy && !baseOptions.includes(value.referredBy) && !traineeOptions.includes(value.referredBy)
       ? value.referredBy
       : null;
-  const needsPhone = phoneRequiredFor(value.clientType, memberRequiresPhone);
+  const [localHasMobile, setLocalHasMobile] = useState<HasClientMobile>(() => hasClientMobileFromPhone(value.phone));
+  const hasClientMobile = controlledHasMobile ?? localHasMobile;
+  const needsPhone = phoneRequiredFor(hasClientMobile);
   const ageInvalid = value.age.trim().length > 0 && !isValidAge(value.age);
+
+  useEffect(() => {
+    if (controlledHasMobile !== undefined) return;
+    if (value.phone.trim().length > 0 && localHasMobile !== 'yes') {
+      setLocalHasMobile('yes');
+    }
+  }, [value.phone, controlledHasMobile, localHasMobile]);
+
+  const setHasMobile = (next: HasClientMobile) => {
+    if (onHasClientMobileChange) onHasClientMobileChange(next);
+    else setLocalHasMobile(next);
+    if (next !== 'yes' && value.phone) {
+      onChange({ ...value, phone: '' });
+    }
+  };
 
   const update = (key: keyof ScanDetails) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const next = e.target.value;
     if (key === 'clientType') {
-      const clientType = normalizeClientType(next);
-      const clearPhone = clientType === CLIENT_TYPE_INDIVIDUAL && !memberRequiresPhone;
-      onChange({ ...value, clientType, phone: clearPhone ? '' : value.phone });
+      onChange({ ...value, clientType: normalizeClientType(next) });
       return;
     }
     if (key === 'age') {
@@ -126,29 +145,47 @@ export function ScanDetailsFields({
         </div>
       </label>
 
-      {memberRequiresPhone ? null : (
-        <label className="form-field">
-          <span className="form-label">Client Type</span>
-          <div className="form-select-wrap">
-            <select className="form-input form-select" value={value.clientType} onChange={update('clientType')} disabled={disabled}>
-              {clientTypeOptions.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-            <Chevron />
-          </div>
-        </label>
-      )}
+      <label className="form-field">
+        <span className="form-label">Client Type</span>
+        <div className="form-select-wrap">
+          <select className="form-input form-select" value={value.clientType} onChange={update('clientType')} disabled={disabled}>
+            {clientTypeOptions.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+          <Chevron />
+        </div>
+      </label>
+
+      <label className="form-field">
+        <span className="form-label">Client mobile number?</span>
+        <div className="form-select-wrap">
+          <select
+            className="form-input form-select"
+            value={hasClientMobile}
+            onChange={(e) => setHasMobile(e.target.value as HasClientMobile)}
+            disabled={disabled}
+            required
+          >
+            <option value="" disabled>
+              Yes / No
+            </option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+          <Chevron />
+        </div>
+      </label>
 
       {needsPhone ? (
         <label className="form-field">
-          <span className="form-label">{memberRequiresPhone ? "Client's Phone number" : 'Phno'}</span>
+          <span className="form-label">Mobile number</span>
           <input
             className="form-input"
             type="tel"
-            placeholder={memberRequiresPhone ? "Client's phone number" : undefined}
+            placeholder="Client's mobile number"
             value={value.phone}
             onChange={update('phone')}
             disabled={disabled}

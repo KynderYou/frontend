@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { NewReview } from '../../api/endpoints/reviews';
-import type { ReviewKind } from '../../api/types';
+import { checkReviewDuplicate, type NewReview } from '../../api/endpoints/reviews';
+import type { ReviewDuplicateCheckApi, ReviewKind } from '../../api/types';
 import { colors, spacing } from '../../styles/theme';
+import { sha256Hex } from '../../utils/fileHash';
+import { useToast } from '../common/ToastProvider';
 import { REVIEW_KIND_OPTIONS } from './reviewKinds';
 
 const theme = colors.light;
@@ -33,6 +35,9 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
   const [file, setFile] = useState<File | null>(null);
   const [clientName, setClientName] = useState('');
   const [caption, setCaption] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [duplicate, setDuplicate] = useState<ReviewDuplicateCheckApi | null>(null);
+  const { showError } = useToast();
 
   useEffect(() => {
     if (!open) return;
@@ -52,14 +57,62 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
   const isAudio = kind === 'audio';
   const linkInvalid = !isAudio && link.trim().length > 0 && !isWebLink(link);
   const hasProof = isAudio ? Boolean(file) : Boolean(file) || (link.trim().length > 0 && !linkInvalid);
-  const canSubmit = hasProof && !linkInvalid && (kind !== 'other' || platform.trim().length > 0) && !submitting;
+  const busy = submitting || checking;
+  const canSubmit =
+    hasProof && !linkInvalid && (kind !== 'other' || platform.trim().length > 0) && !duplicate && !busy;
 
   const chooseKind = (next: ReviewKind) => {
     if (next === kind) return;
     setKind(next);
     setFile(null);
+    setDuplicate(null);
     if (next === 'audio') setLink('');
   };
+
+  const changeLink = (value: string) => {
+    setLink(value);
+    if (duplicate?.field === 'link') setDuplicate(null);
+  };
+
+  const changeFile = (next: File | null) => {
+    setFile(next);
+    if (duplicate?.field === 'file') setDuplicate(null);
+  };
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    const reviewLink = isAudio ? '' : link.trim();
+    setChecking(true);
+    try {
+      const fileHash = file ? await sha256Hex(file) : null;
+      const result = await checkReviewDuplicate({ link: reviewLink, fileHash });
+      if (result.duplicate) {
+        setDuplicate(result);
+        showError(result.message);
+        return;
+      }
+    } catch {
+      // The server repeats this check when the review is posted.
+    } finally {
+      setChecking(false);
+    }
+    await onSubmit({
+      kind,
+      platform: kind === 'other' ? platform.trim() : '',
+      link: reviewLink,
+      clientName: clientName.trim(),
+      caption: caption.trim(),
+      file,
+    });
+  };
+
+  const duplicateNotice = (field: 'link' | 'file') =>
+    duplicate?.field === field ? (
+      <div className="review-duplicate-alert" role="alert">
+        <strong>{field === 'link' ? 'Link already submitted' : 'File already submitted'}</strong>
+        <span>{duplicate.message}</span>
+      </div>
+    ) : null;
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
@@ -88,15 +141,7 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!canSubmit) return;
-            void onSubmit({
-              kind,
-              platform: kind === 'other' ? platform.trim() : '',
-              link: isAudio ? '' : link.trim(),
-              clientName: clientName.trim(),
-              caption: caption.trim(),
-              file,
-            });
+            void submit();
           }}
         >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
@@ -139,9 +184,11 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
                   className="form-input review-file-input"
                   type="file"
                   accept={AUDIO_ACCEPT}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => changeFile(e.target.files?.[0] ?? null)}
+                  aria-invalid={duplicate?.field === 'file'}
                 />
                 <span className="review-field-hint">MP3 only · up to 25 MB</span>
+                {duplicateNotice('file')}
               </label>
             ) : (
               <>
@@ -153,14 +200,15 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
                     inputMode="url"
                     placeholder="https://"
                     value={link}
-                    onChange={(e) => setLink(e.target.value)}
-                    aria-invalid={linkInvalid}
+                    onChange={(e) => changeLink(e.target.value)}
+                    aria-invalid={linkInvalid || duplicate?.field === 'link'}
                   />
                   {linkInvalid ? (
                     <span className="review-field-hint" style={{ color: theme.error }}>
                       Paste the full link, starting with https://
                     </span>
                   ) : null}
+                  {duplicateNotice('link')}
                 </label>
                 <label className="form-field">
                   <span className="form-label">or upload a picture</span>
@@ -168,9 +216,11 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
                     className="form-input review-file-input"
                     type="file"
                     accept={IMAGE_ACCEPT}
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    onChange={(e) => changeFile(e.target.files?.[0] ?? null)}
+                    aria-invalid={duplicate?.field === 'file'}
                   />
                   <span className="review-field-hint">Screenshot of the review · JPEG, PNG or WebP · up to 10 MB</span>
+                  {duplicateNotice('file')}
                 </label>
               </>
             )}
@@ -195,7 +245,7 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
               />
             </label>
 
-            {error ? (
+            {error && !duplicate ? (
               <p role="alert" style={{ margin: 0, color: theme.error, fontSize: 13 }}>
                 {error}
               </p>
@@ -203,11 +253,11 @@ export function AddReviewModal({ open, onClose, onSubmit, submitting = false, er
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={submitting}>
+            <button type="button" className="btn-pill-secondary" onClick={onClose} disabled={busy}>
               Cancel
             </button>
             <button type="submit" className="btn-pill-primary" disabled={!canSubmit}>
-              {submitting ? 'Posting…' : 'Post review'}
+              {checking ? 'Checking…' : submitting ? 'Posting…' : 'Post review'}
             </button>
           </div>
         </form>

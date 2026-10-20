@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { LuTrash2 } from 'react-icons/lu';
 import {
+  emptyRecycleBin,
   getRecycleBin,
   getRecycleBinScan,
   isApiError,
@@ -7,7 +9,10 @@ import {
   resolveHoScanImages,
 } from '../../api';
 import type { RecycleBinScan } from '../../api/types';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { EmptyState } from '../common/EmptyState';
+import { useCurrentMember } from '../Auth/MemberContext';
+import { isSuperAdminRole } from '../../utils/roles';
 import { SkeletonTableCard } from '../common/Skeleton';
 import { useToast } from '../common/ToastProvider';
 import { TrashButton } from '../common/TrashButton';
@@ -48,6 +53,9 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<RecycleBinScan | null>(null);
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
+  /** Admins view the bin; only Super Admin deletes from it. */
+  const canDelete = isSuperAdminRole(useCurrentMember()?.role);
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const sheetRequest = useRef(0);
 
@@ -77,7 +85,7 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
   useEffect(() => {
     if (!open || sheet) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || confirmEmpty) return;
       if (confirmTarget) setConfirmTarget(null);
       else onClose();
     };
@@ -87,7 +95,7 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose, confirmTarget, sheet]);
+  }, [open, onClose, confirmTarget, confirmEmpty, sheet]);
 
   const closeSheet = useCallback(() => {
     sheetRequest.current += 1;
@@ -128,6 +136,22 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
     } finally {
       setBusy(false);
       setConfirmTarget(null);
+    }
+  };
+
+  const emptyBin = async () => {
+    setBusy(true);
+    try {
+      const { purged } = await emptyRecycleBin();
+      setItems([]);
+      onCountChange(0);
+      setConfirmEmpty(false);
+      showSuccess(`Recycle bin emptied · fingerprint images for ${purged} scan${purged === 1 ? '' : 's'} deleted permanently.`);
+    } catch (err) {
+      const detail = isApiError(err) ? (err.body as { detail?: unknown } | null)?.detail : null;
+      showError(typeof detail === 'string' && detail ? detail : 'Could not empty the recycle bin. Please try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -194,14 +218,29 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
                   Recycle bin
                 </h2>
                 <p className="modal-subtitle">
-                  Finished scans keep their fingerprint images here until you delete them.
+                  {canDelete
+                    ? 'Finished scans keep their fingerprint images here until you delete them.'
+                    : 'Finished scans keep their fingerprint images here · only Super Admin can delete them.'}
                 </p>
               </div>
+              <div className="ho-recycle-bin-head-actions">
+                {canDelete && items.length > 0 ? (
+                  <button
+                    type="button"
+                    className="ho-recycle-bin-empty-btn"
+                    disabled={busy || loading}
+                    onClick={() => setConfirmEmpty(true)}
+                  >
+                    <LuTrash2 size={14} aria-hidden="true" />
+                    Empty bin
+                  </button>
+                ) : null}
               <button type="button" className="btn-icon" aria-label="Close" onClick={onClose}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                   <path d="M18 6 6 18M6 6l12 12" />
                 </svg>
               </button>
+              </div>
             </div>
 
             <div className="modal-body">
@@ -226,7 +265,7 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
                         <th>Scan By</th>
                         <th>Debited On</th>
                         <th className="col-center">Images</th>
-                        <th className="col-center">Delete</th>
+                        {canDelete ? <th className="col-center">Delete</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -257,9 +296,11 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
                           <td data-label="Images" className="col-center">
                             <span className="ho-scans-image-count">{item.images}</span>
                           </td>
-                          <td data-label="Delete" className="col-center" onClick={(e) => e.stopPropagation()}>
-                            <TrashButton label="Delete fingerprint images" disabled={busy} onClick={() => setConfirmTarget(item)} />
-                          </td>
+                          {canDelete ? (
+                            <td data-label="Delete" className="col-center" onClick={(e) => e.stopPropagation()}>
+                              <TrashButton label="Delete fingerprint images" disabled={busy} onClick={() => setConfirmTarget(item)} />
+                            </td>
+                          ) : null}
                         </tr>
                       ))}
                     </tbody>
@@ -270,6 +311,20 @@ export function HoRecycleBinModal({ open, onClose, onCountChange }: HoRecycleBin
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmEmpty}
+        title="Empty recycle bin?"
+        subtitle={`${items.length} scan${items.length === 1 ? '' : 's'} · ${items.reduce((sum, item) => sum + item.images, 0)} fingerprint images`}
+        confirmLabel="Empty bin"
+        danger
+        busy={busy}
+        onClose={() => setConfirmEmpty(false)}
+        onConfirm={() => void emptyBin()}
+      >
+        The uploaded ZIPs and fingerprint images for every scan in the bin will be removed permanently. Report PDFs,
+        client details and billing stay in My Reports. This cannot be undone.
+      </ConfirmModal>
 
       <FingerprintSheetModal
         open={Boolean(sheet)}

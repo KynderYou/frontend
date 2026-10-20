@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ApiError,
   createMlaScan,
   deleteMlaScan,
+  getMyLedger,
   exportMlaScan,
   getMyMlaScans,
   getTraineeReferralOptions,
@@ -11,6 +13,8 @@ import {
 } from '../../api';
 import { colors, spacing, typography } from '../../styles/theme';
 import { EmptyState } from '../common/EmptyState';
+import { TopUpRequiredModal } from '../common/TopUpRequiredModal';
+import { negativeBalanceMessage } from '../../utils/negativeBalance';
 import { SkeletonTableCard } from '../common/Skeleton';
 import { TablePager } from '../common/TablePager';
 import { useToast } from '../common/ToastProvider';
@@ -22,14 +26,23 @@ import { DeclarationModal } from './DeclarationModal';
 import { EditScanModal } from './EditScanModal';
 import { ScanDetailsFields } from './ScanDetailsFields';
 import {
-  brandingRequiresPhone,
   CLIENT_TYPE_INDIVIDUAL,
+  hasClientMobileFromPhone,
   normalizeClientType,
   phoneRequiredFor,
   scanDetailsComplete,
+  type HasClientMobile,
 } from './scanDetails';
 import { isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
-import { extractClientFromZip, revokeScanZipImages, categoryToClientType, findConsentFormImage, type ScanZipImage } from './extractClientFromZip';
+import { isAdminRole } from '../../utils/roles';
+import {
+  extractClientFromZip,
+  revokeScanZipImages,
+  categoryToClientType,
+  consentInZipForbiddenError,
+  validateConsentFile,
+  type ScanZipImage,
+} from './extractClientFromZip';
 import { QcConsentModal } from './QcConsentModal';
 import { ScanImagesModal } from './ScanImagesModal';
 import { collectBlobUrls, detailsToUpdatePayload, mlaScanToRecord, revokeBlobUrls } from './scanApiMapper';
@@ -111,16 +124,22 @@ type ScansMlaPageProps = {
   embedded?: boolean;
   onOpenMobileMenu?: () => void;
   onOpenProfile?: () => void;
+  onOpenLedger?: () => void;
 };
 
-export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile }: ScansMlaPageProps) {
+export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile, onOpenLedger }: ScansMlaPageProps) {
   const { showSuccess, showError } = useToast();
   const currentMember = useCurrentMember();
-  const memberRequiresPhone = brandingRequiresPhone(currentMember?.branding);
   const isTrainee = isTraineeLogin(currentMember);
   const isMentor = currentMember?.role === 'Mentor';
   const [file, setFile] = useState<File | null>(null);
+  const [consentFile, setConsentFile] = useState<File | null>(null);
+  const [consentPreviewUrl, setConsentPreviewUrl] = useState<string | null>(null);
+  const [consentOk, setConsentOk] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const [consentChecking, setConsentChecking] = useState(false);
   const [clientForm, setClientForm] = useState<UploadClientForm>(emptyClientForm);
+  const [hasClientMobile, setHasClientMobile] = useState<HasClientMobile>('');
   const [extractedImages, setExtractedImages] = useState<ScanZipImage[]>([]);
   const [records, setRecords] = useState<ScanRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,9 +156,13 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
   const [viewingImages, setViewingImages] = useState<ScanRecord | null>(null);
   const [qcRecord, setQcRecord] = useState<ScanRecord | null>(null);
   const [traineeNames, setTraineeNames] = useState<string[]>([]);
+  const [topUpMessage, setTopUpMessage] = useState<string | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const consentInputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const extractRequestId = useRef(0);
+  const consentRequestId = useRef(0);
   const blobUrlsRef = useRef<string[]>([]);
 
   const replaceRecords = (next: ScanRecord[]) => {
@@ -181,12 +204,46 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     };
   }, []);
 
-  const clientComplete = scanDetailsComplete(clientForm, memberRequiresPhone);
+  useEffect(
+    () => () => {
+      if (consentPreviewUrl) URL.revokeObjectURL(consentPreviewUrl);
+    },
+    [consentPreviewUrl],
+  );
 
-  const canSubmit = Boolean(file) && extractOk && clientComplete && !extracting;
+  /** Surface the same top-up dialog when the ledger is already negative (e.g. after report billing). */
+  useEffect(() => {
+    if (isTrainee || isAdminRole(currentMember?.role)) return;
+    let cancelled = false;
+    getMyLedger()
+      .then((ledger) => {
+        if (cancelled) return;
+        if ((ledger.available_balance ?? 0) < 0) {
+          setTopUpMessage(negativeBalanceMessage(ledger.available_balance ?? 0));
+        }
+      })
+      .catch(() => {
+        /* server still enforces on upload */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMember?.role, isTrainee]);
+
+  const clientComplete = scanDetailsComplete(clientForm, hasClientMobile);
+
+  const canSubmit =
+    Boolean(file) && extractOk && Boolean(consentFile) && consentOk && clientComplete && !extracting && !consentChecking;
   const zipMessage = extracting ? null : (error ?? extractNotice);
   const zipVerdict: 'ok' | 'fail' | null = zipMessage ? (extractOk && !error ? 'ok' : 'fail') : null;
-  const canPreviewUploadImages = extractedImages.length > 0 && !extracting;
+  const consentVerdict: 'ok' | 'fail' | null = consentChecking
+    ? null
+    : consentError
+      ? 'fail'
+      : consentOk
+        ? 'ok'
+        : null;
+  const canPreviewUploadImages = (extractedImages.length > 0 || Boolean(consentPreviewUrl)) && !extracting;
 
   const openUploadImagePreview = () => {
     if (!canPreviewUploadImages) return;
@@ -208,8 +265,59 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
       },
       detailsSaved: false,
       exported: false,
-      images: extractedImages.map(({ name, url, label }) => ({ name, url, label })),
+      images: [
+        ...extractedImages.map(({ name, url, label }) => ({ name, url, label })),
+        ...(consentPreviewUrl && consentFile
+          ? [{ name: consentFile.name, url: consentPreviewUrl, label: 'Consent form' }]
+          : []),
+      ],
     });
+  };
+
+  const clearConsent = () => {
+    consentRequestId.current += 1;
+    setConsentFile(null);
+    setConsentOk(false);
+    setConsentError(null);
+    setConsentChecking(false);
+    setConsentPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (consentInputRef.current) consentInputRef.current.value = '';
+  };
+
+  const pickConsent = async (next: File | null) => {
+    setConsentError(null);
+    setConsentOk(false);
+    if (!next) {
+      clearConsent();
+      return;
+    }
+    const requestId = ++consentRequestId.current;
+    setConsentChecking(true);
+    setConsentFile(next);
+    setConsentPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(next);
+    });
+    try {
+      const rejection = await validateConsentFile(next);
+      if (requestId !== consentRequestId.current) return;
+      if (rejection) {
+        setConsentOk(false);
+        setConsentError(rejection);
+        return;
+      }
+      setConsentOk(true);
+      setConsentError(null);
+    } catch {
+      if (requestId !== consentRequestId.current) return;
+      setConsentOk(false);
+      setConsentError('Could not read this consent card image.');
+    } finally {
+      if (requestId === consentRequestId.current) setConsentChecking(false);
+    }
   };
 
   const pickFile = async (next: File | null) => {
@@ -227,12 +335,14 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     if (!isZip) {
       setFile(null);
       setClientForm(emptyClientForm);
+      setHasClientMobile('');
       setError('Only .zip files are allowed.');
       return;
     }
 
     setFile(next);
     setClientForm(emptyClientForm);
+    setHasClientMobile('');
     setExtracting(true);
     setUploadPhase('reading');
     setUploadProgress(8);
@@ -244,14 +354,11 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
       if (requestId !== extractRequestId.current) return;
       setUploadProgress(72);
 
-      const consentCheck = await findConsentFormImage(images);
+      const consentInZip = await consentInZipForbiddenError(images);
       if (requestId !== extractRequestId.current) return;
-      const labelledImages = consentCheck.image
-        ? images.map((image) => (image === consentCheck.image ? { ...image, label: 'Consent form' } : image))
-        : images;
       setExtractedImages((prev) => {
         revokeScanZipImages(prev);
-        return labelledImages;
+        return images;
       });
 
       setClientForm({
@@ -261,14 +368,12 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
         clientType: normalizeClientType(data.clientType || categoryToClientType(data.category) || CLIENT_TYPE_INDIVIDUAL),
         referredBy: 'SELF',
       });
+      setHasClientMobile(hasClientMobileFromPhone(data.phone));
 
-      if (!consentCheck.image) {
-        const consentError = consentCheck.rejection
-          ? `Consent form not accepted — ${consentCheck.rejection}. Include a clear full-page scan of the Midna Family Consent Form.`
-          : 'Consent form missing — the zip must include a full-page scan of the Midna Family Consent Form.';
+      if (consentInZip) {
         setExtractOk(false);
-        setExtractNotice(consentError);
-        setError(consentError);
+        setExtractNotice(consentInZip);
+        setError(consentInZip);
         return;
       }
 
@@ -294,6 +399,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     } catch {
       if (requestId !== extractRequestId.current) return;
       setClientForm(emptyClientForm);
+      setHasClientMobile('');
       setExtractedImages((prev) => {
         revokeScanZipImages(prev);
         return [];
@@ -323,6 +429,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     setUploadPhase('idle');
     setUploadProgress(0);
     setClientForm(emptyClientForm);
+    setHasClientMobile('');
     setExtractedImages((prev) => {
       revokeScanZipImages(prev);
       return [];
@@ -332,20 +439,21 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
 
   const resetForm = () => {
     clearFile();
+    clearConsent();
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit || !file || submitting) return;
+    if (!canSubmit || !file || !consentFile || submitting) return;
     setSubmitting(true);
     setError(null);
     setUploadPhase('uploading');
     setUploadProgress(12);
     try {
       setUploadProgress(45);
-      const created = await createMlaScan(file, {
+      const created = await createMlaScan(file, consentFile, {
         client_name: clientForm.name.trim(),
         age: clientForm.age.trim(),
-        phone: phoneRequiredFor(clientForm.clientType, memberRequiresPhone) ? clientForm.phone.trim() : '',
+        phone: phoneRequiredFor(hasClientMobile) ? clientForm.phone.trim() : '',
         gender: clientForm.gender,
         client_type: clientForm.clientType.trim() || CLIENT_TYPE_INDIVIDUAL,
         referred_by: clientForm.referredBy,
@@ -359,13 +467,44 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
       resetForm();
       setDeclarationOpen(false);
       tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch {
-      setError('Could not upload scan. Check your connection and try again.');
+    } catch (err) {
+      const detail =
+        err instanceof ApiError && typeof err.body === 'object' && err.body !== null && 'detail' in err.body
+          ? String((err.body as { detail: unknown }).detail)
+          : '';
+      if (err instanceof ApiError && err.status === 403 && /balance/i.test(detail)) {
+        setDeclarationOpen(false);
+        setTopUpMessage(detail);
+      } else if (err instanceof ApiError && detail) {
+        setError(detail);
+      } else {
+        setError('Could not upload scan. Check your connection and try again.');
+      }
     } finally {
       setSubmitting(false);
       setUploadPhase('idle');
       setUploadProgress(0);
     }
+  };
+
+  /** Uploads are refused while the uploader's ledger is negative; ₹0 is fine. Trainees are checked on the server. */
+  const openDeclaration = async () => {
+    if (!canSubmit || submitting || checkingBalance) return;
+    if (!isTrainee && !isAdminRole(currentMember?.role)) {
+      setCheckingBalance(true);
+      try {
+        const ledger = await getMyLedger();
+        if ((ledger.available_balance ?? 0) < 0) {
+          setTopUpMessage(negativeBalanceMessage(ledger.available_balance ?? 0));
+          return;
+        }
+      } catch {
+        // The server enforces the same rule on upload.
+      } finally {
+        setCheckingBalance(false);
+      }
+    }
+    setDeclarationOpen(true);
   };
 
   const handleSaveDetails = async (details: ScanDetails) => {
@@ -459,8 +598,8 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           </h1>
           <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {isTrainee
-              ? 'Upload a scan zip and enter client details. Your mentor does the QC check and exports it to head office.'
-              : 'Upload a scan zip, enter client details, and export when ready for head office processing.'}
+              ? 'Upload the fingerprint zip and consent card separately, then enter client details. Your mentor does the QC check and exports it to head office.'
+              : 'Upload the fingerprint zip and consent card separately, enter client details, and export when ready for head office processing.'}
           </p>
         </div>
 
@@ -490,23 +629,30 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           style={{ display: 'none' }}
           onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
         />
+        <input
+          ref={consentInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          style={{ display: 'none' }}
+          onChange={(e) => void pickConsent(e.target.files?.[0] ?? null)}
+        />
 
         <div className="scans-card-head">
           <div>
             <h2 className="scans-card-title">Upload scans</h2>
             <p className="scans-card-sub">
-              Choose a zip package, then enter the client details before submitting.
+              Upload the fingerprint zip and the consent card as separate files, then enter client details.
             </p>
           </div>
-          <span className="scans-card-meta">.zip only</span>
+          <span className="scans-card-meta">.zip + consent</span>
         </div>
 
         <div className="scans-upload-grid">
-          <section className="scans-upload-panel">
+          <section className="scans-upload-panel scans-upload-files">
             <div className="scans-step-head">
               <div>
                 <h3 className="scans-step-title">Scan package</h3>
-                <p className="scans-step-hint">Fingerprint scan zip file</p>
+                <p className="scans-step-hint">Fingerprint zip only — do not include the consent card</p>
               </div>
             </div>
             <button
@@ -563,13 +709,84 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
                 </span>
               )}
             </button>
+
+            <div className="scans-step-head" style={{ marginTop: 4 }}>
+              <div>
+                <h3 className="scans-step-title">Consent card</h3>
+                <p className="scans-step-hint">Full-page scan of the Midna Family Consent Form</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className={`scans-dropzone scans-dropzone-consent${consentFile ? ' has-file' : ''}${consentVerdict ? ` is-${consentVerdict}` : ''}`}
+              onClick={() => consentInputRef.current?.click()}
+            >
+              {consentVerdict ? (
+                <span
+                  className="scans-dropzone-verdict"
+                  role="img"
+                  aria-label={consentVerdict === 'ok' ? 'Valid consent card' : 'Invalid consent card'}
+                >
+                  {consentVerdict === 'ok' ? '👍' : '👎'}
+                </span>
+              ) : consentPreviewUrl ? (
+                <img className="scans-consent-thumb" src={consentPreviewUrl} alt="" />
+              ) : (
+                <span className="scans-dropzone-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="3" width="16" height="18" rx="2" />
+                    <path d="M8 8h8M8 12h8M8 16h5" />
+                  </svg>
+                </span>
+              )}
+              <span className="scans-dropzone-label">
+                {consentChecking ? 'Checking consent…' : consentFile ? consentFile.name : 'Choose consent card'}
+              </span>
+              <span className="scans-dropzone-meta">
+                {consentChecking
+                  ? 'Checking that this is a clear full-page form'
+                  : consentFile
+                    ? formatBytes(consentFile.size)
+                    : 'Click to browse · JPEG, PNG or WebP'}
+              </span>
+              {consentError ? (
+                <span className="scans-dropzone-message is-fail" role="status" aria-live="polite">
+                  {consentError}
+                </span>
+              ) : consentOk ? (
+                <span className="scans-dropzone-message is-ok" role="status" aria-live="polite">
+                  Consent card accepted.
+                </span>
+              ) : null}
+              {consentFile && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="scans-file-clear"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearConsent();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      clearConsent();
+                    }
+                  }}
+                >
+                  Remove file
+                </span>
+              )}
+            </button>
+
             {canPreviewUploadImages ? (
               <button
                 type="button"
                 className="btn-pill-secondary scans-upload-preview-btn"
                 onClick={openUploadImagePreview}
               >
-                View images · {extractedImages.length}
+                View images · {extractedImages.length + (consentPreviewUrl ? 1 : 0)}
               </button>
             ) : null}
             {uploadPhase !== 'idle' ? (
@@ -597,9 +814,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
                 <p className="scans-step-hint">
                   {extracting
                     ? 'Reading zip…'
-                    : memberRequiresPhone
-                      ? 'Enter name, age, gender, client phone and report package'
-                      : 'Enter name, age, gender and report package'}
+                    : 'Enter name, age, gender and report package. Add mobile only if you have it.'}
                 </p>
               </div>
             </div>
@@ -611,7 +826,8 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
               onChange={(details) => setClientForm((prev) => ({ ...prev, ...details }))}
               traineeNames={traineeNames}
               disabled={!file || extracting}
-              memberRequiresPhone={memberRequiresPhone}
+              hasClientMobile={hasClientMobile}
+              onHasClientMobileChange={setHasClientMobile}
               hideReferredBy={isTrainee}
             />
           </section>
@@ -621,11 +837,8 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           <button
             type="button"
             className="btn-pill-primary scans-submit-btn"
-            disabled={!canSubmit || submitting}
-            onClick={() => {
-              if (!canSubmit || submitting) return;
-              setDeclarationOpen(true);
-            }}
+            disabled={!canSubmit || submitting || checkingBalance}
+            onClick={() => void openDeclaration()}
           >
             {submitting ? 'Uploading…' : 'Submit scan'}
           </button>
@@ -651,7 +864,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           ) : records.length === 0 ? (
             <EmptyState
               title="No scans uploaded yet"
-              description="Upload a zip package above to add your first scan."
+              description="Upload a fingerprint zip and consent card above to add your first scan."
             />
           ) : (
           <>
@@ -800,6 +1013,11 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
         record={qcRecord}
         onClose={() => setQcRecord(null)}
         onConfirm={handleMarkQc}
+      />
+      <TopUpRequiredModal
+        message={topUpMessage}
+        onClose={() => setTopUpMessage(null)}
+        onTopUp={isTrainee ? undefined : onOpenLedger}
       />
     </Wrapper>
   );

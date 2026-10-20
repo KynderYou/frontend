@@ -13,6 +13,7 @@ import {
   resolveView,
   type AppView,
 } from './components/Layout/navItems';
+import { primarySoftGate, viewForGate } from './utils/loginGates';
 import { HomeDashboard } from './components/Home/HomeDashboard';
 import { ProfilePage } from './components/Profile/ProfilePage';
 import { LedgerPage } from './components/Ledger/LedgerPage';
@@ -23,6 +24,9 @@ import { MemberProvider } from './components/Auth/MemberContext';
 import { VerifyEmailPage } from './components/Auth/VerifyEmailPage';
 import { AdminMembersPage } from './components/Admin/AdminMembersPage';
 import { AdminTopUpsPage } from './components/Admin/AdminTopUpsPage';
+import { ReviewRewardsPage } from './components/Admin/ReviewRewardsPage';
+import { RightsMasterPage } from './components/Admin/RightsMasterPage';
+import { StatusMasterPage } from './components/Admin/StatusMasterPage';
 import { NetworkPage } from './components/Network/NetworkPage';
 import { MentorTraineesPage } from './components/Trainees/MentorTraineesPage';
 import { MentorMlasPage } from './components/Mlas/MentorMlasPage';
@@ -40,7 +44,7 @@ import { isAdminRole } from './utils/roles';
 const MOBILE_QUERY = '(max-width: 860px)';
 
 /** Views whose panels manage their own scrolling and should fill the viewport height */
-const fillViews = new Set<AppView>(['network', 'mis-scans', 'mis-cab', 'admin-topups']);
+const fillViews = new Set<AppView>(['network', 'mis-scans', 'mis-cab', 'admin-topups', 'mis-reviews']);
 
 const DEFAULT_VIEW: AppView = 'dashboard';
 
@@ -202,6 +206,8 @@ function App() {
         if (cancelled) return;
         setMember(current);
         setIsAuthenticated(true);
+        const gateView = viewForGate(primarySoftGate(current.gates));
+        if (gateView) navigate(gateView);
       })
       .catch(() => {
         if (cancelled) return;
@@ -283,9 +289,11 @@ function App() {
           />
         ) : (
           <AuthPage
-            onAuthenticated={(current) => {
+            onAuthenticated={(current, gates) => {
               setMember(current);
               setIsAuthenticated(true);
+              const gateView = viewForGate(primarySoftGate(gates));
+              if (gateView) navigate(gateView);
             }}
           />
         )
@@ -337,11 +345,13 @@ function App() {
                 canProcess={member ? canProcessScans(member.nav) : false}
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
+                onOpenLedger={() => navigate('ledger')}
               />
             ) : view === 'reports' ? (
               <ReportsPage
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenProfile={() => navigate('profile')}
+                onOpenLedger={() => navigate('ledger')}
                 openCabForScan={misScanCode}
                 onCabOpened={() => setMisScanCode(null)}
               />
@@ -357,6 +367,21 @@ function App() {
                 onOpenProfile={() => navigate('profile')}
                 initialRequestId={topUpId}
                 onNavigate={navigate}
+              />
+            ) : view === 'admin-review-rewards' ? (
+              <ReviewRewardsPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
+            ) : view === 'admin-rights-master' ? (
+              <RightsMasterPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
+              />
+            ) : view === 'admin-status-master' ? (
+              <StatusMasterPage
+                onOpenMobileMenu={() => setMobileMenuOpen(true)}
+                onOpenProfile={() => navigate('profile')}
               />
             ) : view === 'network' ? (
               <NetworkPage

@@ -1,11 +1,13 @@
 import type { ScanDetails } from './scanTypes';
 
 export const CLIENT_TYPE_INDIVIDUAL = 'Individual';
-export const CLIENT_TYPE_FAMILY = 'Family (phone required)';
+export const CLIENT_TYPE_FAMILY = 'Family';
 
 export const clientTypeOptions = [CLIENT_TYPE_INDIVIDUAL, CLIENT_TYPE_FAMILY] as const;
 export const BASE_REFERRED_BY = ['SELF', 'MLA', 'HO', 'Referral'] as const;
 export const genderOptions = ['Male', 'Female', 'Other'] as const;
+
+export type HasClientMobile = 'yes' | 'no' | '';
 
 export function normalizeClientType(value: string): string {
   const raw = value.trim();
@@ -28,13 +30,18 @@ export function normalizeClientType(value: string): string {
   return CLIENT_TYPE_INDIVIDUAL;
 }
 
-/** MBA-branded members must record the client's phone on every scan. */
-export function brandingRequiresPhone(branding: string | null | undefined): boolean {
-  return (branding ?? '').trim().toUpperCase() === 'MBA';
+/** @deprecated Phone is optional via Yes/No; kept for call-site compatibility. */
+export function brandingRequiresPhone(_branding: string | null | undefined): boolean {
+  return false;
 }
 
-export function phoneRequiredFor(clientType: string, memberRequiresPhone = false): boolean {
-  return memberRequiresPhone || normalizeClientType(clientType) === CLIENT_TYPE_FAMILY;
+/** Phone is required only when the user said they have the client's mobile. */
+export function phoneRequiredFor(hasClientMobile: HasClientMobile | boolean): boolean {
+  return hasClientMobile === true || hasClientMobile === 'yes';
+}
+
+export function hasClientMobileFromPhone(phone: string): HasClientMobile {
+  return phone.trim().length > 0 ? 'yes' : '';
 }
 
 export const MIN_AGE = 1;
@@ -47,12 +54,15 @@ export function isValidAge(age: string): boolean {
   return n >= MIN_AGE && n <= MAX_AGE;
 }
 
-export function scanDetailsComplete(details: ScanDetails, memberRequiresPhone = false): boolean {
+export function scanDetailsComplete(details: ScanDetails, hasClientMobile: HasClientMobile = ''): boolean {
+  const mobileAnswered = hasClientMobile === 'yes' || hasClientMobile === 'no';
+  const phoneOk = hasClientMobile !== 'yes' || details.phone.trim().length > 0;
   return (
     details.name.trim().length > 0 &&
     isValidAge(details.age) &&
     details.gender.trim().length > 0 &&
     details.mrp.trim().length > 0 &&
-    (!phoneRequiredFor(details.clientType, memberRequiresPhone) || details.phone.trim().length > 0)
+    mobileAnswered &&
+    phoneOk
   );
 }

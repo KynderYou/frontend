@@ -5,6 +5,9 @@ export type MemberNav = {
   mentor_mlas: boolean;
   admin_members: boolean;
   admin_topups: boolean;
+  review_rewards?: boolean;
+  rights_master?: boolean;
+  status_master?: boolean;
   mis_cab: boolean;
   scans_mla: boolean;
   scans_ho: boolean;

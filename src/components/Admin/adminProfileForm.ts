@@ -33,11 +33,12 @@ export type AdminVisibilityFormState = {
   adminById: string;
   remarks: string;
   certified: boolean;
+  competencyExpiry: string;
 };
 
 export type AdminEditFormState = AdminMembershipFormState &
   AdminVisibilityFormState & {
-    status: 'Active' | 'Invited' | 'Disabled';
+    status: 'Active' | 'Invited' | 'Disabled' | 'Suspended';
     role: MemberRole;
   };
 
@@ -126,6 +127,7 @@ export const emptyVisibilityForm: AdminVisibilityFormState = {
   adminById: '',
   remarks: '',
   certified: false,
+  competencyExpiry: '',
 };
 
 function asTier(value: string): SubscriptionTier {
@@ -153,6 +155,7 @@ export function memberToVisibilityForm(member: AdminMemberApi): AdminVisibilityF
     adminById: member.admin_by_id ? String(member.admin_by_id) : '',
     remarks: member.remarks ?? '',
     certified: member.certified ?? false,
+    competencyExpiry: member.competency_expiry ?? '',
   };
 }
 
@@ -168,7 +171,13 @@ export function memberToEditForm(member: AdminMemberApi): AdminEditFormState {
     ...memberToVisibilityForm(member),
     role: memberDisplayRole(member),
     status:
-      member.status === 'Disabled' ? 'Disabled' : member.status === 'Invited' ? 'Invited' : 'Active',
+      member.status === 'Disabled'
+        ? 'Disabled'
+        : member.status === 'Suspended'
+          ? 'Suspended'
+          : member.status === 'Invited'
+            ? 'Invited'
+            : 'Active',
   };
 }
 
@@ -201,5 +210,6 @@ export function visibilityFormToPayload(form: AdminVisibilityFormState): AdminVi
     admin_by_id: form.adminById ? Number(form.adminById) : undefined,
     remarks: form.remarks.trim() || undefined,
     certified: form.certified,
+    competency_expiry: form.competencyExpiry || null,
   };
 }

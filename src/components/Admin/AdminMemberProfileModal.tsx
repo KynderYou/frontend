@@ -184,6 +184,7 @@ export function AdminMemberProfileModal({
                       }
                     >
                       <option value="Active">Active</option>
+                      <option value="Suspended">Suspended</option>
                       <option value="Invited">Invited</option>
                       <option value="Disabled">Disabled</option>
                     </select>

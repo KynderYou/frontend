@@ -12,6 +12,9 @@ import {
   LuActivity,
   LuSearch,
   LuMessageSquareQuote,
+  LuAward,
+  LuShieldCheck,
+  LuBadgeCheck,
 } from 'react-icons/lu';
 import type { MemberNav } from '../../api/types';
 
@@ -39,7 +42,7 @@ export const navItems = [
   { id: 'mis-cab', label: 'CAB', Icon: LuClipboardList, section: 'MIS', navKey: 'mis_cab' as const },
   { id: 'mis-communications', label: 'Communications', Icon: LuMessageSquare, section: 'MIS', navKey: 'mis' as const },
   { id: 'mis-network', label: 'Network Performance', Icon: LuActivity, section: 'MIS', navKey: 'mis' as const },
-  { id: 'mis-scans', label: 'Scans', Icon: LuSearch, section: 'MIS', navKey: 'mis' as const },
+  { id: 'mis-scans', label: 'Scan Archive', Icon: LuSearch, section: 'MIS', navKey: 'mis' as const },
   { id: 'mis-reviews', label: 'Reviews', Icon: LuMessageSquareQuote, section: 'MIS', navKey: 'mis' as const },
   {
     id: 'admin-members',
@@ -54,6 +57,27 @@ export const navItems = [
     Icon: LuWallet,
     section: 'Admin',
     navKey: 'admin_topups' as const,
+  },
+  {
+    id: 'admin-review-rewards',
+    label: 'Review Rewards',
+    Icon: LuAward,
+    section: 'Admin',
+    navKey: 'review_rewards' as const,
+  },
+  {
+    id: 'admin-rights-master',
+    label: 'Rights Master',
+    Icon: LuShieldCheck,
+    section: 'Admin',
+    navKey: 'rights_master' as const,
+  },
+  {
+    id: 'admin-status-master',
+    label: 'Status Master',
+    Icon: LuBadgeCheck,
+    section: 'Admin',
+    navKey: 'status_master' as const,
   },
 ] as const;
 

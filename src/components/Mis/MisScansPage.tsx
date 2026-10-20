@@ -50,6 +50,7 @@ export function MisScansPage({
             mlaId: mlaFilter === 'All' ? undefined : Number(mlaFilter),
             month: monthFilter === 'All' ? undefined : Number(monthFilter),
             q: query.trim() || undefined,
+            archived: true,
           },
           signal,
         ),
@@ -61,7 +62,7 @@ export function MisScansPage({
       setTotal(mapped.total);
       setLoadError('');
     } catch {
-      if (!signal?.aborted) setLoadError('Unable to load scans.');
+      if (!signal?.aborted) setLoadError('Unable to load the scan archive.');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -94,15 +95,15 @@ export function MisScansPage({
   const showMlaFilter = mlaMembers.length > 1;
   const subtitle =
     isAdminRole(viewerRole)
-      ? `All network scans for ${NETWORK_YEAR} — every mentor, counselor, and MLA upload`
+      ? `Scans whose fingerprint images were deleted from the recycle bin · ${NETWORK_YEAR}`
       : viewerRole === 'Mentor'
-        ? `Your uploads plus your counselors’ and MLAs’ scans · ${NETWORK_YEAR}`
-        : `Your scans · ${NETWORK_YEAR}`;
+        ? `Archived scans from you, your counselors and MLAs · ${NETWORK_YEAR}`
+        : `Your archived scans · ${NETWORK_YEAR}`;
 
   if (loadError) {
     return (
       <section className="page-section mis-page">
-        <EmptyState title="Could not load scans" description={loadError} />
+        <EmptyState title="Could not load the scan archive" description={loadError} />
         <button type="button" className="btn-pill-secondary" style={{ marginTop: spacing[3] }} onClick={() => loadScans()}>
           Retry
         </button>
@@ -125,7 +126,7 @@ export function MisScansPage({
               color: theme['text-primary'],
             }}
           >
-            MIS · Scans
+            MIS · Scan Archive
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
             {subtitle}
@@ -156,7 +157,7 @@ export function MisScansPage({
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>All scans</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Archived scans</h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
               {loading ? 'Loading…' : `${total} record${total === 1 ? '' : 's'}`}
               {hasFilters && !loading ? ` (filtered)` : ''}
@@ -249,7 +250,7 @@ export function MisScansPage({
 
         {loading ? (
           <div style={{ padding: spacing[5] }}>
-            <SkeletonTableCard rows={10} columns={4} />
+            <SkeletonTableCard rows={10} columns={5} />
           </div>
         ) : (
         <>
@@ -261,12 +262,15 @@ export function MisScansPage({
                 <th>Name</th>
                 <th>Uploaded by</th>
                 <th>Scan upload date</th>
+                <th>Archived on</th>
               </tr>
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
                 <tr className="mis-data-empty">
-                  <td colSpan={4}>No scans match these filters.</td>
+                  <td colSpan={5}>
+                    {hasFilters ? 'No archived scans match these filters.' : 'No archived scans yet. Scans appear here once their images are deleted from the recycle bin.'}
+                  </td>
                 </tr>
               ) : (
                 pageRows.map((scan) => (
@@ -279,6 +283,7 @@ export function MisScansPage({
                     </td>
                     <td data-label="Uploaded by">{scan.mlaName}</td>
                     <td data-label="Upload date">{scan.uploadedAt}</td>
+                    <td data-label="Archived on">{scan.archivedAt ?? '—'}</td>
                   </tr>
                 ))
               )}

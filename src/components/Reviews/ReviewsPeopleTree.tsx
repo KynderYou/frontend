@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { MentorRowApi, NetworkAdminApi } from '../../api/types';
 import { colors, radius, spacing } from '../../styles/theme';
 import { initials } from '../../utils/initials';
@@ -30,8 +31,14 @@ function Chevron() {
   );
 }
 
+type HoverTip = { name: string; role: string; email?: string; detail?: string; count: number };
+type TipState = { tip: HoverTip; top: number; left: number };
+const TIP_WIDTH = 260;
+
 type TreeRowProps = {
   top?: boolean;
+  tip: HoverTip;
+  onTip: (tip: HoverTip | null, el?: HTMLElement) => void;
   avatar: ReactNode;
   name: string;
   meta: string;
@@ -41,26 +48,35 @@ type TreeRowProps = {
   toggle?: { expanded: boolean; disabled: boolean; onToggle: () => void };
 };
 
-function TreeRow({ top, avatar, name, meta, count, selected, onSelect, toggle }: TreeRowProps) {
-  const rowClass = top ? 'network-admin-row' : 'mentor-picker-row';
+function TreeRow({ top, tip, onTip, avatar, name, meta, count, selected, onSelect, toggle }: TreeRowProps) {
+  const rowClass = top ? 'network-admin-row' : 'mentor-picker-row is-nested';
   return (
-    <div className={`${rowClass}${selected ? ' is-selected' : ''}${toggle?.expanded ? ' is-expanded' : ''}`}>
-      <button type="button" className="mentor-picker-main" aria-pressed={selected} aria-label={`Show reviews posted by ${name}`} onClick={onSelect}>
+    <div
+      className={`${rowClass}${selected ? ' is-selected' : ''}${toggle?.expanded ? ' is-expanded' : ''}`}
+      onMouseEnter={(e) => onTip(tip, e.currentTarget)}
+      onMouseLeave={() => onTip(null)}
+    >
+      <button
+        type="button"
+        className="mentor-picker-main"
+        aria-pressed={selected}
+        aria-label={`Show reviews posted by ${name}`}
+        onClick={onSelect}
+        onFocus={(e) => onTip(tip, e.currentTarget.parentElement ?? e.currentTarget)}
+        onBlur={() => onTip(null)}
+      >
         <span className={top ? 'network-admin-avatar' : 'mentor-picker-avatar'} aria-hidden="true">
           {avatar}
         </span>
         <span style={{ minWidth: 0, flex: 1 }}>
           <span className="mentor-picker-name">{name}</span>
-          <span className="mentor-picker-meta">{meta}</span>
-        </span>
-        <span className={`reviews-tree-count${count === 0 ? ' is-zero' : ''}`} title={plural(count, 'review')}>
-          {count}
+          <span className="mentor-picker-meta">{`${meta} · ${plural(count, 'review')}`}</span>
         </span>
       </button>
       {toggle ? (
         <button
           type="button"
-          className="network-admin-toggle"
+          className={top ? 'network-admin-toggle' : 'mentor-picker-arrow'}
           aria-label={`${toggle.expanded ? 'Hide' : 'Show'} people under ${name}`}
           aria-expanded={toggle.expanded}
           disabled={toggle.disabled}
@@ -68,14 +84,13 @@ function TreeRow({ top, avatar, name, meta, count, selected, onSelect, toggle }:
         >
           <Chevron />
         </button>
-      ) : (
+      ) : top ? null : (
         <span className="reviews-tree-spacer" aria-hidden="true" />
       )}
     </div>
   );
 }
 
-/** Admin → mentor → counselor / MLA picker; choosing a person filters reviews to the ones they posted. */
 export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSelect }: ReviewsPeopleTreeProps) {
   const [query, setQuery] = useState('');
   const [collapsedAdmins, setCollapsedAdmins] = useState<Set<string>>(() => new Set());
@@ -139,11 +154,28 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
 
   const countOf = (id: number) => counts.get(id) ?? 0;
 
+  const [tipState, setTipState] = useState<TipState | null>(null);
+  const showTip = (tip: HoverTip | null, el?: HTMLElement) => {
+    if (!tip || !el) {
+      setTipState(null);
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const fitsRight = rect.right + 12 + TIP_WIDTH <= window.innerWidth - 8;
+    setTipState({
+      tip,
+      top: rect.top + rect.height / 2,
+      left: fitsRight ? rect.right + 12 : Math.max(8, rect.left - 12 - TIP_WIDTH),
+    });
+  };
+
   return (
-    <div className="dash-card trainees-panel reviews-people-panel" style={{ padding: 0 }}>
+    <div className="dash-card trainees-panel" style={{ padding: 0 }}>
       <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Posted by</h2>
-        <p style={{ margin: '4px 0 12px', fontSize: 12, color: theme['text-muted'] }}>Admins, mentors and their counselors & MLAs</p>
+        <p style={{ margin: '4px 0 12px', fontSize: 12, color: theme['text-muted'] }}>
+          {plural(hierarchy.admins.length, 'admin')} · {plural(hierarchy.mentors.length, 'mentor')} · {plural(total, 'review')}
+        </p>
         <label
           style={{
             display: 'flex',
@@ -168,24 +200,7 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
         </label>
       </div>
 
-      <div className="trainees-panel-scroll network-tree" aria-label="People">
-        {searching ? null : (
-          <TreeRow
-            top
-            avatar={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            }
-            name="Everyone"
-            meta="All reviews across the network"
-            count={total}
-            selected={selectedId === null}
-            onSelect={() => onSelect(null)}
-          />
-        )}
+      <div className="trainees-panel-scroll network-tree reviews-tree" aria-label="People" onScroll={() => setTipState(null)}>
 
         {hierarchy.loading ? (
           <p className="network-admin-empty">Loading people…</p>
@@ -202,12 +217,20 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
               <div key={branch.key} className="network-admin-group">
                 <TreeRow
                   top
+                  tip={{
+                    name: adminName,
+                    role: admin?.role ?? 'Unassigned',
+                    email: admin?.email,
+                    detail: plural(branch.mentors.length, 'mentor'),
+                    count: admin ? countOf(admin.id) : 0,
+                  }}
+                  onTip={showTip}
                   avatar={admin ? initials(admin.name) : '?'}
                   name={adminName}
                   meta={admin ? `${admin.role} · ${plural(branch.mentors.length, 'mentor')}` : plural(branch.mentors.length, 'mentor')}
                   count={admin ? countOf(admin.id) : 0}
                   selected={admin !== null && selectedId === admin.id}
-                  onSelect={() => (admin ? onSelect(admin.id) : toggleAdmin(branch.key))}
+                  onSelect={() => (admin ? onSelect(selectedId === admin.id ? null : admin.id) : toggleAdmin(branch.key))}
                   toggle={{ expanded: adminOpen, disabled: searching || branch.mentors.length === 0, onToggle: () => toggleAdmin(branch.key) }}
                 />
                 {adminOpen ? (
@@ -217,12 +240,20 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
                       return (
                         <div key={mentor.id} className="network-admin-group">
                           <TreeRow
+                            tip={{
+                              name: mentor.name,
+                              role: 'Mentor',
+                              email: mentor.email,
+                              detail: `${plural(mentor.trainee_count, 'counselor')} · ${plural(mentor.mla_count, 'MLA')}`,
+                              count: countOf(mentor.id),
+                            }}
+                            onTip={showTip}
                             avatar={initials(mentor.name)}
                             name={mentor.name}
-                            meta={`Mentor · ${plural(mentor.trainee_count, 'counselor')} · ${plural(mentor.mla_count, 'MLA')}`}
+                            meta={`${plural(mentor.trainee_count, 'counselor')} · ${plural(mentor.mla_count, 'MLA')}`}
                             count={countOf(mentor.id)}
                             selected={selectedId === mentor.id}
-                            onSelect={() => onSelect(mentor.id)}
+                            onSelect={() => onSelect(selectedId === mentor.id ? null : mentor.id)}
                             toggle={{ expanded: mentorOpen, disabled: searching || mentees.length === 0, onToggle: () => toggleMentor(mentor.id) }}
                           />
                           {mentorOpen && mentees.length > 0 ? (
@@ -230,12 +261,20 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
                               {mentees.map((mentee) => (
                                 <TreeRow
                                   key={`${mentee.type}-${mentee.id}`}
+                                  tip={{
+                                    name: mentee.name,
+                                    role: mentee.type,
+                                    email: mentee.email,
+                                    detail: `Under ${mentor.name}`,
+                                    count: countOf(mentee.id),
+                                  }}
+                                  onTip={showTip}
                                   avatar={initials(mentee.name)}
                                   name={mentee.name}
                                   meta={mentee.type}
                                   count={countOf(mentee.id)}
                                   selected={selectedId === mentee.id}
-                                  onSelect={() => onSelect(mentee.id)}
+                                  onSelect={() => onSelect(selectedId === mentee.id ? null : mentee.id)}
                                 />
                               ))}
                             </div>
@@ -251,6 +290,24 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
           })
         )}
       </div>
+      {tipState
+        ? createPortal(
+            <div
+              className="tree-hover-card"
+              role="tooltip"
+              style={{ top: tipState.top, left: tipState.left, width: TIP_WIDTH }}
+            >
+              <div className="tree-hover-card-head">
+                <strong>{tipState.tip.name}</strong>
+                <span className="tree-hover-card-role">{tipState.tip.role}</span>
+              </div>
+              {tipState.tip.email ? <span className="tree-hover-card-email">{tipState.tip.email}</span> : null}
+              {tipState.tip.detail ? <span className="tree-hover-card-detail">{tipState.tip.detail}</span> : null}
+              <span className="tree-hover-card-count">{plural(tipState.tip.count, 'review')} posted</span>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

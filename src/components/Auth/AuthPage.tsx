@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ApiError, login, resendVerification } from '../../api';
-import type { Member } from '../../api';
+import { ApiError, activateLogin, login, resendVerification } from '../../api';
+import type { LoginGate, LoginResponse, Member } from '../../api';
 import logo from '../../assets/midna-logo.png';
+import { parseLoginGateDetail } from '../../utils/loginGates';
 
 type AuthPageProps = {
-  onAuthenticated: (member: Member) => void;
+  onAuthenticated: (member: Member, gates?: LoginGate[]) => void;
 };
 
 export function AuthPage({ onAuthenticated }: AuthPageProps) {
@@ -12,9 +13,16 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingPassword, setPendingPassword] = useState('');
   const [showResend, setShowResend] = useState(false);
+  const [showActivate, setShowActivate] = useState(false);
+  const [activateAmount, setActivateAmount] = useState(499);
   const [resendMessage, setResendMessage] = useState('');
   const [resending, setResending] = useState(false);
+
+  const finishLogin = (result: LoginResponse) => {
+    onAuthenticated(result.member, result.gates ?? []);
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,22 +37,46 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
 
     setError('');
     setShowResend(false);
+    setShowActivate(false);
     setResendMessage('');
     setLoading(true);
     try {
-      const result = await login({ email, password });
-      onAuthenticated(result.member);
+      finishLogin(await login({ email, password }));
     } catch (err) {
       if (err instanceof ApiError) {
-        const detail =
-          typeof err.body === 'object' && err.body !== null && 'detail' in err.body
+        const gate = parseLoginGateDetail(err.body);
+        const detail = gate?.message
+          ?? (typeof err.body === 'object' && err.body !== null && 'detail' in err.body
             ? String((err.body as { detail: unknown }).detail)
-            : err.message;
+            : err.message);
         setError(detail || 'Sign in failed.');
-        if (detail.toLowerCase().includes('verify your email')) {
-          setPendingEmail(email);
+        setPendingEmail(email);
+        setPendingPassword(password);
+        if (gate?.action === 'verify_email' || detail.toLowerCase().includes('verify your email')) {
           setShowResend(true);
         }
+        if (gate?.action === 'pay_activate') {
+          setShowActivate(true);
+          setActivateAmount(gate.amount ?? 499);
+        }
+      } else {
+        setError('Unable to connect to the server. Please try again later.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!pendingEmail || !pendingPassword) return;
+    setLoading(true);
+    setError('');
+    try {
+      finishLogin(await activateLogin({ email: pendingEmail, password: pendingPassword }));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const gate = parseLoginGateDetail(err.body);
+        setError(gate?.message || err.message || 'Could not reactivate the account.');
       } else {
         setError('Unable to connect to the server. Please try again later.');
       }
@@ -62,11 +94,8 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
       setResendMessage(result.message);
     } catch (err) {
       if (err instanceof ApiError) {
-        const detail =
-          typeof err.body === 'object' && err.body !== null && 'detail' in err.body
-            ? String((err.body as { detail: unknown }).detail)
-            : err.message;
-        setResendMessage(detail || 'Unable to resend verification email.');
+        const gate = parseLoginGateDetail(err.body);
+        setResendMessage(gate?.message || err.message || 'Unable to resend verification email.');
       } else {
         setResendMessage('Unable to connect to the server. Please try again later.');
       }
@@ -155,6 +184,22 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               </p>
             )}
 
+            {showActivate ? (
+              <div className="auth-resend-block">
+                <button
+                  type="button"
+                  className="auth-submit"
+                  onClick={() => void handleActivate()}
+                  disabled={loading}
+                >
+                  {loading ? 'Activating…' : `Pay ₹${activateAmount} & activate`}
+                </button>
+                <p className="auth-status-copy">
+                  ₹{activateAmount} will be debited from your ledger and your login rights will be restored.
+                </p>
+              </div>
+            ) : null}
+
             {showResend ? (
               <div className="auth-resend-block">
                 <button
@@ -169,12 +214,14 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
               </div>
             ) : null}
 
-            <button type="submit" className="auth-submit" disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </button>
+            {!showActivate ? (
+              <button type="submit" className="auth-submit" disabled={loading}>
+                {loading ? 'Signing in…' : 'Sign in'}
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </button>
+            ) : null}
           </form>
         </div>
       </section>
