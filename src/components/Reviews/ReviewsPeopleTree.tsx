@@ -173,7 +173,7 @@ export function ReviewsPeopleTree({ hierarchy, counts, total, selectedId, onSele
     <div className="dash-card trainees-panel" style={{ padding: 0 }}>
       <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Posted by</h2>
-        <p style={{ margin: '4px 0 12px', fontSize: 12, color: theme['text-muted'] }}>
+        <p style={{ margin: '4px 0 12px', fontSize: 14, color: theme['text-muted'] }}>
           {plural(hierarchy.admins.length, 'admin')} · {plural(hierarchy.mentors.length, 'mentor')} · {plural(total, 'review')}
         </p>
         <label

@@ -271,7 +271,7 @@ export function ReviewsPage({ onOpenMobileMenu, onOpenProfile }: ReviewsPageProp
           >
             MIS · Reviews
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             Client reviews collected across the network: Google, Instagram, audio and other social media.
           </p>
         </div>

@@ -19,11 +19,18 @@ export type AdminAccountFormState = {
 export type AdminMembershipFormState = {
   mentoredById: string;
   mlaType: string;
-  masType: SubscriptionTier;
+  /** Subscription tier name from Rights Master (e.g. Silver, Gold). */
+  masType: string;
   billing: string;
   doj: string;
   expiryDate: string;
   opBal: string;
+};
+
+/** Minimal Rights Master fields used when picking a subscription on member forms. */
+export type RightsTierOption = {
+  name: string;
+  billing_percent: number;
 };
 
 export type AdminVisibilityFormState = {
@@ -48,14 +55,21 @@ export type MentorOption = {
   role: string;
 };
 
-export type SubscriptionTier = 'Gold' | 'Diamond' | 'Platinum' | 'Ultima';
-
-export const tierBilling: Record<SubscriptionTier, string> = {
+/** Fallback when Rights Master tiers are not loaded yet. */
+export const tierBilling: Record<string, string> = {
+  Silver: '40',
   Gold: '30',
   Diamond: '25',
   Platinum: '20',
+  Radium: '16',
   Ultima: '16',
 };
+
+export function billingForTier(tierName: string, tiers?: RightsTierOption[]): string {
+  const fromRights = tiers?.find((t) => t.name === tierName);
+  if (fromRights != null) return String(fromRights.billing_percent);
+  return tierBilling[tierName] ?? tierBilling.Gold;
+}
 
 /** Strip non-digits for admin billing input (stores/shows number only, no %). */
 export function parseBillingDigits(value: string): string {
@@ -76,7 +90,8 @@ export function billingDigitsForForm(value: string | null | undefined, fallback:
   return digits || fallback;
 }
 
-export const subscriptionTierOptions: SubscriptionTier[] = ['Gold', 'Diamond', 'Platinum', 'Ultima'];
+/** Fallback dropdown labels when Rights Master has not loaded. */
+export const subscriptionTierOptions: string[] = ['Silver', 'Gold', 'Diamond', 'Platinum', 'Radium'];
 export const brandingOptions = ['MBA', 'CBA', 'OBA'] as const;
 const baseRoleOptions: MemberRole[] = ['Admin', 'Mentor', 'MLA', 'Counselor'];
 
@@ -113,12 +128,23 @@ export function createFormFilled(account: AdminAccountFormState, membership: Adm
 export const emptyMembershipForm: AdminMembershipFormState = {
   mentoredById: '',
   mlaType: '',
-  masType: 'Gold',
-  billing: tierBilling.Gold,
+  masType: 'Silver',
+  billing: tierBilling.Silver,
   doj: '',
   expiryDate: '',
   opBal: '',
 };
+
+/** Default membership form seeded from Rights Master (first active tier). */
+export function membershipFormFromRightsTiers(tiers: RightsTierOption[]): AdminMembershipFormState {
+  const first = tiers[0];
+  if (!first) return emptyMembershipForm;
+  return {
+    ...emptyMembershipForm,
+    masType: first.name,
+    billing: String(first.billing_percent),
+  };
+}
 
 export const emptyVisibilityForm: AdminVisibilityFormState = {
   mrp: 'Show',
@@ -130,17 +156,13 @@ export const emptyVisibilityForm: AdminVisibilityFormState = {
   competencyExpiry: '',
 };
 
-function asTier(value: string): SubscriptionTier {
-  if (value === 'Gold' || value === 'Diamond' || value === 'Platinum' || value === 'Ultima') return value;
-  return 'Gold';
-}
-
 export function memberToMembershipForm(member: AdminMemberApi): AdminMembershipFormState {
+  const masType = (member.mas_type || 'Silver').trim() || 'Silver';
   return {
     mentoredById: member.mentored_by_id ? String(member.mentored_by_id) : '',
     mlaType: member.mla_type ?? '',
-    masType: asTier(member.mas_type || 'Gold'),
-    billing: billingDigitsForForm(member.billing, tierBilling.Gold),
+    masType,
+    billing: billingDigitsForForm(member.billing, billingForTier(masType)),
     doj: member.doj ?? '',
     expiryDate: member.expiry_date ?? '',
     opBal: member.op_bal != null ? String(member.op_bal) : '',

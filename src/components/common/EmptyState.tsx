@@ -42,9 +42,9 @@ export function EmptyState({ title, description, compact = false }: EmptyStatePr
         </svg>
       </div>
       <div>
-        <p style={{ margin: 0, fontSize: compact ? 13 : 14, fontWeight: 600, color: theme['text-secondary'] }}>{title}</p>
+        <p style={{ margin: 0, fontSize: compact ? 14 : 15, fontWeight: 600, color: theme['text-secondary'] }}>{title}</p>
         {description ? (
-          <p style={{ margin: '6px 0 0', fontSize: 12, lineHeight: 1.5, color: theme['text-muted'], maxWidth: 280 }}>
+          <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.5, color: theme['text-muted'], maxWidth: 280 }}>
             {description}
           </p>
         ) : null}

@@ -65,6 +65,11 @@ export function isTraineeLogin(member: Pick<Member, 'role' | 'mentee_type'> | nu
   return member?.role === 'Trainee' && (member.mentee_type ?? '').toLowerCase() === 'trainee';
 }
 
+/** MLA login: Trainee role + mentee_type=mla (distinct from Counselor). */
+export function isMlaLogin(member: Pick<Member, 'role' | 'mentee_type'> | null | undefined): boolean {
+  return member?.role === 'Trainee' && (member.mentee_type ?? '').toLowerCase() === 'mla';
+}
+
 /** First letter of the member's display name (falls back to email / U). */
 export function memberInitial(member: Member | null | undefined): string {
   const source = member?.name?.trim() || member?.mail_id?.trim() || '';

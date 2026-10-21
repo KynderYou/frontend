@@ -240,7 +240,7 @@ export function NetworkPage({ onOpenMobileMenu, onOpenProfile }: NetworkPageProp
         >
           Network
         </h1>
-        <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+        <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
           Click an admin or mentor to see their own scans · use the arrows to open an admin's mentors and a mentor's counselors and MLAs.
         </p>
       </div>
@@ -286,7 +286,7 @@ export function NetworkPage({ onOpenMobileMenu, onOpenProfile }: NetworkPageProp
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Admins & mentors</h2>
-            <p style={{ margin: '4px 0 12px', fontSize: 12, color: theme['text-muted'] }}>
+            <p style={{ margin: '4px 0 12px', fontSize: 14, color: theme['text-muted'] }}>
               {admins.length} admin{admins.length === 1 ? '' : 's'} · {mentors.length} mentor{mentors.length === 1 ? '' : 's'}
             </p>
             <SearchBox value={mentorQuery} onChange={setMentorQuery} placeholder="Search admins & mentors" />
@@ -294,7 +294,7 @@ export function NetworkPage({ onOpenMobileMenu, onOpenProfile }: NetworkPageProp
 
           <div aria-label="Admins and mentors" className="trainees-panel-scroll network-tree">
             {visibleGroups.length === 0 ? (
-              <p style={{ padding: spacing[5], margin: 0, fontSize: 13, color: theme['text-muted'], textAlign: 'center' }}>
+              <p style={{ padding: spacing[5], margin: 0, fontSize: 14, color: theme['text-muted'], textAlign: 'center' }}>
                 No admins or mentors match your search.
               </p>
             ) : (
@@ -421,7 +421,7 @@ export function NetworkPage({ onOpenMobileMenu, onOpenProfile }: NetworkPageProp
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
                 {selectedMentor ? `${selectedMentor.name}'s counselors & MLAs` : 'Counselors & MLAs'}
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+              <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
                 {filtered.length} result{filtered.length === 1 ? '' : 's'}
               </p>
             </div>
@@ -515,7 +515,7 @@ export function NetworkPage({ onOpenMobileMenu, onOpenProfile }: NetworkPageProp
               gap: 12,
               padding: `${spacing[4]} ${spacing[6]}`,
               borderTop: `1px solid ${theme.divider}`,
-              fontSize: 13,
+              fontSize: 14,
               color: theme['text-secondary'],
             }}
           >

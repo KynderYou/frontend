@@ -4,7 +4,7 @@ const theme = colors.light;
 
 export function AdminReadOnlyNote() {
   return (
-    <p style={{ margin: `${spacing[3]} 0 0`, fontSize: 12, color: theme['text-muted'] }}>
+    <p style={{ margin: `${spacing[3]} 0 0`, fontSize: 14, color: theme['text-muted'] }}>
       Members fill personal and professional details on their profile. Admin sections stay read-only for them.
     </p>
   );

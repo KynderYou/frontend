@@ -1,11 +1,13 @@
-import type { AdminMembershipFormState, MentorOption } from './adminProfileForm';
-import { mlaTypeOptions, subscriptionTierOptions, tierBilling } from './adminProfileForm';
+import type { AdminMembershipFormState, MentorOption, RightsTierOption } from './adminProfileForm';
+import { billingForTier, mlaTypeOptions, subscriptionTierOptions } from './adminProfileForm';
 import { BillingSlabField } from './BillingSlabField';
 
 type AdminMembershipBillingFieldsProps = {
   form: AdminMembershipFormState;
   mentors: MentorOption[];
   onChange: (next: AdminMembershipFormState) => void;
+  /** Active Rights Master tiers — drives subscription options + billing %. */
+  rightsTiers?: RightsTierOption[];
   counselorMode?: boolean;
   mentorRequired?: boolean;
   mlaMode?: boolean;
@@ -16,21 +18,24 @@ export function AdminMembershipBillingFields({
   form,
   mentors,
   onChange,
+  rightsTiers = [],
   counselorMode = false,
   mentorRequired = false,
   mlaMode = false,
   mlaTypeRequired = false,
 }: AdminMembershipBillingFieldsProps) {
   const needsMentor = counselorMode || mentorRequired;
+  const tierNames =
+    rightsTiers.length > 0 ? rightsTiers.map((t) => t.name) : subscriptionTierOptions;
   const update = <K extends keyof AdminMembershipFormState>(key: K, value: AdminMembershipFormState[K]) => {
     onChange({ ...form, [key]: value });
   };
 
-  const handleTierChange = (tier: AdminMembershipFormState['masType']) => {
+  const handleTierChange = (tier: string) => {
     onChange({
       ...form,
       masType: tier,
-      billing: tierBilling[tier],
+      billing: billingForTier(tier, rightsTiers),
     });
   };
 
@@ -40,7 +45,7 @@ export function AdminMembershipBillingFields({
       <p className="admin-form-section-sub">
         {counselorMode
           ? 'Counselor scans go to this mentor for QC check and export, and are billed to the mentor'
-          : 'Admin-only · member cannot edit these on profile'}
+          : 'Subscription and billing % come from Rights Master · member cannot edit these on profile'}
       </p>
       <div className="admin-create-grid">
         {mlaMode ? (
@@ -87,9 +92,12 @@ export function AdminMembershipBillingFields({
             <select
               className="form-input form-select"
               value={form.masType}
-              onChange={(e) => handleTierChange(e.target.value as AdminMembershipFormState['masType'])}
+              onChange={(e) => handleTierChange(e.target.value)}
             >
-              {subscriptionTierOptions.map((tier) => (
+              {!tierNames.includes(form.masType) && form.masType ? (
+                <option value={form.masType}>{form.masType}</option>
+              ) : null}
+              {tierNames.map((tier) => (
                 <option key={tier} value={tier}>
                   {tier}
                 </option>

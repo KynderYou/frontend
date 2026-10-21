@@ -265,7 +265,7 @@ function LedgerSection({ tab, entries, resetKey, periodLabel, emptyDescription, 
             </button>
           ) : null}
         </div>
-        <span style={{ color: theme['text-secondary'], fontSize: 13, fontWeight: 500, padding: '4px 2px' }}>{periodLabel}</span>
+        <span style={{ color: theme['text-secondary'], fontSize: 14, fontWeight: 500, padding: '4px 2px' }}>{periodLabel}</span>
       </div>
       <div className="ledger-section-list">
         {entries.length === 0 ? (
@@ -478,7 +478,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
           >
             {isAdminRole(member?.role) ? 'Ledger' : 'My Ledger'}
           </h1>
-          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {initialLoading ? (
               <SkeletonSubtitle />
             ) : viewingName ? (
@@ -513,13 +513,13 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
       {!initialLoading && !companyWide ? (
         <div className="dash-card ledger-topup-banner ledger-company-banner">
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-secondary'] }}>
               {viewingName ? `${viewingName}'s balance` : 'Your balance'}
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: theme['text-primary'], letterSpacing: '-0.02em', marginTop: 4 }}>
               {data?.available_balance_display ?? '₹0'}
             </div>
-            <div style={{ fontSize: 13, color: theme['text-muted'], marginTop: 2 }}>
+            <div style={{ fontSize: 14, color: theme['text-muted'], marginTop: 2 }}>
               Receipts minus billing{isMla && !viewingName ? ' · top up with a payment proof to add funds.' : '.'}
             </div>
           </div>
@@ -546,13 +546,13 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
       {!initialLoading && companyWide ? (
         <div className="dash-card ledger-topup-banner ledger-company-banner">
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: theme['text-secondary'] }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-secondary'] }}>
               {combinedView ? 'Combined balance · all admins' : viewingName ? `${viewingName}'s ledger balance` : 'Ledger balance'}
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: theme['text-primary'], letterSpacing: '-0.02em', marginTop: 4 }}>
               {data?.available_balance_display ?? '₹0'}
             </div>
-            <div style={{ fontSize: 13, color: theme['text-muted'], marginTop: 2 }}>
+            <div style={{ fontSize: 14, color: theme['text-muted'], marginTop: 2 }}>
               {combinedView
                 ? 'Total of every admin ledger.'
                 : 'Report billing adds to this balance · member top-ups, CAB payouts and expenses come out of it.'}
@@ -691,7 +691,7 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>
                   Company ledger
                 </h2>
-                <span style={{ color: theme['text-secondary'], fontSize: 13, fontWeight: 500 }}>
+                <span style={{ color: theme['text-secondary'], fontSize: 14, fontWeight: 500 }}>
                   {companyFiltered
                     ? `${filteredCompanyEntries.length} of ${companyEntries.length} entries`
                     : `All credits and debits · ${companyEntries.length}`}

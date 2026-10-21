@@ -110,7 +110,7 @@ export function NoticeBoard({ notices, loading, onReply, onNoticeUpdated }: Noti
           </span>
           Notice board
         </h2>
-        <span style={{ fontSize: 12, color: theme['text-muted'] }}>
+        <span style={{ fontSize: 14, color: theme['text-muted'] }}>
           {notices.length} notice{notices.length === 1 ? '' : 's'}
         </span>
       </div>
@@ -210,7 +210,7 @@ export function NoticeBoard({ notices, loading, onReply, onNoticeUpdated }: Noti
                     <p
                       style={{
                         margin: '6px 0 0',
-                        fontSize: 13,
+                        fontSize: 14,
                         lineHeight: 1.55,
                         color: theme['text-secondary'],
                       }}
@@ -237,9 +237,9 @@ export function NoticeBoard({ notices, loading, onReply, onNoticeUpdated }: Noti
                         {notice.author_initials}
                       </div>
                       <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-primary'] }}>{notice.author_name}</span>
-                      <span style={{ fontSize: 12, color: theme['text-muted'] }}>· {notice.created_at}</span>
+                      <span style={{ fontSize: 14, color: theme['text-muted'] }}>· {notice.created_at}</span>
                       {notice.reply_count > 0 && (
-                        <span style={{ fontSize: 12, color: theme['text-muted'] }}>
+                        <span style={{ fontSize: 14, color: theme['text-muted'] }}>
                           · {notice.reply_count} repl{notice.reply_count === 1 ? 'y' : 'ies'}
                         </span>
                       )}

@@ -41,7 +41,7 @@ export function NotificationsPage({ onBack, onNavigate, onOpenMobileMenu, onOpen
             >
               Notifications
             </h1>
-            <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+            <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
               {unreadCount > 0 ? `${unreadCount} unread` : 'You are all caught up'}
             </p>
           </div>

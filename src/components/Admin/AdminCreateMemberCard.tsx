@@ -5,6 +5,7 @@ import {
   type AdminMembershipFormState,
   type AdminVisibilityFormState,
   type MentorOption,
+  type RightsTierOption,
 } from './adminProfileForm';
 import { AdminAccountFields } from './AdminAccountFields';
 import { AdminMembershipBillingFields } from './AdminMembershipBillingFields';
@@ -17,6 +18,7 @@ type AdminCreateMemberCardProps = {
   visibilityForm: AdminVisibilityFormState;
   mentors: MentorOption[];
   admins: MentorOption[];
+  rightsTiers: RightsTierOption[];
   error: string | null;
   submitting: boolean;
   onAccountChange: (next: AdminAccountFormState) => void;
@@ -31,6 +33,7 @@ export function AdminCreateMemberCard({
   visibilityForm,
   mentors,
   admins,
+  rightsTiers,
   error,
   submitting,
   onAccountChange,
@@ -59,6 +62,7 @@ export function AdminCreateMemberCard({
           form={membershipForm}
           mentors={mentorChoices}
           onChange={onMembershipChange}
+          rightsTiers={rightsTiers}
           counselorMode={isCounselor}
           mentorRequired={needsMentor}
           mlaMode={accountForm.role === 'MLA'}

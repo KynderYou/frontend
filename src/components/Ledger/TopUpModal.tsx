@@ -133,7 +133,7 @@ export function TopUpModal({ open, onClose, onSubmit, submitting = false, error 
                   style={{ width: '100%', maxHeight: 220, objectFit: 'cover', display: 'block' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px' }}>
-                  <span style={{ fontSize: 12, color: theme['text-secondary'], overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ fontSize: 14, color: theme['text-secondary'], overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {proofName}
                   </span>
                   <button type="button" className="btn-pill-secondary" onClick={clearProof}>

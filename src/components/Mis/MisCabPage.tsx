@@ -153,7 +153,7 @@ export function MisCabPage({
         >
           MIS · CAB
         </h1>
-        <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+        <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
           {canReview
             ? 'MLA feedback on their mentors\' CAB inputs. Approving debits your ledger and credits the mentor.'
             : isAdmin
@@ -220,7 +220,7 @@ export function MisCabPage({
           >
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>CAB feedback</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+              <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
                 {filtered.length} feedback · {pendingCount} awaiting approval
                 {isAdmin && companyBalance ? ` · Company balance ${companyBalance}` : ''}
               </p>

@@ -148,7 +148,7 @@ function DetailField({ label, value }: DetailFieldProps) {
     >
       <span
         style={{
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: 500,
           color: theme['text-secondary'],
           flexShrink: 0,
@@ -259,7 +259,7 @@ function LitePopup({ open, title, children, onClose }: LitePopupProps) {
             <h2 id="profile-lite-title" style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'], letterSpacing: '-0.01em' }}>
               {title}
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>Quick view</p>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>Quick view</p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose} style={{ width: 36, height: 36 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -600,7 +600,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
             >
               My Profile
             </h1>
-            <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+            <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
               Manage your certification, mentorship, and billing details.
             </p>
           </div>
@@ -727,7 +727,7 @@ export function ProfilePage({ onBack, onOpenMobileMenu }: ProfilePageProps) {
                 </span>
               )}
             </h2>
-            <p style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+            <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
               {profile.mail_id} · {formatMid(profile.mid)}
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>

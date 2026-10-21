@@ -197,7 +197,7 @@ export function AdminTopUpsPage({
           >
             Top-up Requests
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             Verify payment proof. Amount is already credited on submit — reject raises a debit note.
           </p>
         </div>
@@ -216,7 +216,7 @@ export function AdminTopUpsPage({
         <div className="dash-card trainees-panel" style={{ padding: 0 }}>
           <div className="trainees-panel-header" style={{ padding: `${spacing[4]} ${spacing[5]}`, borderBottom: `1px solid ${theme.divider}` }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Awaiting verification</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: theme['text-muted'] }}>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
               {filtered.length} of {requests.length}
             </p>
             <label
@@ -254,7 +254,7 @@ export function AdminTopUpsPage({
 
           <div role="listbox" aria-label="Pending top-up requests" className="trainees-panel-scroll">
             {filtered.length === 0 ? (
-              <p style={{ padding: spacing[5], margin: 0, fontSize: 13, color: theme['text-muted'], textAlign: 'center' }}>
+              <p style={{ padding: spacing[5], margin: 0, fontSize: 14, color: theme['text-muted'], textAlign: 'center' }}>
                 No top-ups awaiting verification.
               </p>
             ) : (
@@ -304,7 +304,7 @@ export function AdminTopUpsPage({
                       <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-primary'], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {row.member_name}
                       </div>
-                      <div style={{ fontSize: 11, color: theme['text-muted'], marginTop: 2 }}>
+                      <div style={{ fontSize: 13, color: theme['text-muted'], marginTop: 2 }}>
                         {row.amount} · {row.submitted_at}
                       </div>
                     </div>
@@ -358,7 +358,7 @@ export function AdminTopUpsPage({
               >
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>{selected.member_name}</h2>
-                  <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+                  <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
                     {selected.member_email} · {selected.member_role}
                   </p>
                 </div>
@@ -390,7 +390,7 @@ export function AdminTopUpsPage({
                       border: `1px solid ${theme.divider}`,
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 600, color: theme['text-muted'], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-muted'], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Amount
                     </div>
                     <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700, color: theme['text-primary'] }}>{selected.amount}</div>
@@ -403,7 +403,7 @@ export function AdminTopUpsPage({
                       border: `1px solid ${theme.divider}`,
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 600, color: theme['text-muted'], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: theme['text-muted'], textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Submitted
                     </div>
                     <div style={{ marginTop: 8, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>{selected.submitted_at}</div>
@@ -414,7 +414,7 @@ export function AdminTopUpsPage({
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: spacing[3], marginBottom: spacing[3] }}>
                     <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: theme['text-primary'] }}>Payment proof</h3>
                     {!selected.proof_file_id && (
-                      <span style={{ fontSize: 12, color: theme['text-muted'] }}>No proof uploaded</span>
+                      <span style={{ fontSize: 14, color: theme['text-muted'] }}>No proof uploaded</span>
                     )}
                   </div>
 
@@ -427,7 +427,7 @@ export function AdminTopUpsPage({
                         display: 'grid',
                         placeItems: 'center',
                         color: theme['text-muted'],
-                        fontSize: 13,
+                        fontSize: 14,
                         background: theme['bg-muted'],
                       }}
                     >
@@ -473,7 +473,7 @@ export function AdminTopUpsPage({
                         display: 'grid',
                         placeItems: 'center',
                         color: theme['text-muted'],
-                        fontSize: 13,
+                        fontSize: 14,
                         background: theme['bg-muted'],
                       }}
                     >

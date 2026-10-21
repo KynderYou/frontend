@@ -128,7 +128,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
           >
             My Counselors
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {mentorName
               ? `${mentorName} · counselors who upload scans under you`
               : 'Counselors who upload scans under you'}
@@ -162,7 +162,7 @@ export function MentorTraineesPage({ onOpenMobileMenu, onOpenProfile }: MentorTr
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>
               Your counselors
             </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
               {filtered.length} result{filtered.length === 1 ? '' : 's'} · click a row to view scans
             </p>
           </div>

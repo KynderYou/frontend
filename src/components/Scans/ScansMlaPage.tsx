@@ -157,6 +157,9 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
   const [qcRecord, setQcRecord] = useState<ScanRecord | null>(null);
   const [traineeNames, setTraineeNames] = useState<string[]>([]);
   const [topUpMessage, setTopUpMessage] = useState<string | null>(null);
+  /** Ledger that pays for uploads (own for Mentor/MLA; mentor's for Counselor). */
+  const [uploadGateBalance, setUploadGateBalance] = useState<number | null>(null);
+  const [walletChecked, setWalletChecked] = useState(false);
   const [checkingBalance, setCheckingBalance] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const consentInputRef = useRef<HTMLInputElement>(null);
@@ -211,29 +214,56 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     [consentPreviewUrl],
   );
 
-  /** Surface the same top-up dialog when the ledger is already negative (e.g. after report billing). */
+  /** Surface the same top-up dialog when the billed ledger is already negative; disable upload until topped up. */
   useEffect(() => {
-    if (isTrainee || isAdminRole(currentMember?.role)) return;
+    if (isAdminRole(currentMember?.role)) {
+      setUploadGateBalance(0);
+      setWalletChecked(true);
+      return;
+    }
     let cancelled = false;
+    setWalletChecked(false);
     getMyLedger()
       .then((ledger) => {
         if (cancelled) return;
-        if ((ledger.available_balance ?? 0) < 0) {
-          setTopUpMessage(negativeBalanceMessage(ledger.available_balance ?? 0));
+        const gate =
+          ledger.upload_gate_balance != null ? ledger.upload_gate_balance : (ledger.available_balance ?? 0);
+        setUploadGateBalance(gate);
+        setWalletChecked(true);
+        if (gate < 0) {
+          setTopUpMessage(
+            isTrainee
+              ? `Your mentor's ledger balance is −₹${Math.abs(Math.round(gate)).toLocaleString('en-IN')}. Scan uploads are on hold until they top up.`
+              : negativeBalanceMessage(gate),
+          );
         }
       })
       .catch(() => {
-        /* server still enforces on upload */
+        if (!cancelled) setWalletChecked(true);
       });
     return () => {
       cancelled = true;
     };
   }, [currentMember?.role, isTrainee]);
 
+  const walletBlocked = walletChecked && uploadGateBalance !== null && uploadGateBalance < 0;
+  const uploadBlockedTitle = walletBlocked
+    ? isTrainee
+      ? "Your mentor's ledger balance is negative · ask them to top up before uploading"
+      : 'Your ledger balance is negative · top up to upload'
+    : undefined;
+
   const clientComplete = scanDetailsComplete(clientForm, hasClientMobile);
 
   const canSubmit =
-    Boolean(file) && extractOk && Boolean(consentFile) && consentOk && clientComplete && !extracting && !consentChecking;
+    Boolean(file) &&
+    extractOk &&
+    Boolean(consentFile) &&
+    consentOk &&
+    clientComplete &&
+    !extracting &&
+    !consentChecking &&
+    !walletBlocked;
   const zipMessage = extracting ? null : (error ?? extractNotice);
   const zipVerdict: 'ok' | 'fail' | null = zipMessage ? (extractOk && !error ? 'ok' : 'fail') : null;
   const consentVerdict: 'ok' | 'fail' | null = consentChecking
@@ -475,6 +505,8 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
       if (err instanceof ApiError && err.status === 403 && /balance/i.test(detail)) {
         setDeclarationOpen(false);
         setTopUpMessage(detail);
+        setUploadGateBalance(-1);
+        setWalletChecked(true);
       } else if (err instanceof ApiError && detail) {
         setError(detail);
       } else {
@@ -487,22 +519,31 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
     }
   };
 
-  /** Uploads are refused while the uploader's ledger is negative; ₹0 is fine. Trainees are checked on the server. */
+  /** Uploads are refused while the billed ledger is negative; ₹0 is fine. */
   const openDeclaration = async () => {
-    if (!canSubmit || submitting || checkingBalance) return;
-    if (!isTrainee && !isAdminRole(currentMember?.role)) {
-      setCheckingBalance(true);
-      try {
-        const ledger = await getMyLedger();
-        if ((ledger.available_balance ?? 0) < 0) {
-          setTopUpMessage(negativeBalanceMessage(ledger.available_balance ?? 0));
-          return;
-        }
-      } catch {
-        // The server enforces the same rule on upload.
-      } finally {
-        setCheckingBalance(false);
+    if (!canSubmit || submitting || checkingBalance || walletBlocked) return;
+    if (isAdminRole(currentMember?.role)) {
+      setDeclarationOpen(true);
+      return;
+    }
+    setCheckingBalance(true);
+    try {
+      const ledger = await getMyLedger();
+      const gate =
+        ledger.upload_gate_balance != null ? ledger.upload_gate_balance : (ledger.available_balance ?? 0);
+      setUploadGateBalance(gate);
+      if (gate < 0) {
+        setTopUpMessage(
+          isTrainee
+            ? `Your mentor's ledger balance is −₹${Math.abs(Math.round(gate)).toLocaleString('en-IN')}. Scan uploads are on hold until they top up.`
+            : negativeBalanceMessage(gate),
+        );
+        return;
       }
+    } catch {
+      // The server enforces the same rule on upload.
+    } finally {
+      setCheckingBalance(false);
     }
     setDeclarationOpen(true);
   };
@@ -596,7 +637,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           >
             Upload Scan
           </h1>
-          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {isTrainee
               ? 'Upload the fingerprint zip and consent card separately, then enter client details. Your mentor does the QC check and exports it to head office.'
               : 'Upload the fingerprint zip and consent card separately, enter client details, and export when ready for head office processing.'}
@@ -641,13 +682,15 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           <div>
             <h2 className="scans-card-title">Upload scans</h2>
             <p className="scans-card-sub">
-              Upload the fingerprint zip and the consent card as separate files, then enter client details.
+              {walletBlocked
+                ? uploadBlockedTitle
+                : 'Upload the fingerprint zip and the consent card as separate files, then enter client details.'}
             </p>
           </div>
           <span className="scans-card-meta">.zip + consent</span>
         </div>
 
-        <div className="scans-upload-grid">
+        <div className={`scans-upload-grid${walletBlocked ? ' is-upload-blocked' : ''}`}>
           <section className="scans-upload-panel scans-upload-files">
             <div className="scans-step-head">
               <div>
@@ -658,7 +701,19 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
             <button
               type="button"
               className={`scans-dropzone${file ? ' has-file' : ''}${zipVerdict ? ` is-${zipVerdict}` : ''}`}
-              onClick={() => inputRef.current?.click()}
+              disabled={walletBlocked}
+              title={uploadBlockedTitle}
+              onClick={() => {
+                if (walletBlocked) {
+                  setTopUpMessage(
+                    isTrainee
+                      ? `Your mentor's ledger balance is −₹${Math.abs(Math.round(uploadGateBalance ?? 0)).toLocaleString('en-IN')}. Scan uploads are on hold until they top up.`
+                      : negativeBalanceMessage(uploadGateBalance ?? 0),
+                  );
+                  return;
+                }
+                inputRef.current?.click();
+              }}
             >
               {zipVerdict ? (
                 <span className="scans-dropzone-verdict" role="img" aria-label={zipVerdict === 'ok' ? 'Valid package' : 'Invalid package'}>
@@ -719,7 +774,19 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
             <button
               type="button"
               className={`scans-dropzone scans-dropzone-consent${consentFile ? ' has-file' : ''}${consentVerdict ? ` is-${consentVerdict}` : ''}`}
-              onClick={() => consentInputRef.current?.click()}
+              disabled={walletBlocked}
+              title={uploadBlockedTitle}
+              onClick={() => {
+                if (walletBlocked) {
+                  setTopUpMessage(
+                    isTrainee
+                      ? `Your mentor's ledger balance is −₹${Math.abs(Math.round(uploadGateBalance ?? 0)).toLocaleString('en-IN')}. Scan uploads are on hold until they top up.`
+                      : negativeBalanceMessage(uploadGateBalance ?? 0),
+                  );
+                  return;
+                }
+                consentInputRef.current?.click();
+              }}
             >
               {consentVerdict ? (
                 <span
@@ -825,7 +892,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
               value={clientForm}
               onChange={(details) => setClientForm((prev) => ({ ...prev, ...details }))}
               traineeNames={traineeNames}
-              disabled={!file || extracting}
+              disabled={walletBlocked || !file || extracting}
               hasClientMobile={hasClientMobile}
               onHasClientMobileChange={setHasClientMobile}
               hideReferredBy={isTrainee}
@@ -837,10 +904,21 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           <button
             type="button"
             className="btn-pill-primary scans-submit-btn"
-            disabled={!canSubmit || submitting || checkingBalance}
-            onClick={() => void openDeclaration()}
+            disabled={walletBlocked ? false : !canSubmit || submitting || checkingBalance}
+            title={uploadBlockedTitle}
+            onClick={() => {
+              if (walletBlocked) {
+                setTopUpMessage(
+                  isTrainee
+                    ? `Your mentor's ledger balance is −₹${Math.abs(Math.round(uploadGateBalance ?? 0)).toLocaleString('en-IN')}. Scan uploads are on hold until they top up.`
+                    : negativeBalanceMessage(uploadGateBalance ?? 0),
+                );
+                return;
+              }
+              void openDeclaration();
+            }}
           >
-            {submitting ? 'Uploading…' : 'Submit scan'}
+            {submitting ? 'Uploading…' : walletBlocked ? 'Top up to upload' : 'Submit scan'}
           </button>
         </div>
       </div>

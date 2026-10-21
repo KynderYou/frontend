@@ -135,7 +135,7 @@ export function RightsMasterPage({ onOpenMobileMenu, onOpenProfile }: RightsMast
           >
             Rights Master
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             Subscription tiers and privileges. Add or edit the chart used across MiDNA.
           </p>
         </div>
@@ -182,7 +182,6 @@ export function RightsMasterPage({ onOpenMobileMenu, onOpenProfile }: RightsMast
                 <th>Plus Reports</th>
                 <th>DNAi Reports</th>
                 <th>NAT Discount</th>
-                <th>Status</th>
                 <th aria-label="Actions" />
               </tr>
             </thead>
@@ -200,7 +199,6 @@ export function RightsMasterPage({ onOpenMobileMenu, onOpenProfile }: RightsMast
                   <td data-label="Plus Reports">{labelPlus(row.plus_reports)}</td>
                   <td data-label="DNAi Reports">{labelDnai(row.dnai_reports)}</td>
                   <td data-label="NAT Discount">{labelNat(row.nat_discount)}</td>
-                  <td data-label="Status">{row.active ? 'Active' : 'Inactive'}</td>
                   <td className="col-right">
                     <div className="rights-master-actions">
                       <button type="button" className="scans-action-btn scans-action-export" onClick={() => setEditing(row)}>

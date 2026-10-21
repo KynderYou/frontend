@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createAdminMember, deleteAdminMember, getAdminMembers, getAdminMentors } from '../../api';
+import { createAdminMember, deleteAdminMember, getAdminMembers, getAdminMentors, getRightsTiers } from '../../api';
 import type { AdminMemberApi } from '../../api/types';
 import { isAdminRole } from '../../utils/roles';
 import { colors, spacing, typography } from '../../styles/theme';
@@ -17,6 +17,7 @@ import {
   emptyAccountForm,
   emptyMembershipForm,
   emptyVisibilityForm,
+  membershipFormFromRightsTiers,
   membershipFormToPayload,
   roleNeedsMentor,
   visibilityFormToPayload,
@@ -24,6 +25,7 @@ import {
   type AdminMembershipFormState,
   type AdminVisibilityFormState,
   type MentorOption,
+  type RightsTierOption,
 } from './adminProfileForm';
 
 const theme = colors.light;
@@ -39,6 +41,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
   const { showSuccess, showError } = useToast();
   const [members, setMembers] = useState<AdminMemberApi[]>([]);
   const [mentors, setMentors] = useState<MentorOption[]>([]);
+  const [rightsTiers, setRightsTiers] = useState<RightsTierOption[]>([]);
   const [accountForm, setAccountForm] = useState<AdminAccountFormState>(emptyAccountForm);
   const [membershipForm, setMembershipForm] = useState<AdminMembershipFormState>(emptyMembershipForm);
   const [visibilityForm, setVisibilityForm] = useState<AdminVisibilityFormState>(emptyVisibilityForm);
@@ -51,7 +54,11 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
   const loadPage = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [membersState, mentorsState] = await Promise.all([getAdminMembers(signal), getAdminMentors(signal)]);
+      const [membersState, mentorsState, tiers] = await Promise.all([
+        getAdminMembers(signal),
+        getAdminMentors(signal),
+        getRightsTiers(signal).catch(() => [] as Awaited<ReturnType<typeof getRightsTiers>>),
+      ]);
       setMembers(membersState.members);
       setMentors(
         mentorsState.mentors.map((mentor) => ({
@@ -60,6 +67,25 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
           role: mentor.role,
         })),
       );
+      const nextTiers: RightsTierOption[] = tiers.map((t) => ({
+        name: t.name,
+        billing_percent: t.billing_percent,
+      }));
+      setRightsTiers(nextTiers);
+      setMembershipForm((current) => {
+        // Seed create form from Rights Master only while still on the empty default.
+        if (
+          current.masType === emptyMembershipForm.masType &&
+          current.billing === emptyMembershipForm.billing &&
+          !current.doj &&
+          !current.expiryDate &&
+          !current.opBal &&
+          !current.mentoredById
+        ) {
+          return membershipFormFromRightsTiers(nextTiers);
+        }
+        return current;
+      });
       setLoadError('');
     } catch {
       if (!signal?.aborted) setLoadError('Unable to load member accounts.');
@@ -82,7 +108,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
 
   const resetCreateForms = () => {
     setAccountForm(emptyAccountForm);
-    setMembershipForm(emptyMembershipForm);
+    setMembershipForm(membershipFormFromRightsTiers(rightsTiers));
     setVisibilityForm(emptyVisibilityForm);
   };
 
@@ -196,6 +222,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
         member={editMember}
         mentors={mentors}
         admins={admins}
+        rightsTiers={rightsTiers}
         onClose={() => setEditMember(null)}
         onSaved={handleProfileSaved}
       />
@@ -215,7 +242,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
           >
             Member Accounts
           </h1>
-          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             Admin registers membership, mentorship, and visibility · members fill the rest on profile
           </p>
         </div>
@@ -237,6 +264,7 @@ export function AdminMembersPage({ onOpenMobileMenu, onOpenProfile, onNavigate }
         visibilityForm={visibilityForm}
         mentors={mentors}
         admins={admins}
+        rightsTiers={rightsTiers}
         error={error}
         submitting={submitting}
         onAccountChange={setAccountForm}

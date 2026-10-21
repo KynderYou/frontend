@@ -58,7 +58,7 @@ export function LedgerPeriodFilter({
             onChange={(e) => onCustomChange({ ...custom, start: e.target.value })}
             style={controlStyle}
           />
-          <span style={{ fontSize: 13, color: theme['text-muted'] }}>to</span>
+          <span style={{ fontSize: 14, color: theme['text-muted'] }}>to</span>
           <input
             type="date"
             aria-label="To date"

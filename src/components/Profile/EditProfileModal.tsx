@@ -290,7 +290,7 @@ export function EditProfileModal({ open, profile, onClose, onSaved }: EditProfil
                   >
                     <span
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         color: theme['text-secondary'],
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -334,7 +334,7 @@ export function EditProfileModal({ open, profile, onClose, onSaved }: EditProfil
                   Add certification
                 </button>
               )}
-              <span style={{ fontSize: 12, color: theme['text-muted'], marginTop: spacing[1] }}>
+              <span style={{ fontSize: 14, color: theme['text-muted'], marginTop: spacing[1] }}>
                 PNG, JPG, WebP, or PDF
               </span>
             </div>

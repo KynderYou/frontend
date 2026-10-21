@@ -37,7 +37,7 @@ export function PlaceholderPage({ title, subtitle, actions = [], onOpenMobileMen
           >
             {title}
           </h1>
-          <p style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>{subtitle}</p>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>{subtitle}</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

@@ -369,7 +369,7 @@ export function CommunicationsPage({
           >
             Communications
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {canPublish
               ? isMentor
                 ? 'Publish to your network only — counselors and MLAs you mentor.'
@@ -418,7 +418,7 @@ export function CommunicationsPage({
 
             <>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Title</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: theme['text-secondary'] }}>Title</span>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -428,7 +428,7 @@ export function CommunicationsPage({
                 </label>
 
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Message</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: theme['text-secondary'] }}>Message</span>
                   <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
@@ -439,7 +439,7 @@ export function CommunicationsPage({
                 </label>
 
                 <div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Priority</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: theme['text-secondary'] }}>Priority</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                     {(['low', 'medium', 'high'] as SeverityLevel[]).map((level) => {
                       const tone = severityTokens[level];
@@ -453,7 +453,7 @@ export function CommunicationsPage({
                             border: 'none',
                             cursor: 'pointer',
                             fontFamily: 'inherit',
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: 700,
                             textTransform: 'capitalize',
                             padding: '7px 14px',
@@ -503,7 +503,7 @@ export function CommunicationsPage({
                       }}
                     >
                       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: theme['text-secondary'] }}>Poll question</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: theme['text-secondary'] }}>Poll question</span>
                         <input
                           value={pollQuestion}
                           onChange={(e) => setPollQuestion(e.target.value)}
@@ -682,7 +682,7 @@ export function CommunicationsPage({
           <div className="dash-card comm-sent-list" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: `${spacing[5]} ${spacing[6]}`, borderBottom: `1px solid ${theme.divider}` }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Sent notices</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+              <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
                 {communications.length} broadcast{communications.length === 1 ? '' : 's'}
               </p>
             </div>
@@ -796,7 +796,7 @@ function AudiencePanel({
     <div className="dash-card" style={{ display: 'flex', flexDirection: 'column', gap: spacing[4] }}>
       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Who receives this?</h2>
       {isMentor ? (
-        <p style={{ margin: 0, fontSize: 13, color: theme['text-secondary'] }}>
+        <p style={{ margin: 0, fontSize: 14, color: theme['text-secondary'] }}>
           Mentors can only reach counselors and MLAs in their own network.
         </p>
       ) : null}
@@ -860,7 +860,7 @@ function AudiencePanel({
                     style={{ accentColor: theme.primary }}
                   />
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{member.name}</span>
-                  <span style={{ fontSize: 11, color: theme['text-muted'], marginLeft: 'auto' }}>{member.role}</span>
+                  <span style={{ fontSize: 13, color: theme['text-muted'], marginLeft: 'auto' }}>{member.role}</span>
                 </label>
               );
             })}
@@ -871,7 +871,7 @@ function AudiencePanel({
       {audienceMode === 'groups' && (
         <div className="comm-card-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {groups.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 13, color: theme['text-muted'] }}>Create a group first.</p>
+            <p style={{ margin: 0, fontSize: 14, color: theme['text-muted'] }}>Create a group first.</p>
           ) : (
             groups.map((group) => {
               const checked = selectedGroupIds.includes(group.id);
@@ -895,7 +895,7 @@ function AudiencePanel({
                     style={{ accentColor: theme.primary }}
                   />
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme['text-primary'] }}>{group.name}</span>
-                  <span style={{ fontSize: 11, color: theme['text-muted'], marginLeft: 'auto' }}>
+                  <span style={{ fontSize: 13, color: theme['text-muted'], marginLeft: 'auto' }}>
                     {group.memberIds.length}
                   </span>
                 </label>
@@ -1133,7 +1133,7 @@ function CommOverlay({
         <div className="mis-overlay-head">
           <div style={{ minWidth: 0 }}>
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>{title}</h3>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>{subtitle}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-secondary'] }}>{subtitle}</p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose} style={{ width: 32, height: 32 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">

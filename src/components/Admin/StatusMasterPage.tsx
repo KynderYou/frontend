@@ -128,8 +128,8 @@ export function StatusMasterPage({ onOpenMobileMenu, onOpenProfile }: StatusMast
           >
             Status Master
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
-            Ranks and competencies. Super Admin (0) through Counselor (6).
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
+            Ranks and competencies.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

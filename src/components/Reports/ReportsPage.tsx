@@ -28,13 +28,19 @@ import { downloadReportPdf } from './downloadReportPdf';
 import type { CabFeedbackInput } from '../../api/endpoints/cab';
 import { applyReportUpdate, mapCabFeedback, reportListToRecords } from './reportApiMapper';
 import { type ReportRecord } from './reportTypes';
-import { isTopPackage, packageForPlan, type ReportPlan } from './reportPackages';
+import {
+  isTopPackage,
+  mlaCanDownloadPlan,
+  mlaDownloadBlockedTitle,
+  packageForPlan,
+  type ReportPlan,
+} from './reportPackages';
 import { useCursorTooltip } from '../../hooks/useCursorTooltip';
 import { displayReportStatus, isReportReady, matchesReportStatusFilter, REPORT_STATUS_FILTERS, reportStatusStyles, type ReportStatusFilter } from '../Scans/scanStatusStyles';
 import { UpgradeReportModal } from './UpgradeReportModal';
 import { InfoTip } from '../common/InfoTip';
 import { initials } from '../../utils/initials';
-import { isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
+import { isMlaLogin, isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
 import { isAdminRole } from '../../utils/roles';
 
 const theme = colors.light;
@@ -97,7 +103,10 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const [upgradingRecord, setUpgradingRecord] = useState<ReportRecord | null>(null);
   const [cabRecord, setCabRecord] = useState<ReportRecord | null>(null);
   const [deletingRecord, setDeletingRecord] = useState<ReportRecord | null>(null);
-  const isAdminViewer = isAdminRole(useCurrentMember()?.role);
+  const currentMember = useCurrentMember();
+  const isAdminViewer = isAdminRole(currentMember?.role);
+  const isMlaViewer = isMlaLogin(currentMember);
+  const mlaType = currentMember?.mla_type ?? '';
   /** Ledger balance for field members; null for Admin/HO, who have no wallet. */
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletChecked, setWalletChecked] = useState(false);
@@ -201,9 +210,13 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   const reportDues = walletBalance !== null && walletBalance < 0 ? -walletBalance : 0;
   const duesTitle = `Your ledger balance is −₹${reportDues.toLocaleString('en-IN')} · top up to download`;
 
-  const downloadTitle = (ready: boolean) => {
+  const mlaDownloadBlocked = (row: ReportRecord) =>
+    isMlaViewer && !mlaCanDownloadPlan(mlaType, row.plan);
+
+  const downloadTitle = (row: ReportRecord, ready: boolean) => {
     if (reportDues > 0) return duesTitle;
     if (!ready) return 'The report can be downloaded once it is Ready to Download';
+    if (mlaDownloadBlocked(row)) return mlaDownloadBlockedTitle(mlaType, row.plan);
     return 'Download report PDF';
   };
 
@@ -294,6 +307,10 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
       setTopUpMessage(negativeBalanceMessage(walletBalance ?? -reportDues));
       return;
     }
+    if (mlaDownloadBlocked(record)) {
+      showError(mlaDownloadBlockedTitle(mlaType, record.plan));
+      return;
+    }
     try {
       await authorizeReportDownload(record.numericId);
       await downloadReportPdf(record);
@@ -309,7 +326,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
   };
 
   const downloadLocked = (row: ReportRecord, ready: boolean) =>
-    isViewOnlyRow(row) || !ready || walletBlocked || reportDues > 0;
+    isViewOnlyRow(row) || !ready || walletBlocked || reportDues > 0 || mlaDownloadBlocked(row);
 
   const handleUpgrade = async (record: ReportRecord, targetPlan: ReportPlan) => {
     if (submitting) return;
@@ -411,7 +428,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
             type="button"
             className="reports-card-download"
             disabled={downloadLocked(row, ready)}
-            title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(ready)}
+            title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(row, ready)}
             onClick={() => void handleDownload(row)}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -548,7 +565,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
                     type="button"
                     className="scans-action-btn scans-action-export"
                     disabled={downloadLocked(row, ready)}
-                    title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(ready)}
+                    title={isViewOnlyRow(row) ? viewOnlyTitle : downloadTitle(row, ready)}
                     onClick={() => void handleDownload(row)}
                   >
                     Download
@@ -625,7 +642,7 @@ export function ReportsPage({ onOpenMobileMenu, onOpenProfile, openCabForScan, o
           >
             {isAdminViewer ? 'Reports' : 'My Reports'}
           </h1>
-          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             All your scans and their reports — download, upgrade, give CAB feedback, or delete a scan. AI reports are coming soon.
           </p>
         </div>

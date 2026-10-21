@@ -153,7 +153,7 @@ export function DashboardKpis({
           >
             Dashboard
           </h1>
-          <p style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {companyWide
               ? 'Company-wide scans and billing across all members, plus notices and top performers.'
               : 'Track your scans, billing, notices, and top performers.'}

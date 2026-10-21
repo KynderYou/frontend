@@ -88,7 +88,7 @@ export function MobileNavDrawer({ open, onClose, activeView, onNavigate, onLogou
                     border: 'none',
                     borderRadius: sidebarTokens.itemRadius,
                     background: 'transparent',
-                    color: active ? theme['text-primary'] : theme['text-secondary'],
+                    color: active ? theme['text-secondary'] : theme['text-primary'],
                     fontSize: 14,
                     fontWeight: active ? 600 : 500,
                     letterSpacing: '-0.01em',

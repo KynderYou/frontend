@@ -18,6 +18,7 @@ import {
   type AdminEditFormState,
   type MemberRole,
   type MentorOption,
+  type RightsTierOption,
 } from './adminProfileForm';
 
 const theme = colors.light;
@@ -27,6 +28,7 @@ type AdminMemberProfileModalProps = {
   member: AdminMemberApi | null;
   mentors: MentorOption[];
   admins: MentorOption[];
+  rightsTiers?: RightsTierOption[];
   onClose: () => void;
   onSaved: (member: AdminMemberApi) => void;
 };
@@ -36,6 +38,7 @@ export function AdminMemberProfileModal({
   member,
   mentors,
   admins,
+  rightsTiers = [],
   onClose,
   onSaved,
 }: AdminMemberProfileModalProps) {
@@ -206,6 +209,7 @@ export function AdminMemberProfileModal({
               form={form}
               mentors={roleNeedsMentor(form.role) ? mentors.filter((mentor) => mentor.role === 'Mentor') : mentors}
               onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+              rightsTiers={rightsTiers}
               mentorRequired={roleNeedsMentor(form.role)}
               mlaMode={form.role === 'MLA'}
               mlaTypeRequired={becomingMla}

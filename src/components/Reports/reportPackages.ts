@@ -65,3 +65,30 @@ export function upgradeBilledAmount(delta: number, billingPercent: number): numb
 export function formatInr(amount: number): string {
   return `₹${amount.toLocaleString('en-IN')}`;
 }
+
+/** Highest report price each MLA type may download. Mentors/admins are unaffected. */
+export const MLA_DOWNLOAD_MAX_PRICE: Record<string, number> = {
+  Consultant: 2000,
+  'Life Coach': 3000,
+  Expert: 4000,
+};
+
+export function mlaDownloadMaxPrice(mlaType: string | null | undefined): number | null {
+  const key = (mlaType || '').trim();
+  return key in MLA_DOWNLOAD_MAX_PRICE ? MLA_DOWNLOAD_MAX_PRICE[key] : null;
+}
+
+export function mlaCanDownloadPlan(mlaType: string | null | undefined, plan: string | null | undefined): boolean {
+  const maxPrice = mlaDownloadMaxPrice(mlaType);
+  if (maxPrice == null) return false;
+  return packageForPlan(plan).price <= maxPrice;
+}
+
+export function mlaDownloadBlockedTitle(mlaType: string | null | undefined, plan: string | null | undefined): string {
+  const maxPrice = mlaDownloadMaxPrice(mlaType);
+  const pkg = packageForPlan(plan);
+  if (maxPrice == null) {
+    return 'Your MLA type is not set · ask your admin to set Consultant, Life Coach, or Expert';
+  }
+  return `As a ${mlaType} MLA you can download reports up to ₹${maxPrice.toLocaleString('en-IN')} only · this scan is ${pkg.mrp}`;
+}

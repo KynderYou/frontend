@@ -41,7 +41,7 @@ export function MonthlyBarChart({
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: theme['text-primary'] }}>
             {title}
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>{subtitle}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-secondary'] }}>{subtitle}</p>
         </div>
         <div className="mis-chart-head-actions">
           <span className="mis-chart-total">
@@ -152,13 +152,13 @@ export function MonthlyBarChart({
           <span style={{ fontSize: 13, fontWeight: 700, color: theme['text-primary'] }}>
             {active.label} contributors
           </span>
-          <span style={{ fontSize: 12, color: theme['text-muted'] }}>
+          <span style={{ fontSize: 14, color: theme['text-muted'] }}>
             {formatValue(active.value)} {unit}
           </span>
         </div>
 
         {active.contributors.length === 0 ? (
-          <p style={{ margin: '10px 0 0', fontSize: 12, color: theme['text-muted'] }}>
+          <p style={{ margin: '10px 0 0', fontSize: 14, color: theme['text-muted'] }}>
             No activity recorded for {active.label}.
           </p>
         ) : (

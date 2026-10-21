@@ -535,6 +535,8 @@ export type LedgerData = {
   company_wide?: boolean;
   available_balance?: number;
   available_balance_display?: string;
+  /** Balance that gates scan upload (mentor's for counselors). */
+  upload_gate_balance?: number | null;
   company_entries?: CompanyLedgerEntryApi[];
   super_admin?: boolean;
   admins?: { id: number; name: string; role: string }[];

@@ -484,7 +484,7 @@ export function ScansHoPage({
           >
             Scans
           </h1>
-          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '8px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {canProcess
               ? 'Upload scans, then work them through the head office queues.'
               : 'Upload a scan zip, enter client details, and track your uploads.'}

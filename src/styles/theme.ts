@@ -55,8 +55,8 @@ export const accentScale = {
 
 export const typography = {
   sizes: {
-    '2xs': { fontSize: '11px', lineHeight: '16px', fontWeight: 400 },
-    xs: { fontSize: '12px', lineHeight: '18px', fontWeight: 400 },
+    '2xs': { fontSize: '12px', lineHeight: '16px', fontWeight: 400 },
+    xs: { fontSize: '13px', lineHeight: '18px', fontWeight: 400 },
     sm: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
     base: { fontSize: '16px', lineHeight: '24px', fontWeight: 400 },
     lg: { fontSize: '18px', lineHeight: '26px', fontWeight: 600 },
@@ -103,21 +103,21 @@ export const typography = {
     /** Page heading — soft-UI dashboard titles */
     pageTitle: { fontSize: '32px', lineHeight: '40px', fontWeight: 600, letterSpacing: '-0.025em' },
     /** Page description under the heading */
-    pageSubtitle: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
+    pageSubtitle: { fontSize: '16px', lineHeight: '22px', fontWeight: 400 },
     /** Panel/card headers — "Overview", "Transaction" */
     sectionTitle: { fontSize: '22px', lineHeight: '30px', fontWeight: 700, letterSpacing: '-0.01em' },
     /** Nested card/row titles — merchant names, contact names */
     cardTitle: { fontSize: '16px', lineHeight: '24px', fontWeight: 600, letterSpacing: '0' },
     /** Body copy — descriptions */
-    description: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
+    description: { fontSize: '16px', lineHeight: '22px', fontWeight: 400 },
     /** KPI card labels — "Amount Spent", "Budget Total" */
-    cardLabel: { fontSize: '13px', lineHeight: '18px', fontWeight: 500 },
+    cardLabel: { fontSize: '14px', lineHeight: '20px', fontWeight: 500 },
     /** Big KPI numerals — "$14,765.00" */
     kpiValue: { fontSize: '32px', lineHeight: '38px', fontWeight: 700, letterSpacing: '-0.02em' },
     /** KPI footnote — "+32.8%" trend hints */
-    kpiHint: { fontSize: '12px', lineHeight: '18px', fontWeight: 400 },
+    kpiHint: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
     /** Generic helper/meta text — dates, account numbers, fine print */
-    helperText: { fontSize: '12px', lineHeight: '18px', fontWeight: 400 },
+    helperText: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
     /** Sidebar nav group label */
     navGroupLabel: { fontSize: '11px', lineHeight: '16px', fontWeight: 600, letterSpacing: '0.06em' },
     /** Sidebar nav link */
@@ -125,11 +125,11 @@ export const typography = {
     /** Primary row text — names, list items */
     body: { fontSize: '14px', lineHeight: '20px', fontWeight: 500 },
     /** Secondary row text — muted metadata */
-    bodyMuted: { fontSize: '13px', lineHeight: '18px', fontWeight: 400 },
+    bodyMuted: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
     /** Top bar user name */
     userName: { fontSize: '14px', lineHeight: '20px', fontWeight: 600 },
     /** Top bar user email */
-    userMeta: { fontSize: '12px', lineHeight: '18px', fontWeight: 400 },
+    userMeta: { fontSize: '13px', lineHeight: '18px', fontWeight: 400 },
     /** Button label */
     button: { fontSize: '14px', lineHeight: '20px', fontWeight: 600 },
     /** Large ring/gauge stat */
@@ -351,8 +351,8 @@ export const colors = {
 
     // Text
     'text-primary': '#212529',
-    'text-secondary': '#868E96',
-    'text-muted': '#ADB5BD',
+    'text-secondary': '#5C6370',
+    'text-muted': '#868E96',
     'text-inverse': '#FFFFFF',
 
     // Brand
@@ -464,6 +464,10 @@ export const getThemeCssVars = (mode: ThemeMode = 'light'): Record<string, strin
 
   for (const [key, value] of Object.entries(theme)) {
     vars[`--color-${key}`] = value;
+    // Short aliases used by a few legacy CSS rules (e.g. --text-muted)
+    if (key.startsWith('text-') || key.startsWith('bg-')) {
+      vars[`--${key}`] = value;
+    }
   }
   for (const [key, value] of Object.entries(spacing)) {
     vars[`--space-${key}`] = value;

@@ -128,7 +128,7 @@ export function MisScansPage({
           >
             MIS · Scan Archive
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {subtitle}
           </p>
         </div>
@@ -158,7 +158,7 @@ export function MisScansPage({
         >
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Archived scans</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-muted'] }}>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-muted'] }}>
               {loading ? 'Loading…' : `${total} record${total === 1 ? '' : 's'}`}
               {hasFilters && !loading ? ` (filtered)` : ''}
             </p>

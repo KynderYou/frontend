@@ -98,7 +98,7 @@ export function ReviewRewardsPage({ onOpenMobileMenu, onOpenProfile }: ReviewRew
           >
             Review Rewards
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             Rewards admins assigned to client reviews. These are not credited to any ledger; use this list for the annual payout.
           </p>
         </div>

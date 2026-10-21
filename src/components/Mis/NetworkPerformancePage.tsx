@@ -129,7 +129,7 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
           >
             Network Performance
           </h1>
-          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
+          <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
             {copy.subtitle} across {selectedYear}
           </p>
         </div>
@@ -210,14 +210,14 @@ export function NetworkPerformancePage({ onOpenMobileMenu, onOpenProfile }: Netw
         <div className="dash-card mis-insights-card">
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>Quick insights</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-secondary'] }}>
               {isSelf ? 'Your scans' : `Members under ${LOW_PERFORMER_THRESHOLD} scans`} in the last quarter (
               {yearData.lastQuarterLabel})
             </p>
           </div>
 
           {yearData.lowPerformers.length === 0 ? (
-            <p style={{ margin: `${spacing[5]} 0 0`, fontSize: 13, color: theme['text-muted'] }}>
+            <p style={{ margin: `${spacing[5]} 0 0`, fontSize: 14, color: theme['text-muted'] }}>
               {isSelf ? 'You' : 'Every member'} cleared {LOW_PERFORMER_THRESHOLD} scans last quarter.
             </p>
           ) : (
@@ -363,7 +363,7 @@ function MisOverlay({
         <div className="mis-overlay-head">
           <div style={{ minWidth: 0 }}>
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme['text-primary'] }}>{title}</h3>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: theme['text-secondary'] }}>{subtitle}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: theme['text-secondary'] }}>{subtitle}</p>
           </div>
           <button type="button" className="btn-icon" aria-label="Close" onClick={onClose} style={{ width: 32, height: 32 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
