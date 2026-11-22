@@ -29,8 +29,8 @@ import {
   CLIENT_TYPE_INDIVIDUAL,
   hasClientMobileFromPhone,
   normalizeClientType,
+  missingScanDetails,
   phoneRequiredFor,
-  scanDetailsComplete,
   type HasClientMobile,
 } from './scanDetails';
 import { isTraineeLogin, useCurrentMember } from '../Auth/MemberContext';
@@ -253,7 +253,20 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
       : 'Your ledger balance is negative · top up to upload'
     : undefined;
 
-  const clientComplete = scanDetailsComplete(clientForm, hasClientMobile);
+  const missingDetails = missingScanDetails(clientForm, hasClientMobile);
+  const clientComplete = missingDetails.length === 0;
+  const missingForUpload = [
+    !file ? 'Scan package (zip)' : !extractOk ? 'a valid scan package' : null,
+    !consentFile ? 'Consent card' : !consentOk ? 'a valid consent card' : null,
+    ...missingDetails,
+  ].filter(Boolean);
+  const submitHint = walletBlocked
+    ? uploadBlockedTitle
+    : extracting || consentChecking
+      ? 'Checking your files…'
+      : missingForUpload.length > 0
+        ? `Fill in before uploading: ${missingForUpload.join(', ')}`
+        : undefined;
 
   const canSubmit =
     Boolean(file) &&
@@ -901,11 +914,12 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
         </div>
 
         <div className="scans-upload-footer scans-upload-footer-end">
+          {/* Hint sits on a wrapper: browsers don't reliably show a disabled button's own title. */}
+          <span title={submitHint} style={{ display: 'inline-flex' }}>
           <button
             type="button"
             className="btn-pill-primary scans-submit-btn"
             disabled={walletBlocked ? false : !canSubmit || submitting || checkingBalance}
-            title={uploadBlockedTitle}
             onClick={() => {
               if (walletBlocked) {
                 setTopUpMessage(
@@ -920,6 +934,7 @@ export function ScansMlaPage({ embedded = false, onOpenMobileMenu, onOpenProfile
           >
             {submitting ? 'Uploading…' : walletBlocked ? 'Top up to upload' : 'Submit scan'}
           </button>
+          </span>
         </div>
       </div>
 

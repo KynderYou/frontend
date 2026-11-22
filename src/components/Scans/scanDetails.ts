@@ -54,15 +54,18 @@ export function isValidAge(age: string): boolean {
   return n >= MIN_AGE && n <= MAX_AGE;
 }
 
+/** Labels (as shown on the form) of the client details still missing; empty when complete. */
+export function missingScanDetails(details: ScanDetails, hasClientMobile: HasClientMobile = ''): string[] {
+  const missing: string[] = [];
+  if (!details.name.trim()) missing.push('Name');
+  if (!isValidAge(details.age)) missing.push('Age');
+  if (!details.gender.trim()) missing.push('Gender');
+  if (hasClientMobile !== 'yes' && hasClientMobile !== 'no') missing.push('Client mobile number?');
+  else if (hasClientMobile === 'yes' && !details.phone.trim()) missing.push('Mobile number');
+  if (!details.mrp.trim()) missing.push('Report package');
+  return missing;
+}
+
 export function scanDetailsComplete(details: ScanDetails, hasClientMobile: HasClientMobile = ''): boolean {
-  const mobileAnswered = hasClientMobile === 'yes' || hasClientMobile === 'no';
-  const phoneOk = hasClientMobile !== 'yes' || details.phone.trim().length > 0;
-  return (
-    details.name.trim().length > 0 &&
-    isValidAge(details.age) &&
-    details.gender.trim().length > 0 &&
-    details.mrp.trim().length > 0 &&
-    mobileAnswered &&
-    phoneOk
-  );
+  return missingScanDetails(details, hasClientMobile).length === 0;
 }

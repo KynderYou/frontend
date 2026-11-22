@@ -3,7 +3,8 @@ import { ApiError } from './errors';
 import { getToken } from './token';
 import type { RequestOptions } from './types';
 
-function buildUrl(path: string): string {
+/** Full API URL for a path; also used for protected file downloads so they follow the same host rules. */
+export function buildUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }

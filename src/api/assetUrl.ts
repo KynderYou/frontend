@@ -1,13 +1,5 @@
-import { env } from '../config/env';
+import { buildUrl as resolveUrl } from './client';
 import { getToken } from './token';
-
-function resolveUrl(pathOrUrl: string): string {
-  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-    return pathOrUrl;
-  }
-  const normalized = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
-  return `${env.apiBaseUrl}${normalized}`;
-}
 
 /** Fetch a protected file and return a temporary object URL for display. */
 export async function fetchAuthenticatedAsset(pathOrUrl: string, signal?: AbortSignal): Promise<string> {
