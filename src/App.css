@@ -3357,6 +3357,21 @@ div.mentor-picker-row {
   color: #fff;
 }
 
+.notification-row-completed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: var(--color-success-bg, #ebfbee);
+  color: var(--color-success, #2f9e44);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .notification-panel-actions {
   display: flex;
   align-items: center;
@@ -3611,6 +3626,11 @@ div.mentor-picker-row {
   font-family: inherit;
   text-align: center;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Grow the zone instead of squashing the verdict circle and clipping the filename when the message wraps. */
+.scans-dropzone > * {
+  flex-shrink: 0;
 }
 
 .scans-dropzone:hover {
@@ -5697,24 +5717,6 @@ div.mentor-picker-row {
   gap: 10px;
 }
 
-.process-scan-ridge-grid-readonly {
-  margin-top: -2px;
-}
-
-.process-scan-ridge-grid-readonly .process-scan-pattern-block {
-  margin: 0;
-}
-
-.process-scan-ridge-grid-readonly .process-scan-section-label {
-  margin-bottom: 4px;
-  font-size: 12px;
-}
-
-.process-scan-ridge-grid-readonly .process-scan-pattern-value {
-  padding: 6px 8px;
-  font-size: 13px;
-}
-
 .process-scan-ridge-grid .form-label {
   font-size: 12px;
   font-weight: 700;
@@ -5884,6 +5886,12 @@ div.mentor-picker-row {
 
 .process-scan-ridge-grid .form-field-error {
   text-align: center;
+}
+
+.process-scan-flag-error {
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
 }
 
 .process-scan-qc-progress {

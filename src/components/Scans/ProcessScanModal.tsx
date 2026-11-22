@@ -517,11 +517,13 @@ export function ProcessScanModal({
   const showCornerValues = showRidgeFields;
   const showFlaggedFingers = showRidgeFields;
 
+  const isUloop = mainPattern === 'ULOOP';
+
   const currentFingerEntry = (): FingerEntry => ({
     main: mainPattern,
     sub: subPattern,
     urc,
-    rrc,
+    rrc: isUloop ? '0' : rrc,
     lfo,
   });
 
@@ -537,7 +539,8 @@ export function ProcessScanModal({
 
   const ridgeCountsFilled = (entry?: FingerEntry | null) => {
     if (!entry) return false;
-    return isValidRidge(entry.urc) && isValidRidge(entry.rrc);
+    // Mirrors the backend: ULOOP takes URC only (RRC is stored as 0).
+    return isValidRidge(entry.urc) && (entry.main === 'ULOOP' || isValidRidge(entry.rrc));
   };
 
   /** Process step: patterns + URC + RRC (same green chip as preprocess after Next). */
@@ -766,26 +769,20 @@ export function ProcessScanModal({
               </label>
             </div>
 
-            {isPreprocess ? (
-              <div className="process-scan-ridge-grid process-scan-ridge-grid-readonly">
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">URC</p>
-                  <p className="process-scan-pattern-value">0</p>
-                </div>
-                <div className="process-scan-pattern-block">
-                  <p className="process-scan-section-label">RRC</p>
-                  <p className="process-scan-pattern-value">0</p>
-                </div>
-                {nextFingerButton}
-              </div>
-            ) : null}
+            {isPreprocess ? nextFingerButton : null}
 
             {showRidgeFields ? (
               <div className="process-scan-ridge-grid">
                 <RidgeInput label="URC" ariaLabel="Ulnar Ridge Count" value={urc} onChange={setUrc} />
-                <RidgeInput label="RRC" ariaLabel="Radial Ridge Count" value={rrc} onChange={setRrc} />
+                {isUloop ? null : <RidgeInput label="RRC" ariaLabel="Radial Ridge Count" value={rrc} onChange={setRrc} />}
                 {nextFingerButton}
               </div>
+            ) : null}
+
+            {fingerFlagged(finger) ? (
+              <p className="form-field-error process-scan-flag-error" role="alert">
+                Flag X on {finger}: RRC {rrc} is more than URC {urc} + 3
+              </p>
             ) : null}
 
                 <div className="process-scan-qc">
@@ -887,6 +884,7 @@ export function ProcessScanModal({
               <button
                 type="button"
                 className="scans-action-btn"
+                disabled={!allFingersComplete}
                 onClick={() => {
                   onReview?.(buildPayload());
                   onClose();

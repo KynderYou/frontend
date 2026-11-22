@@ -766,7 +766,7 @@ export function ScansHoPage({
         }}
         onReview={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);
-          if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} marked To be reviewed · it stays in Process until someone clicks Done.`);
+          if (row) void runAction(row, 'review', actionPayloadFromProcess(record), `Scan ${record.scanId} counts saved and moved to Review.`);
         }}
         onConfirmFlag={(record) => {
           const row = records.find((item) => item.scanId === record.scanId);

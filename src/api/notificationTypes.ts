@@ -21,6 +21,8 @@ export type NotificationItem = {
   action_view: string | null;
   action_target: string | null;
   read: boolean;
+  /** A task someone has already acted on (e.g. a top-up another admin verified). */
+  completed?: boolean;
   created_at: string;
   created_at_ms: number;
 };

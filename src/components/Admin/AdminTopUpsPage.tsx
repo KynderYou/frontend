@@ -198,7 +198,7 @@ export function AdminTopUpsPage({
             Top-up Requests
           </h1>
           <p className="page-subtitle" style={{ margin: '6px 0 0', fontSize: 16, color: theme['text-secondary'] }}>
-            Verify payment proof. Amount is already credited on submit — reject raises a debit note.
+            Verify payment proof. Amount is already credited on submit — reject takes the credit back.
           </p>
         </div>
         <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -340,7 +340,7 @@ export function AdminTopUpsPage({
         <div className="dash-card trainees-table-panel" style={{ padding: 0, minWidth: 0 }}>
           {!selected ? (
             <div style={{ padding: spacing[6] }}>
-              <EmptyState title="Select a request" description="Choose a credited top-up from the list to review proof — verify or reject with a debit note." />
+              <EmptyState title="Select a request" description="Choose a credited top-up from the list to review proof — verify or reject to take the credit back." />
             </div>
           ) : (
             <>
@@ -365,7 +365,7 @@ export function AdminTopUpsPage({
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
                   <button type="button" className="btn-pill-secondary" disabled={acting} onClick={handleDecline} style={{ height: 38 }}>
-                    Reject & debit
+                    Reject & reverse
                   </button>
                   <button type="button" className="btn-pill-primary" disabled={acting} onClick={handleApprove} style={{ height: 38, minWidth: 148 }}>
                     {acting ? 'Working…' : 'Mark verified'}

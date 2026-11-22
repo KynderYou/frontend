@@ -15,7 +15,12 @@ export function NotificationRow({ item, onAction, onMarkRead }: NotificationRowP
         <div className="notification-row-body">{item.body}</div>
         <div className="notification-row-time">{item.created_at}</div>
       </div>
-      {item.action_view ? (
+      {item.completed ? (
+        <span className="notification-row-completed">
+          <LuCheck size={14} aria-hidden="true" />
+          Completed
+        </span>
+      ) : item.action_view ? (
         <button type="button" className="btn-pill-primary notification-row-action" onClick={() => onAction(item)}>
           Take action
         </button>

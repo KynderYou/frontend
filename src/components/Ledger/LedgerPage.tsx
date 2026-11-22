@@ -306,6 +306,8 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
   const { showSuccess, showError } = useToast();
   const member = useCurrentMember();
   const isMla = member?.role === 'Trainee' || member?.role === 'MLA';
+  // Mentors pay for their own uploads too, so they top up the same way as MLAs.
+  const canTopUp = isMla || member?.role === 'Mentor';
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -520,10 +522,10 @@ export function LedgerPage({ onOpenMobileMenu, onOpenProfile }: LedgerPageProps)
               {data?.available_balance_display ?? '₹0'}
             </div>
             <div style={{ fontSize: 14, color: theme['text-muted'], marginTop: 2 }}>
-              Receipts minus billing{isMla && !viewingName ? ' · top up with a payment proof to add funds.' : '.'}
+              Receipts minus billing{canTopUp && !viewingName ? ' · top up with a payment proof to add funds.' : '.'}
             </div>
           </div>
-          {isMla && !viewingName ? (
+          {canTopUp && !viewingName ? (
             <button
               type="button"
               className="btn-pill-primary"
